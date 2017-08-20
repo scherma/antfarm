@@ -10,6 +10,8 @@ import sys
 
 instancename = sys.argv[1]
 dbpass = sys.argv[2]
+gateway = sys.argv[3]
+netmask = sys.argv[4]
 
 conf = ConfigParser.ConfigParser()
 
@@ -25,6 +27,8 @@ conf.set('General', 'mountdir', '/mnt/{0}'.format(instancename))
 conf.set('General', 'basedir', '/usr/local/unsafehex/{0}'.format(instancename))
 conf.set('General', 'logdir', '/usr/local/unsafehex/{0}/runmanager/logs'.format(instancename))
 conf.set('General', 'suricata_log', '/var/log/suricata/eve.json')
+conf.set('General', 'gateway_ip', gateway)
+conf.set('General', 'netmask', netmask)
 
 with open('/usr/local/unsafehex/{0}/runmanager/runmanager.conf'.format(instancename), 'wb') as f:
     conf.write(f)

@@ -22,10 +22,8 @@ If you are installing this system into a VM, give the VM at least two processors
 To install, perform the steps below:
 
 - Clone this repository to your sandbox host and execute the *install.sh* script as root.
-- The script requires access to the internet via HTTP, HTTPS, and git (TCP 9418). Please ensure this access is available before running the installer.
+- The script requires access to the internet via HTTP, HTTPS and NTP. Please ensure this access is available before running the installer.
 - Run install.sh and enter the desired parameters. Installation involves compiling libvirt and Suricata from source, and generating Diffie-Hellman parameters. Go play outside for a bit.
-
-At the minute my script is hard coded to expect 192.168.43.0/24 so please use that; I will make this dynamic later.
 
 ## SETUP
 
@@ -33,8 +31,7 @@ At the minute my script is hard coded to expect 192.168.43.0/24 so please use th
 
 - Check libvirtd is running and the libvirt socket files at /usr/local/var/run/libvirt/ have ownership of root:libvirt-qemu.
 - If they do not, contact me and I can provide the steps to make sure this is fixed
-- Start virt-manager. The script should remove the virtual network 'default' and create a new one 'vneta' with gateway IP of 192.168.43.1, if this has not happened do it via virt-manager
-- Create a new virtual machine - recommend at least 2 CPUs and 2GB RAM
+- Start virt-manager. Verify that the network details you specified in the install script have been set correctly. Create a new virtual machine - recommend at least 2 CPUs and 2GB RAM
 - __MAKE SURE__ to customise the VM before install:
   - Change the display type to VNC
   - Change the Video type to VMVGA
@@ -68,7 +65,7 @@ At the minute my script is hard coded to expect 192.168.43.0/24 so please use th
 - I have collected some resources for preparing the VM, but for practical reasons they are not within the git repository.
 - Please download them from https://dl.hexistentialist.com with the username/password I have provided to you
 - Copy the file to /usr/local/unsafehex/$SBXNAME/www/$SBXNAME/public/downloads
-- On the guest OS, navigate to http://192.168.43.1:8080 and download the file `start_bundle.zip`
+- On the guest OS, navigate to http://your_gateway_ip:8080 and download the file `start_bundle.zip`
 - Run the following installers in this order - IMPORTANT! Windows 7 can be a massive pain to update purely from Windows Update and MS' website. Doing things in this order will vastly reduce the headache.
   - `Windows6.1-KB3020369-x64.msu` (Prerequisite, April 2015 servicing stack update)
   - `Windows6.1-KB3172605-x64.msu` (Includes latest Windows Update client)
@@ -99,4 +96,4 @@ At the minute my script is hard coded to expect 192.168.43.0/24 so please use th
 
 ## Contact/help
 
-Everyone reading this right now has at least one method of contacting me, but you can also use `http_error_418@unsafehex.com`
+You can contact me on twitter at @http_error_418 - I might respond faster there than on github.

@@ -66,10 +66,11 @@ def main():
 		disks = tree.findall(".//disk[@device='disk']")
 		
 		chosendisk = None
-		for i, disk in enumerate(disks):
-			if disk.find("./boot") is not None:
-				source = disk.xpath("./source")[0]
-				chosendisk = source.get("file")
+		chosendisk = disks[0].xpath("./source")[0].get("file")
+		#for i, disk in enumerate(disks):
+		#	if disk.find("./boot") is not None:
+		#		source = disk.xpath("./source")[0]
+		#		chosendisk = source.get("file")
 				
 		print("Please enter the following settings according to how you have configured your VM")
 		hostname = raw_input("Hostname: ")

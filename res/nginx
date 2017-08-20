@@ -34,7 +34,7 @@ server {
 
 
 server {
-  listen 192.168.43.1:8080;
+  listen REPLACE_ME:8080;
 
     root /usr/local/unsafehex/REPLACE_ME/suspects/downloads;
 

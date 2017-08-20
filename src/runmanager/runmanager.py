@@ -512,7 +512,7 @@ class RunInstance():
             raise StopCaptureException("Stop Capture flag set")
     
     def capture(self):
-        fl = "host {0} and not (host {1} and dst port 8080)".format(self.victim_params["ip"], '192.168.43.1')
+        fl = "host {0} and not (host {1} and dst port 8080)".format(self.victim_params["ip"], self.conf.get("General", "gateway_ip"))
         logger.debug("Packet capture starting with filter '{0}'".format(fl))
         scapy.sniff(iface="vnet0", filter=fl, prn=self.write_capture)
             
@@ -524,7 +524,7 @@ class RunInstance():
                 d = json.loads(line)
                 t = arrow.get(d["timestamp"])
                 if ((d["src_ip"] == self.victim_params["ip"] or d["dest_ip"] == self.victim_params["ip"]) and
-                d["src_ip"] != "192.168.43.1" and d["dest_ip"] != "192.168.43.1" and t >= startdate and t <= enddate):
+                d["src_ip"] != self.conf.get("General", "gateway_ip") and d["dest_ip"] != self.conf.get("General", "gateway_ip") and t >= startdate and t <= enddate):
                     if d["event_type"] != "alert" or (d["event_type"] == "alert" and d["alert"]["category"] != "Generic Protocol Command Decode"):
                         if d["event_type"] not in events:
                             events[d["event_type"]] = [d]

@@ -176,7 +176,6 @@ GRANT ALL ON SCHEMA public TO PUBLIC;
 REVOKE ALL ON TABLE cases FROM PUBLIC;
 REVOKE ALL ON TABLE cases FROM postgres;
 GRANT ALL ON TABLE cases TO postgres;
-GRANT ALL ON TABLE cases TO hexlab;
 
 
 --
@@ -186,7 +185,6 @@ GRANT ALL ON TABLE cases TO hexlab;
 REVOKE ALL ON TABLE suspects FROM PUBLIC;
 REVOKE ALL ON TABLE suspects FROM postgres;
 GRANT ALL ON TABLE suspects TO postgres;
-GRANT ALL ON TABLE suspects TO hexlab;
 
 
 --
@@ -196,7 +194,6 @@ GRANT ALL ON TABLE suspects TO hexlab;
 REVOKE ALL ON TABLE victims FROM PUBLIC;
 REVOKE ALL ON TABLE victims FROM postgres;
 GRANT ALL ON TABLE victims TO postgres;
-GRANT ALL ON TABLE victims TO hexlab;
 
 
 --
@@ -206,7 +203,6 @@ GRANT ALL ON TABLE victims TO hexlab;
 REVOKE ALL ON TABLE workerstate FROM PUBLIC;
 REVOKE ALL ON TABLE workerstate FROM postgres;
 GRANT ALL ON TABLE workerstate TO postgres;
-GRANT ALL ON TABLE workerstate TO hexlab;
 
 
 --

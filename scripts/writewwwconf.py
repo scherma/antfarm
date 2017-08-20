@@ -7,6 +7,8 @@ import json, sys
 # arguments: instancename, dbpass
 instancename = sys.argv[1]
 dbpass = sys.argv[2]
+gateway = sys.argv[3]
+netmask = sys.argv[4]
 
 displayname = instancename[0].upper() + instancename[1:]
 
@@ -23,6 +25,11 @@ conf = {
     
     "clamav": {
         "port": 9999
+    },
+    
+    "network": {
+        "gateway_ip": gateway,
+        "netmask": netmask
     },
     
     "filters": {
