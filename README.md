@@ -35,6 +35,10 @@ At the minute my script is hard coded to expect 192.168.43.0/24 so please use th
 - If they do not, contact me and I can provide the steps to make sure this is fixed
 - Start virt-manager. The script should remove the virtual network 'default' and create a new one 'vneta' with gateway IP of 192.168.43.1, if this has not happened do it via virt-manager
 - Create a new virtual machine - recommend at least 2 CPUs and 2GB RAM
+- __MAKE SURE__ to customise the VM before install:
+  - Change the display type to VNC
+  - Change the Video type to VMVGA
+  - Save the config and halt the VM
 - Move the virtual disk file to /mnt/images
 - Set ownership to root:libvirt-qemu and chmod g+rw
 
@@ -60,6 +64,10 @@ At the minute my script is hard coded to expect 192.168.43.0/24 so please use th
 
 ### Guest VM setup
 
+- Please configure the display resolution at 1680x1050. I appreciate this might be awkward on screens smaller than 1980x1200; I have not yet looked at how to adapt to different resolutions.
+- I have collected some resources for preparing the VM, but for practical reasons they are not within the git repository.
+- Please download them from https://dl.hexistentialist.com with the username/password I have provided to you
+- Copy the file to /usr/local/unsafehex/$SBXNAME/www/$SBXNAME/public/downloads
 - On the guest OS, navigate to http://192.168.43.1:8080 and download the file `start_bundle.zip`
 - Run the following installers in this order - IMPORTANT! Windows 7 can be a massive pain to update purely from Windows Update and MS' website. Doing things in this order will vastly reduce the headache.
   - `Windows6.1-KB3020369-x64.msu` (Prerequisite, April 2015 servicing stack update)

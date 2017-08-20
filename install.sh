@@ -22,10 +22,15 @@ echo "The sandbox name will be used for directory naming, database name and data
 echo "It is not essential for you to have noted down the database password as it is also written to the scripts' config files."
 read -p "What name do you want to give the sandbox? " SBXNAME
 read -s -p "Please create a password for the database: " DBPASS
-echo "\n"
+echo ""
 read -p "Please enter a country code for the SSL certificate: " CCODE
 
 SCRIPTDIR=$(pwd)
+
+echo "PATH=$PATH:/usr/sbin" >> /home/$LABUSER/.bash_profile
+echo "export NO_AT_BRIDGE=1" >> /home/$LABUSER/.bash_profile
+
+chown $LABUSER:$LABUSER /home/$LABUSER/.bash_profile
 
 echo -e "${GREEN}Running basic updates...${NC}"
 
@@ -35,9 +40,13 @@ apt-get dist-upgrade -y
 
 echo -e "${GREEN}Installing core dependencies...${NC}"
 
-apt-get install -y python-pip nodejs nginx postgresql libpq-dev libjpeg-dev libopenjpeg-dev python-dev curl tcpdump libcap2-bin build-essential
-apt-get install -y postgresql-contrib curl libyaml-dev libpcap-dev git npm screen python-lxml rabbitmq-server tor libguestfs-tools
-apt-get install -y libnl-3-dev libnl-route-3-dev libxml2-dev libdevmapper-dev libyajl2 libyajl-dev pkg-config clamav clamav-daemon clamav-freshclam
+apt-get install -y python-pip nodejs nginx postgresql libjpeg-dev libopenjpeg-dev python-dev curl tcpdump libcap2-bin 
+apt-get install -y postgresql-contrib curl libpcap-dev git npm screen python-lxml rabbitmq-server tor libguestfs-tools ntpdate
+apt-get install -y libnl-3-dev libnl-route-3-dev libxml2-dev libdevmapper-dev libyajl2 libyajl-dev pkg-config libyaml-dev libguestfs-tools build-essential libpq-dev
+apt-get install -y clamav clamav-daemon clamav-freshclam
+apt-get upgrade -y dnsmasq
+
+ntpdate -s time.nist.gov
 
 echo -e "${GREEN}Installing python dependencies...${NC}"
 pip install pika psycopg2 arrow vncdotool pyshark psutil scapy tabulate
@@ -84,6 +93,7 @@ cp -v $SCRIPTDIR/src/runmanager /usr/local/unsafehex/$SBXNAME/runmanager/
 cp -v $SCRIPTDIR/res/sysmon.exe /usr/local/unsafehex/$SBXNAME/suspects/downloads
 cp -v $SCRIPTDIR/res/sysmon.xml /usr/local/unsafehex/$SBXNAME/suspects/downloads
 cp -v $SCRIPTDIR/res/run.ps1 /usr/local/unsafehex/$SBXNAME/suspects/downloads
+cp -v $SCRIPTDIR/res/bios.bin /usr/local/unsafehex/$SBXNAME/
 cp -Rv $SCRIPTDIR/src/node/* /usr/local/unsafehex/$SBXNAME/www/
 mv -v /usr/local/unsafehex/$SBXNAME/www/hexlab /usr/local/unsafehex/$SBXNAME/www/$SBXNAME
 addgroup $SBXNAME
@@ -93,6 +103,7 @@ python $SCRIPTDIR/scripts/writerunconf.py "$SBXNAME" "$DBPASS"
 python $SCRIPTDIR/scripts/writewwwconf.py "$SBXNAME" "$DBPASS"
 
 echo -e "${GREEN}Building required version of libvirt...${NC}"
+addgroup libvirt-qemu
 mkdir -v /tmp/$SBXNAME
 mkdir -v /tmp/$SBXNAME/libvirt
 cd /tmp/$SBXNAME/libvirt
@@ -101,14 +112,12 @@ tar xvfJ libvirt-3.1.0.tar.xz
 cd libvirt-3.1.0
 ./configure --with-qemu-group=libvirt-qemu --localstatedir=/usr/local/var --with-dnsmasq-path=/usr/sbin/dnsmasq
 make && make install
-cp -v $SCRIPTDIR/res/libvirtd.service /etc/systemd/system
-addgroup libvirt-qemu
 usermod -a -G libvirt-qemu $LABUSER
 usermod -a -G kvm $LABUSER
 apt-get install -y libvirt-daemon libvirt-clients virt-manager
+cp -v $SCRIPTDIR/res/libvirtd.service /etc/systemd/system
 rm -v /etc/libvirt/libvirtd.conf
 cp -v $SCRIPTDIR/res/libvirtd.conf /etc/libvirt/
-cp -v $SCRIPTDIR/res/libvirtd.service /etc/systemd/system
 rm -v /lib/systemd/system/libvirtd.socket
 
 echo -e "${GREEN}Building required version of Suricata...${NC}"
@@ -134,7 +143,6 @@ rm tmpcron
 echo -e "${GREEN}Configuring ClamAV to accept TCP connections...${NC}"
 echo "TCPSocket 9999" >> /etc/clamav/clamd.conf
 echo "TCPAddr 127.0.0.1" >> /etc/clamav/clamd.conf
-cd $SCRIPTDIR
 cp -rf $SCRIPTDIR/res/extend.conf /etc/systemd/system/clamav-daemon.socket.d/extend.conf
 
 echo -e "${GREEN}Setting up nginx...${NC}"
@@ -146,7 +154,6 @@ openssl dhparam -out dhparam.pem 4096
 mkdir -v /etc/nginx/keys
 chmod 700 /etc/nginx/keys
 cp -v $SBXNAME\.key $SBXNAME\.crt dhparam.pem /etc/nginx/keys
-cd $SCRIPTDIR
 rm -v /etc/nginx/sites-enabled/default
 cp -v $SCRIPTDIR/res/nginx /etc/nginx/sites-enabled/$SBXNAME
 
@@ -154,16 +161,22 @@ echo -e "${GREEN}Setting permissions on sandbox file structure...${NC}"
 chown root:$SBXNAME -R /usr/local/unsafehex
 
 echo -e "${GREEN}Cleaning up temporary files...${NC}"
+cd $SCRIPTDIR
 rm -rfv /tmp/$SBXNAME
 
-echo -e "${GREEN}Starting clam and libvit services...${NC}"
-apt-get upgrade -y dnsmasq
+echo -e "${GREEN}Starting clam and libvirt services...${NC}"
 systemctl daemon-reload
+service clamav-daemon stop
 service clamav-daemon start
+service clamav-freshclam stop
 service clamav-freshclam start
+service libvirtd stop
 service libvirtd start
+service libvirt-guests stop
 service libvirt-guests start
+service virtlockd stop
 service virtlockd start
+service virtlogd stop
 service virtlogd start
 
 virsh -c qemu:///system net-destroy default
@@ -172,4 +185,5 @@ virsh -c qemu:///system net-create $SCRIPTDIR/res/vnet.xml
 
 echo -e "${GREEN}INITIAL SETUP COMPLETE${NC}"
 echo -e "You will now need to fill in config options and create your Windows VMs. Please see ${RED}README.md${NC} for details."
+echo -e "Please log out and back in for permissions to take effect."
 exit 0
