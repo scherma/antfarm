@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{{title}}</title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+    <link rel="stylesheet" href="/stylesheets/jquery-ui.min.css">
+    <script src="/javascripts/jquery-3.2.0.js"></script>
+    <script src="/javascripts/jquery-ui-1.12.1/jquery-ui.min.js"></script>
+    <script>
+    $(document).ready(function() {
+      $('div.dropdown').each(function() {
+        var $detail = $(this);
+        
+        $('button.dropdownbtn', $detail).click(function(e) {
+          e.preventDefault();
+          $div = $('div.dropdown-menu', $detail);
+          $div.toggle();
+          return false;
+        });
+      })
+    });
+    </script>
+  </head>
+  <body>
+    <div id="mainmenu" class="menubar">
+      <div class="inset">
+      {{#mainmenu}}
+        {{#equal this.type "link"}}
+        <div class="menubar-button"><a href="{{this.link}}"><button>{{this.text}}</button></a></div>
+        {{/equal}}
+        {{#equal this.type "menu"}}
+        <div class="menubar-button dropdown"><button class="dropdownbtn">{{this.text}}</button>
+          <div class="dropdown-menu">
+            {{#menu}}
+              <div class="dropdown-button">
+                <a href="{{this.link}}"><button>{{this.text}}</button></a>
+              </div>
+            {{/menu}}
+          </div>
+        </div>
+        {{/equal}}
+      {{/mainmenu}}
+      </div>
+    </div>
+    <div id="mainbody" class="core-body">
+      {{{body}}}
+    </div>
+  </body>
+</html>

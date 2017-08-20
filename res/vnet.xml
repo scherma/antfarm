@@ -1,0 +1,7 @@
+<network>
+        <name>vneta</name>
+        <bridge name="virbr0" stp="on" delay="0" />
+        <domain name="vneta" />
+        <ip address="192.168.43.1" netmask="255.255.255.0">
+        </ip>
+</network>

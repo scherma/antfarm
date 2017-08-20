@@ -1,0 +1,288 @@
+/*
+ * © https://github.com/scherma
+ * contact http_error_418@unsafehex.com
+*/
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font: 12px "Lucida Grande", Helvetica, Arial, sans-serif;
+  /*min-width: 1280px;*/
+  background: white;
+  /*background: linear-gradient(white, white, white, #e8e8e8);*/
+  min-height: 100%;
+}
+
+a {
+  color: #00B7FF;
+}
+
+.core-body {
+  position: relative;
+  display: block;
+  /*width: 1280px;*/
+  margin-left: auto;
+  margin-right: auto;
+  padding: 20px;
+}
+
+.menubar {
+  display: flex;
+  background-color: #7a1616;
+  width: 100%;
+}
+
+.menubar .inset .menubar-button {
+  float: left;
+  position: relative;
+}
+
+.buttonstyle, button {
+  border: none;
+  font-weight: bold;
+  color: white;
+}
+
+.buttonstyle:focus, button:focus {
+  outline: 0;
+  background-color: #858585;
+}
+
+.buttonstyle:hover, button:hover {
+  cursor: pointer;
+}
+
+.dropdown-menu {
+  position: absolute;
+  display: none;
+  background-color: #b0b0b0;
+  z-index: 999;
+}
+
+.layout-img img {
+  width: 100%;
+}
+
+.hideinput {
+  display: none;
+}
+
+.buttonstyle, .core-body button {
+  font-size: 12px;
+  font-weight: bold;
+  font-family: "Arial";
+  background-color: #909090;
+  padding: 4px 6px 4px 6px;
+  box-shadow: 1px 1px 2px #e0e0e0;
+  border-radius: 3px;
+}
+
+.buttonstyle:hover, .core-body button:hover {
+  background-color: #aeaeae;
+  transition: 0.5s;
+}
+
+.menubar button {
+  background-color: #7a1616;
+  font-size: 15px;
+  width: 150px;
+  height: 40px;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+.dropdown-menu button {
+  background-color: #7a1616;
+}
+
+.menubar button:hover {
+  background-color: #aa1616;
+  transition: 0.5s;
+  box-shadow: 0px 0px 5px #aa1616;
+}
+
+.dropdown-menu button:hover {
+  background-color: #aa1616;
+}
+
+.menubar a {
+  text-decoration: none;
+}
+
+.new-case-blk {
+  position: relative;
+}
+
+.dullevent {
+  display: none;
+}
+
+.new-case-form {
+  display: none;
+  background: #FFFFFF;
+}
+
+.new-case-tbl {
+  width: 100%;
+}
+
+.new-case-form tbody tr td {
+  padding: 0;
+}
+
+.case-param-name {
+  min-width: 150px;
+}
+
+.hidden-detail {
+  display: none;
+}
+
+.monospace {
+  font-family: monospace !important;
+}
+
+.detail-blk {
+  position: relative;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.evtdetailcontainer {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.break {
+  word-wrap: break-all;
+}
+
+.display-none {
+  display: none;
+}
+
+td, th {
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+.evtdetailtbl td {
+  word-wrap: break-word;
+}
+
+.evtdetailchild {
+}
+
+.togglerow td {
+  padding: 0;
+}
+
+.filestable thead tr th {
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+.filesblk {
+  position: relative;
+  float: left;
+  width: 100%;
+  margin-top: 20px;
+}
+
+.filestable tbody tr td {
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+.casestbl tbody tr td {
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+.fileform {
+  position: relative;
+  float: left;
+  height: auto;
+}
+
+.fileform .filename {
+  margin: 0;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+.caseform {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  padding: 5px;
+  position: relative;
+  width: 100%;
+}
+
+.screenshot img {
+  max-width: 400px;
+  height: auto;
+}
+
+.runlog pre {
+  white-space: pre-wrap;
+}
+
+.casedetails {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.casedetails th {
+  padding-left: 0;
+}
+
+.sysmonevt td {
+  padding-left: 0;
+  margin-left: 0;
+}
+
+.sysmonevt tr {
+  margin-left: 0;
+}
+
+.mime {
+    max-height: 12px;
+    max-width: 350px;
+    word-break: break-all;
+    overflow: hidden;
+}
+
+.tooltip {
+    word-break: break-all;
+}
+
+@media screen and (max-width: 950px) and (min-width: 850px) {
+    .longrow {
+        max-width: 300px;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+}
+
+@media screen and (max-width: 850px) and (min-width: 650px) {
+    .longrow {
+        width: 200px;
+        overflow: hidden;
+        white-space: nowrap;
+        word-wrap: break-word;
+    }
+}
+
+
+@media screen and (max-width: 650px) {
+    .longrow {
+        width: 150px;
+        overflow: hidden;
+        white-space: nowrap;
+        word-wrap: break-word;
+    }

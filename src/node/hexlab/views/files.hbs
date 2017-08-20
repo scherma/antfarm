@@ -1,0 +1,106 @@
+<script>
+$(document).ready(function() {
+        $(document).tooltip({
+            tooltipClass: 'tooltip',
+            open: function (event, ui) {
+                ui.tooltip.css("max-width", "500px");
+            }
+        });
+	$("input:file").change(function (){
+	   $(".filename").html($(this).val());
+       $(".hidden-detail").fadeIn(800);
+	   $(".filename").fadeIn(800);
+    });
+	$('div.new-case-blk').each(function() {
+		var $detail = $(this);
+		
+		
+	})
+	
+	$('button.new-case-btn').click(function(e) {
+		var caseid = $(this).attr("caseid");
+		e.preventDefault();
+		$div = $('#form-' + caseid);
+		$div.slideToggle();
+		return false;
+	});
+});
+</script>
+<div id="newcase" class="caseform">
+	<form action="/files/new-suspect" method="post" enctype="multipart/form-data">
+		<div class="fileform">
+			<input type="file" id="file" name="suspect" class="hideinput">
+			<label for="file" class="buttonstyle">Choose file</label>
+		</div>
+		<div class="fileform">
+			<p class="filename hidden-detail"></p>
+		</div>
+		<div class="fileform hidden-detail">
+			<input type="submit" value="Upload" id="newcase-submit" class="hideinput">
+			<label for="newcase-submit" class="buttonstyle">Upload</label>
+		</div>
+	</form>
+</div>
+<div class="filesblk">
+	<table class="filestable">
+		<thead>
+			<tr>
+				<th>Original Name</th>
+				<th>SHA256</th>
+				<th>MIME Type</th>
+				<th>Cases</th>
+			</tr>
+		</thead>
+		<tbody>
+		{{#files}}
+				<tr>
+					<td>{{this.originalname}}</td>
+					<td><div class="longrow monospace">{{this.sha256}}</div></td>
+					<td><div class="longrow mime" title="{{this.magic}}">{{this.magic}}</div></td>
+					<td><a href="/cases?sha256={{this.sha256}}"><button style="min-width: 30px;">{{this.runcount}}</button></a></td>
+					<td>
+						<button class="new-case-btn" caseid="{{this.sha256}}">Start new case</button>
+					</td>
+				</tr>
+				<tr class="new-case-blk">
+					<td colspan="5" class="new-case-td">
+					<div id="form-{{this.sha256}}" class="new-case-form">
+						<form action="/cases/start" method="post" enctype="application/json">
+							<table class="new-case-tbl">
+								<tr>
+									<td>File name</td><td><input type="text" name="filename" placeholder="filename" value="{{this.originalname}}"></td>
+									<td>Interaction: banking</td><td><input type="checkbox" name="banking" class="chk"></td>
+								</tr>
+								<tr>
+									<td>Run time (secs)</td><td><input type="number" max="600" min="120" name="runtime" placeholder="Runtime (secs)" value="180"></td>
+									<td>Interaction: web</td><td><input type="checkbox" name="web" class="chk"></td>
+								</tr>
+								<tr>
+									<td>Reboots</td><td><input type="number" max="2" min="0" name="reboots" placeholder="Reboots" value="0"></td>
+									<td>User driven?</td><td><input type="checkbox" name="interactive" class="chk"></td>
+									<td></td><td><label for="{{this.sha256}}-submit" class="buttonstyle">Start case</label></td>
+								</tr>
+								<input type="hidden" name="sha256" value="{{this.sha256}}">
+								<input type="submit" id="{{this.sha256}}-submit" value="Start case" class="hideinput">
+							</table>
+						</form>
+						<br />
+					</div>
+					</td>
+				</tr>
+		{{/files}}
+			<tr>
+				<td>
+					{{#if prev}}
+					<a href="{{prev}}"><button><<<</button></a>
+					{{/if}}
+				</td>
+				<td>		
+					{{#if next}}
+					<a href="{{next}}"><button>>>></button></a>
+					{{/if}}
+				</td>
+			</tr>
+		</tbody>
+	</table>
+</div>

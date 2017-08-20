@@ -1,0 +1,26 @@
+{
+  "name": "www",
+  "version": "0.0.1",
+  "description": "Front end for Hexlabs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "scherma",
+  "license": "ISC",
+  "dependencies": {
+    "amqplib": "^0.5.1",
+    "bluebird": "^3.5.0",
+    "crypto": "0.0.3",
+    "express": "^4.15.4",
+    "file-type": "^5.2.0",
+    "glob": "^7.1.2",
+    "mmmagic": "^0.4.5",
+    "moment": "^2.18.1",
+    "netaddr": "^1.1.0",
+    "pg": "^6.4.1",
+    "read-chunk": "^2.1.0",
+    "telnet-client": "^0.15.2",
+    "uuid": "^3.1.0"
+  }
+}

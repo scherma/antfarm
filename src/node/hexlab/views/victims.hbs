@@ -1,0 +1,50 @@
+<script src="javascripts/jquery.countdown.min.js"></script>
+<script>
+$(document).ready(function() {
+	$('td.clock').each(function(el) {
+		var enddate = el.text();
+		$(el).countdown(enddate)
+		.on('update', function(event) {
+			this.text(event.strftime());
+		})
+		.countdown('start');
+	});
+});
+</script>
+<div class="workers">
+	<table>
+		<thead>
+			<tr>
+				<th>Victim</th>
+				<th>OS</th>
+				<th>Status</th>
+				<th>Current parameters</th>
+				<th>Runs since last reboot</th>
+				<th>Last reboot time</th>
+			</tr>
+		</thead>
+		<tbody>
+			{{#each workers}}
+			<tr>
+				<td>{{this.libvirtname}}</td>
+				<td>{{this.os}}</td>
+				<td>{{this.position}}</td>
+				<td>
+					{{#if this.params}}
+					<table>
+						{{#each this.parsedparams}}
+						<tr>
+							<td>{{@key}}</td>
+							<td class="{{this.class}}">{{this.content}}</td>
+						</tr>
+						{{/each}}
+					</table>
+					{{/if}}
+				</td>
+				<td>{{this.runcounter}}</td>
+				<td>{{this.last_reboot}}</td>
+			</tr>
+			{{/each}}
+		</tbody>
+	</table>
+</div>
