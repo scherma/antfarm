@@ -34,7 +34,7 @@ To install, perform the steps below:
 - Start virt-manager. Verify that the network details you specified in the install script have been set correctly. Create a new virtual machine - recommend at least 2 CPUs and 2GB RAM
 - __MAKE SURE__ to customise the VM before install:
   - Change the display type to VNC
-  - Change the Video type to VMVGA
+  - Change the Video type to Cirrus (actually we want it to be VMVGA, but there's a bug with the virtualisation that makes the installer fail to boot with that setting)
   - Save the config and halt the VM
 - Move the virtual disk file to /mnt/images
 - Set ownership to root:libvirt-qemu and chmod g+rw
@@ -42,6 +42,7 @@ To install, perform the steps below:
 ### VM cloaking/obfuscation
 
 - Edit your VM XML (virsh edit vmname) and do the following
+  - In the main `<domain>` section add a new element `<sysinfo type='smbios'/>`
   - Within `<features>`, add `<kvm><hidden state='on'/></kvm>`
   - Within `<cpu>`, specify `<feature policy='disable' name='hypervisor'/>`
   - In `<clock>`, change `<timer name='rtc' tickpolicy='catchup'/>` to `<timer name='rtc' track='wall'/>`
@@ -62,9 +63,10 @@ To install, perform the steps below:
 ### Guest VM setup
 
 - Please configure the display resolution at 1680x1050. I appreciate this might be awkward on screens smaller than 1980x1200; I have not yet looked at how to adapt to different resolutions.
+- Change the display type to VMVGA now that installation is done.
 - I have collected some resources for preparing the VM, but for practical reasons they are not within the git repository.
-- Please download them from https://dl.hexistentialist.com with the username/password I have provided to you
-- Copy the file to /usr/local/unsafehex/$SBXNAME/www/$SBXNAME/public/downloads
+- Please download them from https://dl.hexistentialist.com with the username/password I have provided to you.
+- Copy the file to /usr/local/unsafehex/$SBXNAME/www/$SBXNAME/public/downloads.
 - On the guest OS, navigate to http://your_gateway_ip:8080 and download the file `start_bundle.zip`
 - Run the following installers in this order - IMPORTANT! Windows 7 can be a massive pain to update purely from Windows Update and MS' website. Doing things in this order will vastly reduce the headache.
   - `Windows6.1-KB3020369-x64.msu` (Prerequisite, April 2015 servicing stack update)
@@ -72,13 +74,13 @@ To install, perform the steps below:
   - `windows6.1-kb3125574-v4-x64_2dafb1d203c8964239af3048b5dd4b1264cd93b9.msu` (May 2016 hotfix rollup)
   - `NDP462-KB3151800-x86-x64-AllOS-ENU.exe` (.NET Framework 4.6.2)
   - `EIE11_EN-US_MCM_WIN764.EXE` (IE 11)
-- Please install sysmon with the config file provided, `sysmon.exe -i sysmon.xml`
-- Place the run.ps1 script in C:\Program Files\
+- Please install sysmon with the config file provided, `sysmon.exe -i sysmon.xml`.
+- Place the run.ps1 script in C:\Program Files\.
 - I have included some vintage software to make it a nice and juicy target:
   - Flash Player 20.0.0.286
   - Java Runtime Environment v6
   - Adobe Reader 10.0
-- Also included are some generic documents and a desktop background
+- Also included are some generic documents and a desktop background.
 - The presence of Microsoft Office is assumed. Please configure it to automatically run macros.
 - Pause the guest VM and create a snapshot. __DO NOT FORGET THIS!__
 

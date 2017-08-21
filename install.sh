@@ -33,7 +33,7 @@ echo ""
 read -p "Please enter a country code for the SSL certificate: " CCODE
 read -p "Please enter the gateway IP address you wish the VM virtual network to have: " GATEWAY_IP
 read -p "Please enter the netmask for the VM virtual network: " NETMASK
-
+echo ""
 echo "You have specified the following settings:"
 echo "Sandbox user: 			$LABUSER"
 echo "Sandbox name: 			$SBXNAME"
