@@ -4,6 +4,8 @@ Thank you for helping me to test my sandbox. Currently this has only been tested
 
 At this stage I have not chosen a license. Please do not distribute code that is © myself at this time.
 
+This is super pre-alpha code and is broken in a large number of ways. Main known issue right now is that code to control the VM whilst running a sample is highly conditional on whether windows are positioned where it expects them. This can result in the sample not actually being run at all. Top priority is to amend this so that window positioning is irrelevant to whether or not things run.
+
 ## CREDITS
 Much of this process was only possible with the help of Sean Whalen's Cuckoo sandbox guide. 
 
