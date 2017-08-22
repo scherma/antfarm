@@ -63,10 +63,11 @@ apt-get upgrade -y
 apt-get dist-upgrade -y
 
 echo -e "${GREEN}Installing core dependencies...${NC}"
-apt-get install -y --force-yes python-pip nodejs nginx libjpeg-dev libopenjpeg-dev python-dev curl tcpdump libcap2-bin libcap-ng-dev libmagic-dev
-apt-get install -y --force-yes postgresql-contrib curl libpcap-dev git npm screen python-lxml rabbitmq-server tor libguestfs-tools libffi-dev libssl-dev tshark
+apt-get install -y --force-yes python-pip nodejs nginx libjpeg-dev libopenjpeg-dev python-dev curl tcpdump libcap2-bin libcap-ng-dev libmagic-dev libjansson-dev libpcre3 libpcre3-dbg
+apt-get install -y --force-yes libpcre3-dev postgresql-9.5 postgresql-contrib curl libpcap-dev git npm screen python-lxml rabbitmq-server tor libguestfs-tools libffi-dev libssl-dev tshark
 apt-get install -y --force-yes libnl-3-dev libnl-route-3-dev libxml2-dev libdevmapper-dev libyajl2 libyajl-dev pkg-config libyaml-dev libguestfs-tools build-essential libpq-dev
-apt-get install -y --force-yes clamav clamav-daemon clamav-freshclam postgresql-9.5
+apt-get install -y --force-yes libnet1-dev zlib1g zlib1g-dev libcap-ng-dev libcap-ng0 libnss3-dev libgeoip-dev liblua5.1-dev libhiredis-dev libevent-dev libgeoip-dev
+apt-get install -y --force-yes clamav clamav-daemon clamav-freshclam 
 apt-get upgrade -y --force-yes dnsmasq
 
 echo -e "${GREEN}Installing python dependencies...${NC}"
@@ -168,7 +169,7 @@ cd /tmp/$SBXNAME/suricata
 wget https://www.openinfosecfoundation.org/download/suricata-4.0.0.tar.gz
 tar zxvf suricata-4.0.0.tar.gz
 cd suricata-4.0.0
-./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
+./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-geoip
 make && make install
 make install-conf
 
