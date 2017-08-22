@@ -536,14 +536,16 @@ class RunInstance():
             for line in f:
                 d = json.loads(line)
                 t = arrow.get(d["timestamp"])
-                if ((d["src_ip"] == self.victim_params["ip"] or d["dest_ip"] == self.victim_params["ip"]) and
-                d["src_ip"] != self.conf.get("General", "gateway_ip") and d["dest_ip"] != self.conf.get("General", "gateway_ip") and t >= startdate and t <= enddate):
-                    if d["event_type"] != "alert" or (d["event_type"] == "alert" and d["alert"]["category"] != "Generic Protocol Command Decode"):
-                        if d["event_type"] not in events:
-                            events[d["event_type"]] = [d]
-                        else:
-                            events[d["event_type"]].append(d)
-                        evctr += 1
+                # ensure only event types we can handle safely get looked at
+                if d["event_type"] in ["tls", "http", "dns", "alert"]:
+                    if ((d["src_ip"] == self.victim_params["ip"] or d["dest_ip"] == self.victim_params["ip"]) and
+                    d["src_ip"] != self.conf.get("General", "gateway_ip") and d["dest_ip"] != self.conf.get("General", "gateway_ip") and t >= startdate and t <= enddate):
+                        if d["event_type"] != "alert" or (d["event_type"] == "alert" and d["alert"]["category"] != "Generic Protocol Command Decode"):
+                            if d["event_type"] not in events:
+                                events[d["event_type"]] = [d]
+                            else:
+                                events[d["event_type"]].append(d)
+                            evctr += 1
             logger.debug("Identified {0} events to include from {1}".format(evctr, searchfile))
                         
             return events
