@@ -1,10 +1,10 @@
-# Hello, guinea pigs
+# Hello, malware junkies
 
 Thank you for helping me to test my sandbox. Currently this has only been tested with 64-bit Debian Jessie, and a guest VM OS of Windows 7 SP 1 x86-64; if you want to adapt it to anything else you are welcome to try but I make no guarantees!
 
 At this stage I have not chosen a license. Please do not distribute code that is © myself at this time.
 
-This is super pre-alpha code and is broken in a large number of ways. Main known issue right now is that code to control the VM whilst running a sample is highly conditional on whether windows are positioned where it expects them. This can result in the sample not actually being run at all. Top priority is to amend this so that window positioning is irrelevant to whether or not things run.
+This is super pre-alpha code and is likely to be broken in all sorts of ways I have not yet discovered. I am hoping that your testing can help me make it only moderately broken before opening it up to the rest of the world.
 
 ## CREDITS
 Much of this process was only possible with the help of Sean Whalen's Cuckoo sandbox guide. 
@@ -13,9 +13,11 @@ I have borrowed heavily from it and these instructions will refer to it in a num
 
 Please find it at https://infosecspeakeasy.org/t/howto-build-a-cuckoo-sandbox/27/1
 
-SwiftOnSecurity's Decent Security advice for updating Windows and Sysmon config were also invaluable
+SwiftOnSecurity's Decent Security advice for updating Windows and Sysmon config were also pretty handy.
 
-Far too many web guides and IRC channels to list individually
+Far too many web guides and IRC channels to list individually.
+
+And last but definitely not least my boss, who knows a thing or two about malware.
 
 ## INSTALLATION
 
