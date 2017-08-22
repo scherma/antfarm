@@ -64,7 +64,7 @@ apt-get dist-upgrade -y
 
 echo -e "${GREEN}Installing core dependencies...${NC}"
 apt-get install -y --force-yes python-pip nodejs nginx libjpeg-dev libopenjpeg-dev python-dev curl tcpdump libcap2-bin libcap-ng-dev libmagic-dev
-apt-get install -y --force-yes postgresql-contrib curl libpcap-dev git npm screen python-lxml rabbitmq-server tor libguestfs-tools libffi-dev libssl-dev
+apt-get install -y --force-yes postgresql-contrib curl libpcap-dev git npm screen python-lxml rabbitmq-server tor libguestfs-tools libffi-dev libssl-dev tshark
 apt-get install -y --force-yes libnl-3-dev libnl-route-3-dev libxml2-dev libdevmapper-dev libyajl2 libyajl-dev pkg-config libyaml-dev libguestfs-tools build-essential libpq-dev
 apt-get install -y --force-yes clamav clamav-daemon clamav-freshclam postgresql-9.5
 apt-get upgrade -y --force-yes dnsmasq
@@ -101,7 +101,9 @@ groupadd pcap
 usermod -a -G pcap $LABUSER
 chgrp pcap /usr/sbin/tcpdump
 chmod 750 /usr/sbin/tcpdump
+# possibly only python needs cap_net_raw but setting on both to be sure
 setcap cap_net_raw,cap_net_admin=eip /usr/sbin/tcpdump
+setcap cap_net_raw,cap_net_admin=eip /usr/bin/python2.7
 # when running as non-root, tcpdump looks for gettext in the wrong place (as does libvirt)
 ln -s /usr/bin/gettext.sh /usr/local/bin/gettext.sh
 
