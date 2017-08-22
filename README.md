@@ -59,6 +59,7 @@ To install, perform the steps below:
 - Install your guest OS and configure it with a static IP address in the 192.168.43.0/24 range, with 192.168.43.1 as the gateway
 - Configure the main nginx reverse proxy to serve on the host's external IP. Fill in the `REPLACE_ME` sections with your external IP and sandbox name as applicable
 - Set Suricata up using the Cuckoo guide (unless you are comfortable enough to roll your own!)
+- Make sure that the file permissions for the eve.json output allow reading by all, OR that you manually change them once it is created.
 - The install.sh script has already configured automatic updates of the Emerging Threats signature list which I find works pretty well - add more if you like though
 - Start nginx
 
@@ -66,6 +67,7 @@ To install, perform the steps below:
 
 - Please configure the display resolution at 1680x1050. I appreciate this might be awkward on screens smaller than 1980x1200; I have not yet looked at how to adapt to different resolutions.
 - Change the display type to VMVGA now that installation is done.
+- I set my VMs up with UK keyboard layouts. You must also set the keymap in the VM configuration. I believe this should work with other combinations, provided the Libvirt keymap reflects the guest VM's, but I have not checked.
 - I have collected some resources for preparing the VM, but for practical reasons they are not within the git repository.
 - Please download them from https://dl.hexistentialist.com with the username/password I have provided to you.
 - Copy the file to /usr/local/unsafehex/$SBXNAME/www/$SBXNAME/public/downloads.
