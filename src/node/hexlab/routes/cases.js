@@ -87,7 +87,7 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 	var shortdir = req.params.sha256.substring(0,2);
 	var casepath = path.join(casesdir, shortdir, req.params.sha256, req.params.uuid);
 	var uuidshort = req.params.uuid.substr(0,2);
-	var imagepath = path.join(rootdir, 'www', 'hexlab', 'public', 'images', 'cases', uuidshort, req.params.uuid);
+	var imagepath = path.join(rootdir, 'www', options.conf.site.name, 'public', 'images', 'cases', uuidshort, req.params.uuid);
 	var imagepublicpath = path.join('/images', 'cases', uuidshort, req.params.uuid);
 	
 	/*var rawpropertiesP = new Promise((fulfill, reject) => {
@@ -149,15 +149,20 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 	var pcapsummaryP = new Promise((fulfill, reject) => {
 		fs.readFile(path.join(casepath, 'pcap_summary.json'), 'utf8', (err, data) => {
 			if (err === null) {
-				var d = JSON.parse(data);
-				var result = [];
-				d.forEach(function(evt){
-					var e = {src_ip: evt.src, dest_ip: evt.dst};
-					if (functions.ofInterest(e)) {
-						result.push(evt);
-					}
-				});
-				fulfill(result);	
+				try {
+					var d = JSON.parse(data);
+					var result = [];
+					d.forEach(function(evt){
+						var e = {src_ip: evt.src, dest_ip: evt.dst};
+						if (functions.ofInterest(e)) {
+							result.push(evt);
+						}
+					});
+					fulfill(result);
+				} catch (e) {
+					console.log(e);
+					fulfill({});
+				}
 			} else {
 				console.log(format("Unable to provide pcap summary: {err}", {err: err}));
 				fulfill({});
@@ -192,9 +197,14 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 					var image = {path: thisimagepath, alt: '', thumb: thumbpath};
 					images.push(image);
 				});
+				console.log(format("Found {num} images", {num: images.length}));
 				fulfill(images);
 			});
+		} else {
+			console.log("No images");
+			fulfill([]);
 		}
+
 	});
 	
 	var thiscase = db.show_case(req.params.uuid);
