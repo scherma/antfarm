@@ -26,14 +26,14 @@ class Connector:
 
     def typestring(self, thestring, pause=True):
         for c in thestring:
-            if c in u"¬!\"£$%^&*()_+QWERTYUIOP{}ASDFGHJKL:@~|ZXCVBNM<>?":
+            if c in "¬!\"£$%^&*()_+QWERTYUIOP{}ASDFGHJKL:@~|ZXCVBNM<>?":
                 self.client.keyDown("lshift")
                 self.client.keyPress(c)
                 self.client.keyUp("lshift")
             else:
                 self.client.keyPress(c)
             if pause:
-                self.client.pause(self.randomTime(0.2))
+                self.client.pause(self.randomTime(0.1))
     
     def mouseMove(self, x, y):
         self.client.mouseMove(x, y)
@@ -48,22 +48,6 @@ class Connector:
         self.client.mousePress(button)
         self.client.pause(0.3)
 
-    def startMenu(self):
-        self.clickPos(25, 1033)
-        self.client.pause(self.randomTime(0.4))
-
-    def allPrograms(self):
-        self.clickPos(71, 942)
-        self.client.pause(self.randomTime(0.4))
-
-    def msOffice(self):
-        self.clickPos(72, 825)
-        self.client.pause(self.randomTime(0.4))
-
-    def msWord(self):
-        self.clickPos(108, 895)
-        self.client.pause(self.randomTime(3))
-
     def iExplore(self):
         #self.clickPos(84, 1038)
         self.singleKey("lsuper")
@@ -72,33 +56,26 @@ class Connector:
         self.singleKey("enter")
         self.client.pause(self.randomTime(3))
 
-    def iExploreAddressBar(self):
-        self.clickPos(212, 42)
-        self.client.pause(self.randomTime(0.4))
-
     def goToIEPage(self, address):
         self.iExplore()
         self.typestring(address)
         self.singleKey('enter')
         self.client.pause(2)
 
-    def closeIE(self):
-        self.clickPos(85, 1032, button=3)
-        self.client.pause(self.randomTime(1))
-        self.clickPos(91, 991)
-        self.client.pause(self.randomTime(1))
-
     def launchCMD(self):
         logger.debug("Launching CMD window")
         self.client.keyPress('lsuper')
         self.client.pause(self.randomTime(1))
         self.typestring('cmd')
+        # shortcut to launch as administrator
         self.client.keyDown('ctrl')
         self.client.keyDown('lshift')
         self.client.keyPress('enter')
         self.client.keyUp('lshift')
         self.client.keyUp('ctrl')
-        self.client.pause(self.randomTime(0.5))
+        # give enough time for UAC to kick in
+        self.client.pause(self.randomTime(2))
+        # confirm UAC prompt
         self.singleKey('left')
         self.singleKey('enter')
         self.client.pause(self.randomTime(2))
@@ -112,7 +89,7 @@ class Connector:
         self.client.pause(self.randomTime(2))
         self.clickPos(633, 411)
         self.client.pause(self.randomTime(6))
-        self.closeIE()
+        self.closeWindow()
         
     def web(self):
         pass
@@ -126,28 +103,23 @@ class Connector:
         self.typestring('powershell -executionPolicy bypass -file "C:\\Program Files\\run.ps1" "{0}"'.format(filename))
         self.client.keyPress("enter")
         self.client.pause(2)
-        self.clickPos(934, 364)
-        self.client.pause(1)
-        self.clickPos(1015, 383)
-        self.client.pause(12)
-        
-        self.singleKey("enter")
-        self.singleKey("enter")
-                
-        self.clickPos(1120, 988)
-        self.client.pause(self.randomTime(3))
-        self.closeIE()
         
     def restart(self):
-        self.startMenu()
+        # start menu, right for shutdown, right for context menu, up one for restart
+        self.singleKey("lsuper")
         self.client.pause(self.randomTime(1))
-        self.clickPos(350, 980)
+        self.singleKey("right")
         self.client.pause(self.randomTime(1))
-        self.clickPos(410, 955)
+        self.singleKey("right")
+        self.client.pause(self.randomTime(1))
+        self.singleKey("up")
+        self.client.pause(self.randomTime(1))
+        self.singleKey("enter")
         # reboot takes approx 25 seconds - disconnect first or Twisted throws a hissy fit
         self.disconnect()
         time.sleep(45)
         self.client = api.connect(self.address)
+        # position for password box on 1650x1080 screen
         self.clickPos(797, 636)
         self.typestring(self.password)
         self.singleKey("enter")
@@ -164,10 +136,7 @@ class Connector:
         self.singleKey('enter')
         
     def basic(self):
-        self.mouseMove(110,948)
-        self.client.pause(self.randomTime(1))
-        
-        self.clickPos(26, 1034)
+        self.singleKey("lsuper")
         self.client.pause(self.randomTime(2))
         self.typestring("microsoft word")
         self.singleKey("enter")
@@ -176,9 +145,7 @@ class Connector:
         self.singleKey("enter")
         self.singleKey("enter")
         self.client.pause(self.randomTime(4))
-        self.clickPos(1672, 17)
-        self.client.pause(self.randomTime(2))
-        self.singleKey("n")
+        self.closeWindow()
         self.mouseMove(127, 909)
         self.mouseMove(1462, 932)
         self.client.pause(self.randomTime(8))
@@ -190,9 +157,12 @@ class Connector:
         self.mouseMove(33, 1036)
         
     def closeWindow(self):
-        self.client.keyDown('alt')
-        self.singleKey('f4')
-        self.client.keyUp('alt')
+        self.client.keyDown("alt")
+        self.client.keyPress("f4")
+        self.client.keyUp("alt")
+        self.client.pause(self.randomTime(2))
+        self.singleKey("n")
+        
 
     def disconnect(self):
         self.client.disconnect()
