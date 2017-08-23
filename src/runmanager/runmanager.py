@@ -552,14 +552,22 @@ class RunInstance():
         
     def behaviour(self, dom, lv_conn):
         cstr = "{0}::{1}".format(self.victim_params["vnc"]["address"], self.victim_params["vnc"]["port"])
-        vncconn = pyvnc.Connector(cstr, self.victim_params["password"])
+        vncconn = pyvnc.Connector(cstr, self.victim_params["password"], (self.victim_params["display_x"], self.victim_params["display_y"]))
         logger.debug("Initialised VNC connection")
         t = arrow.now()
         wintime = t.strftime('%H:%M:%S')
         windate = t.strftime('%d/%m/%Y')
         vncconn.prepVM(windate, wintime)
         logger.debug("Victim date/time set to {0} {1}".format(windate, wintime))
+        
+        ext = self.fname.split(".")[-1]
+        
+        macrotypes = ["doc", "xls", "ppt", "dot", "xlm", "docm", "dotm", "docb", "xlsm", "xltm", "pptm"]
+        
         vncconn.downloadAndRun(self.fname)
+        if ext in macrotypes:
+            vncconn.enable_macros(self.victim_params["ms_office_type"])
+        
         logger.info("VM prepped for suspect execution, starting behaviour sequence")
         if self.interactive:
             logger.info("Passing control to user")
@@ -699,12 +707,23 @@ def main():
     if not isinstance(num_level, int):
         raise ValueError('Invalid log level "{0}"'.format(run_num_level))
     
-    ch = logging.StreamHandler()
-    ch.setLevel(num_level)
-    formatter = logging.Formatter(fmt='[%(asctime)s] %(levelname)s\t%(message)s', datefmt='%Y%m%d %H:%M:%S')
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
-    logger.setLevel(num_level)
+    
+    
+    
+    fmt = '[%(asctime)s] %(levelname)s\t%(message)s'
+    dfmt ='%Y%m%d %H:%M:%S'
+    formatter = logging.Formatter(fmt=fmt, datefmt=dfmt)
+    
+    logging.basicConfig(level=logging.CRITICAL, format=fmt, datefmt=dfmt)
+    
+    #ch = logging.StreamHandler()
+    #ch.setLevel(num_level)
+    #ch.setFormatter(formatter)
+    #logger.addHandler(ch)
+    #logger.setLevel(num_level)
+    
+    logging.getLogger(__name__).setLevel(logging.DEBUG)
+    logging.getLogger("pyvnc").setLevel(logging.DEBUG)
     
     if not os.access(conf.get('General', 'mountdir'), os.W_OK):
         logger.error("Mount directory {0} not writeable!".format(conf.get('General', 'mountdir')))
