@@ -78,8 +78,26 @@ def main():
 		username = raw_input("Username: ")
 		password = raw_input("Password: ")
 		ip = raw_input("IP address: ")
+		display_x = raw_input("Display width: ")
+		display_y = raw_input("Display height: ")
+		print("\n")
+		office_type = None
+		versions = [
+			"None",
+			"MS Office 2007",
+			"MS Office 2010",
+			"MS Office 2013",
+			"Office 365"
+		]
 		
-				
+		while office_type not in range(0, len(versions)):
+			print("What installation of MS Office is there?")
+			vopts = [[i, val] for i, val in enumerate(versions)]
+			
+			print(tabulate.tabulate(vopts))
+			office_type = int(raw_input("Please enter a number corresponding to your installation: "))
+		
+
 		print("\nYour VM will be registered with the following settings:\n")
 		
 		options = [
@@ -90,16 +108,18 @@ def main():
 			["ip", ip],
 			["username", username],
 			["password", password],
-			["diskfile", chosendisk]
+			["diskfile", chosendisk],
+			["resolution", "{0}x{1}".format(display_x, display_y)],
+			["office version", versions[office_type]]
 			]
 		
 		print(tabulate.tabulate(options, headers=["Option", "Value"]))
 		
 		raw_input("Press enter to confirm this selection (ctrl + c to abort)")
 		
-		cursor.execute("""INSERT INTO "victims" (libvirtname, uuid, hostname, os, ip, username, password, diskfile, status, runcounter) """ +
-					   """VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-					   (selected.name(), selected.UUIDString(), hostname, os, ip, username, password, chosendisk, 'production', 0))
+		cursor.execute("""INSERT INTO "victims" (libvirtname, uuid, hostname, os, ip, username, password, diskfile, status, runcounter, display_x, display_y, ms_office_type) """ +
+					   """VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+					   (selected.name(), selected.UUIDString(), hostname, os, ip, username, password, chosendisk, 'production', 0, int(display_x), int(display_y), office_type))
 		
 		print("VM registered in database")
 		
