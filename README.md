@@ -40,6 +40,7 @@ To install, perform the steps below:
   - Change the display type to VNC
   - Change the Video type to Cirrus (actually we want it to be VMVGA, but there's a bug with the virtualisation that makes the installer fail to boot with that setting)
   - Save the config and halt the VM
+  - I set my VMs up with UK keyboard layouts. You must also set the keymap in the VM configuration. I believe this should work with other combinations, provided the Libvirt keymap reflects the guest VM's, but I have not tested this yet.
 - Move the virtual disk file to /mnt/images
 - Set ownership to root:libvirt-qemu and chmod g+rw
 
@@ -67,9 +68,8 @@ To install, perform the steps below:
 
 ### Guest VM setup
 
-- Please configure the display resolution at 1680x1050. I appreciate this might be awkward on screens smaller than 1980x1200; I have not yet looked at how to adapt to different resolutions.
+- Most of the functionality should be resolution independent but a few details (logging back in after reboot) need a screen resolution of 1680x1050. Please set this if you need that feature to work.
 - Change the display type to VMVGA now that installation is done.
-- I set my VMs up with UK keyboard layouts. You must also set the keymap in the VM configuration. I believe this should work with other combinations, provided the Libvirt keymap reflects the guest VM's, but I have not checked.
 - I have collected some resources for preparing the VM, but for practical reasons they are not within the git repository.
 - Please download them from https://dl.hexistentialist.com with the username/password I have provided to you.
 - Copy the file to /usr/local/unsafehex/$SBXNAME/www/$SBXNAME/public/downloads.
