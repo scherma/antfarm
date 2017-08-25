@@ -5,7 +5,7 @@
 
 from vncdotool import client, api
 from random import randrange, randint
-import sys, logging, time
+import sys, logging, time, urllib
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +118,7 @@ class Connector:
         self.client.keyPress("r")
         self.client.keyUp("lsuper")
         self.client.pause(2)
-        cmdstr = 'powershell -executionPolicy bypass -file "C:\\Program Files\\run.ps1" "{0}"'.format(filename)
+        cmdstr = 'powershell -executionPolicy bypass -file "C:\\Program Files\\run.ps1" "{0}"'.format(urllib.quote(filename))
         logger.debug("Powershell command: {0}".format(cmdstr))
         self.typestring(cmdstr)
         self.client.keyPress("enter")

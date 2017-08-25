@@ -194,7 +194,7 @@ $(document).ready(function() {
 			</td>
 			<td>{{this.System.SystemTime}}</td>
 			<td>{{this.System.EventName}}</td>
-			<td>{{#if this.Highlight}}{{this.Highlight}}{{/if}}</td>
+			<td class="longrow">{{#if this.Highlight}}{{this.Highlight}}{{/if}}</td>
 
 			
 		</tr>
@@ -221,7 +221,7 @@ $(document).ready(function() {
 								{{#each this.Data}}
 								<tr>
 									<td>{{@key}}</td>
-									<td class="break">{{this}}</td>
+									<td class="break longrow">{{this}}</td>
 								</tr>
 								{{/each}}
 							</table>

@@ -135,8 +135,10 @@ cp -v $SCRIPTDIR/res/run.ps1 /usr/local/unsafehex/$SBXNAME/suspects/downloads
 cp -v $SCRIPTDIR/res/bios.bin /usr/local/unsafehex/$SBXNAME/
 mkdir -v /usr/local/unsafehex/$SBXNAME/www/$SBXNAME
 cp -Rv $SCRIPTDIR/src/node/* /usr/local/unsafehex/$SBXNAME/www/
-mv -v /usr/local/unsafehex/$SBXNAME/www/hexlab/* /usr/local/unsafehex/$SBXNAME/www/$SBXNAME
-rmdir -v /usr/local/unsafehex/$SBXNAME/www/hexlab
+mv -v /usr/local/unsafehex/$SBXNAME/www/antfarm/* /usr/local/unsafehex/$SBXNAME/www/$SBXNAME
+if [$SBXNAME != "antfarm"]; then
+	rmdir -v /usr/local/unsafehex/$SBXNAME/www/antfarm
+fi
 addgroup $SBXNAME
 chmod 775 -R /usr/local/unsafehex
 usermod -a -G $SBXNAME $LABUSER
