@@ -67,6 +67,10 @@ function list_files(page=0, where={}, limit=20) {
 	}
 }
 
+function sysmon_for_case(uuid) {
+	return pg('sysmon_evts').select('recordid', 'eventid', 'timestamp', 'executionprocess', 'executionthread', 'computer', 'eventdata').where({uuid: uuid});
+}
+
 function show_case(uuid) {
 	return pg('cases').leftJoin('suspects', 'cases.sha256', '=', 'suspects.sha256').where({'cases.uuid': uuid});
 }
@@ -82,5 +86,6 @@ module.exports = {
 	show_case: show_case,
 	list_files: list_files,
 	list_workers: list_workers,
-	delete_case: delete_case
+	delete_case: delete_case,
+	sysmon_for_case: sysmon_for_case
 	};

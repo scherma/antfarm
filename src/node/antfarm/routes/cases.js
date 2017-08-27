@@ -100,7 +100,8 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 		});
 	});*/
 	
-	var sysmonP = new Promise((fulfill, reject)=> {
+	var sysmonP = db.sysmon_for_case(req.params.uuid);
+	/*new Promise((fulfill, reject)=> {
 		var xmlp = xml2js.Parser();
 		fs.readFile(path.join(casepath, 'sysmon.xml'), 'utf8', (err, data) => {
 			if (err === null) {
@@ -118,7 +119,7 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 				fulfill({});
 			}
 		});
-	});
+	});*/
 	
 	var eventsP = new Promise((fulfill, reject) => {
 		fs.readFile(path.join(casepath, 'eve.json'), 'utf8', (err, data) => {
@@ -239,11 +240,16 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 		var caseid = properties.sha256.text + "/" + properties.uuid.text;
 		
 		var sysmon = [];
-		if (rawsysmon.Events && rawsysmon.Events.Event) {
+		
+		rawsysmon.forEach((row) => {
+			var parsed = functions.ParseSysmon(row);
+			sysmon.push(parsed);
+		});
+		/*if (rawsysmon.Events && rawsysmon.Events.Event) {
 			rawsysmon.Events.Event.forEach((object) => {
 				sysmon.push(functions.ParseSysmon(object));
 			});
-		}
+		}*/
 		//var screenshot = {path: path.join('/images/cases', shortdir, properties["Run UUID"], '1.png'), alt: ''};
 		
 		var pcaplink = '/cases/pcap/' + properties.sha256.text + '/' + properties.uuid.text;

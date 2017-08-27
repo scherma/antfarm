@@ -4,7 +4,7 @@
 # contact http_error_418@unsafehex.com
 
 import libvirt, sys, os, argparse, logging, uuid, time, pika, json, psycopg2, psycopg2.extras, arrow
-import shutil, time, evtx_dates, threading, socket, pcap_parser, pyvnc, psutil, ConfigParser
+import shutil, time, evtx_dates, threading, socket, pcap_parser, pyvnc, psutil, ConfigParser, xmljson
 import scapy.all as scapy
 from subprocess import call
 from lxml import etree
@@ -66,7 +66,7 @@ class Worker():
                 # ensure mount dir is clean from previous run
                 call(['guestunmount', self.mntdir])
                 return uuid
-            except e:
+            except Exception as e:
                 logger.error("Fatal error during VM selection: {0}".format(e))
                 self._db_cleanup(uuid)
                 self._exit(1)
@@ -290,7 +290,7 @@ class Worker():
             call(['guestmount', '--ro', '-a', self.victim_params["diskfile"], '-m', '/dev/sda2', self.mntdir])
             
             # write output to file/database
-            suspect.construct_record(self.mntdir, self.victim_params)
+            suspect.construct_record(self.mntdir, self.victim_params, self.cursor)
             logger.debug("Output written")
             self._case_update('complete', suspect.uuid)
              
@@ -391,35 +391,35 @@ class RunInstance():
     
     @property
     def banking(self):
-        return int(self.banking)
+        return int(self._banking)
     
     @banking.setter
     def banking(self, value):
-        self.banking = bool(value)
+        self._banking = bool(value)
     
     @property
     def web(self):
-        return int(self.web)
+        return int(self._web)
     
     @banking.setter
     def web(self, value):
-        self.web = bool(value)
+        self._web = bool(value)
         
     @property
     def interactive(self):
-        return int(self.interactive)
+        return int(self._interactive)
     
     @interactive.setter
     def interactive(self, value):
-        self.interactive = bool(value)
+        self._interactive = bool(value)
         
     @property
     def stop_capture(self):
-        return bool(self.stop_capture)
+        return bool(self._stop_capture)
 
     @stop_capture.setter
     def stop_capture(self, value):
-        self.stop_capture = bool(value)
+        self._stop_capture = bool(value)
         
     def _dump_dict(self):
         tformat = 'YYYY-MM-DD HH:mm:ss.SSSZ'
@@ -550,6 +550,45 @@ class RunInstance():
                         
             return events
         
+    def insert_sysmon(self, events_list, cursor):
+        schema = "{http://schemas.microsoft.com/win/2004/08/events/event}"
+        
+        values = []
+        sql = """INSERT INTO sysmon_evts (uuid, recordid, eventid, timestamp, executionprocess, executionthread, computer, eventdata, evt_xml) VALUES %s"""
+        
+        for event in events_list:
+            j = xmljson.badgerfish.data(event)
+            system = j["{0}Event".format(schema)]["{0}System".format(schema)]
+            evtdata = {}
+            for item in j["{0}Event".format(schema)]["{0}EventData".format(schema)]["{0}Data".format(schema)]:
+                if "$" not in item:
+                    evtdata[item["@Name"]] = None
+                else:
+                    evtdata[item["@Name"]] = item["$"]
+                if item["@Name"] == "Hashes":
+                    hasheslist = item["$"].split(",")
+                    evtdata["Hashes"] = {}
+                    for h in hasheslist:
+                        parts = h.split("=")
+                        hashtype = parts[0]
+                        hashval = parts[1]
+                        evtdata["Hashes"][hashtype] = hashval
+                        
+            evtjson = json.dumps(evtdata)
+            recordID = system["{0}EventRecordID".format(schema)]["$"]
+            eventID = system["{0}EventID".format(schema)]["$"]
+            timestamp = "{0} +0000".format(system["{0}TimeCreated".format(schema)]["@SystemTime"])
+            executionProcess = system["{0}Execution".format(schema)]["@ProcessID"]
+            executionThread = system["{0}Execution".format(schema)]["@ThreadID"]
+            computer = system["{0}Computer".format(schema)]["$"]
+            
+            row = (self.uuid, recordID, eventID, timestamp, executionProcess, executionThread, computer, evtjson, etree.tostring(event, 'utf-8'))
+            
+            values.append(row)
+        
+        psycopg2.extras.execute_values(cursor, sql, values)
+        logger.debug("Inserted {0} sysmon events for case {1}".format(len(values), self.uuid))
+        
     def behaviour(self, dom, lv_conn):
         cstr = "{0}::{1}".format(self.victim_params["vnc"]["address"], self.victim_params["vnc"]["port"])
         vncconn = pyvnc.Connector(cstr, self.victim_params["password"], (self.victim_params["display_x"], self.victim_params["display_y"]))
@@ -611,7 +650,7 @@ class RunInstance():
             os.remove(self.downloadfile)
             logger.debug("Removed download file")
     
-    def construct_record(self, guestmount_path, victim_params):
+    def construct_record(self, guestmount_path, victim_params, cursor):
         dtstart = arrow.get(self.starttime)
         dtend = arrow.get(self.endtime)
         try:
@@ -621,18 +660,23 @@ class RunInstance():
             sysmon_file = os.path.join(self.rundir, "sysmon.xml")
             evctr = 0
             # write sysmon events
+            matching_evtx = evtx_dates.matching_records(sysmon_path, dtstart, dtend)
+            evts = []
             with open(sysmon_file, 'w') as f:
                 f.write('<Events>\n')
-                for e in evtx_dates.matching_records(sysmon_path, dtstart, dtend):
+                for e in matching_evtx:
                     f.write(etree.tostring(e, pretty_print=True))
+                    evts.append(e)
                     evctr += 1
                 f.write('</Events>')
                 logger.info("Wrote {0} sysmon events to {1}".format(evctr, sysmon_file))
+                
+            self.insert_sysmon(evts, cursor)
         except Exception:
             ex_type, ex, tb = sys.exc_info()
             fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
             lineno = tb.tb_lineno
-            logger.error("Exception {0} {1} in {2}, line {3} while processing job, sysmon data not written".format(ex_type, ex, fname, lineno))
+            logger.error("Exception {0} {1} in {2}, line {3} while processing sysmon output".format(ex_type, ex, fname, lineno))
            
         try: 
             # record runinstance properties
@@ -665,7 +709,6 @@ class RunInstance():
                     events = self.events_to_store(self.conf.get('General', 'suricata_log'), dtstart, dtend)
                 else:
                     logger.debug("Suricata eve.json file not present")
-                events = self.events_to_store(self.conf.get('General', 'suricata_log'), dtstart, dtend)
                 e.write(json.dumps(events))
                 qty = {}
                 for evtype in events:

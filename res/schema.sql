@@ -115,6 +115,31 @@ CREATE TABLE workerstate (
 ALTER TABLE workerstate OWNER TO postgres;
 
 --
+-- Name: sysmon_evts; Type TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE sysmon_evts (
+	uuid varchar(50),
+	recordID int NOT NULL,
+	eventID int NOT NULL,
+	timestamp timestamp with time zone NOT NULL,
+	executionProcess int,
+	executionThread int,
+	computer text,
+	eventData json,
+	evt_xml xml
+);
+
+ALTER TABLE sysmon_evts OWNER TO postgres;
+
+--
+-- Name: sysmon_evts_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY sysmon_evts
+	ADD CONSTRAINT sysmon_evts_pkey PRIMARY KEY (uuid, recordID);
+
+--
 -- Name: cases_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -152,6 +177,14 @@ ALTER TABLE ONLY workerstate
 
 ALTER TABLE ONLY cases
     ADD CONSTRAINT cases_sha256_fkey FOREIGN KEY (sha256) REFERENCES suspects(sha256);
+
+
+--
+-- Name: sysmon_evts_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY sysmon_evts
+    ADD CONSTRAINT sysmon_evts_uuid_fkey FOREIGN KEY (uuid) REFERENCES cases(uuid);
 
 
 --
@@ -207,6 +240,14 @@ REVOKE ALL ON TABLE workerstate FROM PUBLIC;
 REVOKE ALL ON TABLE workerstate FROM postgres;
 GRANT ALL ON TABLE workerstate TO postgres;
 
+
+--
+-- Name: sysmon_evts; Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON TABLE sysmon_evts FROM PUBLIC;
+REVOKE ALL ON TABLE sysmon_evts FROM postgres;
+GRANT ALL ON TABLE sysmon_evts TO postgres;
 
 --
 -- PostgreSQL database dump complete

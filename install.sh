@@ -20,7 +20,7 @@ echo "Date has been set to $D"
 
 read -p "Specify the user which the sandbox will run as: " LABUSER
 
-if [ -z $(getent passwd $LABUSER) ]; then
+if [ -z "$(getent passwd "$LABUSER")" ]; then
     echo -e "${RED}Please create user $LABUSER before running this script${NC}"
     exit 1
 fi
@@ -43,14 +43,14 @@ echo "VM network netmask: 		$NETMASK"
 echo ""
 read -p "Press enter to accept these settings and install the sandbox" CONTINUE
 
-SCRIPTDIR=$(dirname $(realpath $0))
+SCRIPTDIR=$(dirname "$(realpath "$0")")
 
 # User requires dnsmasq to be in $PATH in order to edit libvirt virtual networks
-echo "PATH=$PATH:/usr/sbin" >> /home/$LABUSER/.bash_profile
+echo "PATH=$PATH:/usr/sbin" >> "/home/$LABUSER/.bash_profile"
 # Running virt-manager outputs garbage errors about inability to use accessibility bus - hide these
-echo "export NO_AT_BRIDGE=1" >> /home/$LABUSER/.bash_profile
+echo "export NO_AT_BRIDGE=1" >> "/home/$LABUSER/.bash_profile"
 
-chown $LABUSER:$LABUSER /home/$LABUSER/.bash_profile
+chown "$LABUSER:$LABUSER" "/home/$LABUSER/.bash_profile"
 
 echo -e "${GREEN}Running basic updates...${NC}"
 
@@ -75,6 +75,8 @@ apt-get remove -y python-cffi
 pip install pika psycopg2 arrow vncdotool pyshark psutil scapy tabulate ipaddress
 pip install --upgrade Pillow
 pip install --upgrade twisted
+# pip3 install scapy-python3
+# vncdotool currently has bugs in python3 - can't move this to py3 just yet
 
 echo -e "${GREEN}Installing Python EVTX Parser by Willi Ballenthin$...${NC}"
 pip install git+https://github.com/williballenthin/python-evtx
@@ -95,79 +97,81 @@ su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE workerstate TO $SBXNAME;\"" postgre
 su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE victims TO $SBXNAME;\"" postgres
 su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE suspects TO $SBXNAME;\"" postgres
 su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE cases TO $SBXNAME;\"" postgres
+su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE sysmon_evts TO $SBXNAME;\"" postgres
 
 echo -e "${GREEN}Granting user permissions for packet capture...${NC}"
 chmod +s /usr/sbin/tcpdump
 groupadd pcap
-usermod -a -G pcap $LABUSER
+usermod -a -G pcap "$LABUSER"
 chgrp pcap /usr/sbin/tcpdump
 chmod 750 /usr/sbin/tcpdump
 # possibly only python needs cap_net_raw but setting on both to be sure
 setcap cap_net_raw,cap_net_admin=eip /usr/sbin/tcpdump
 setcap cap_net_raw,cap_net_admin=eip /usr/bin/python2.7
+# setcap cap_net_raw,cap_net_admin=eip /usr/bin/python3.4
 # when running as non-root, tcpdump looks for gettext in the wrong place (as does libvirt)
 ln -s /usr/bin/gettext.sh /usr/local/bin/gettext.sh
 
 echo -e "${GREEN}Directory structure creation...${NC}"
 mkdir -v /usr/local/unsafehex/
-mkdir -v /usr/local/unsafehex/$SBXNAME
-mkdir -v /usr/local/unsafehex/$SBXNAME/suspects
-mkdir -v /usr/local/unsafehex/$SBXNAME/suspects/downloads
-mkdir -v /usr/local/unsafehex/$SBXNAME/output
-mkdir -v /usr/local/unsafehex/$SBXNAME/runmanager
-mkdir -v /usr/local/unsafehex/$SBXNAME/runmanager/logs
-mkdir -v /usr/local/unsafehex/$SBXNAME/www
+mkdir -v "/usr/local/unsafehex/$SBXNAME"
+mkdir -v "/usr/local/unsafehex/$SBXNAME/suspects"
+mkdir -v "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
+mkdir -v "/usr/local/unsafehex/$SBXNAME/output"
+mkdir -v "/usr/local/unsafehex/$SBXNAME/runmanager"
+mkdir -v "/usr/local/unsafehex/$SBXNAME/runmanager/logs"
+mkdir -v "/usr/local/unsafehex/$SBXNAME/www"
 mkdir -v /mnt/images
-mkdir -v /mnt/$SBXNAME
-chown root:$SBXNAME /mnt/$SBXNAME
-chmod g+rw /mnt/$SBXNAME
+mkdir -v "/mnt/$SBXNAME"
+chown root:"$SBXNAME" "/mnt/$SBXNAME"
+chmod g+rw /mnt/"$SBXNAME"
 chown root:libvirt-qemu /mnt/images
 chmod g+rw /mnt/images
 
 echo -e "${GREEN}Unwrapping sandbox manager files and utilities...${NC}"
-python $SCRIPTDIR/scripts/write_tor_iptables.py $GATEWAY_IP $NETMASK $SCRIPTDIR/src/runmanager/
-python $SCRIPTDIR/scripts/write_network.py $GATEWAY_IP $NETMASK $SCRIPTDIR/res/vnet.xml
-python $SCRIPTDIR/scripts/write_runfile.py $GATEWAY_IP 8080 $SCRIPTDIR/res/run.ps1
-cp -Rv $SCRIPTDIR/src/runmanager/* /usr/local/unsafehex/$SBXNAME/runmanager/
-cp -v $SCRIPTDIR/res/sysmon.exe /usr/local/unsafehex/$SBXNAME/suspects/downloads
-cp -v $SCRIPTDIR/res/sysmon.xml /usr/local/unsafehex/$SBXNAME/suspects/downloads
-cp -v $SCRIPTDIR/res/run.ps1 /usr/local/unsafehex/$SBXNAME/suspects/downloads
-cp -v $SCRIPTDIR/res/bios.bin /usr/local/unsafehex/$SBXNAME/
-mkdir -v /usr/local/unsafehex/$SBXNAME/www/$SBXNAME
-cp -Rv $SCRIPTDIR/src/node/* /usr/local/unsafehex/$SBXNAME/www/
-mv -v /usr/local/unsafehex/$SBXNAME/www/antfarm/* /usr/local/unsafehex/$SBXNAME/www/$SBXNAME
-if [$SBXNAME != "antfarm"]; then
-	rmdir -v /usr/local/unsafehex/$SBXNAME/www/antfarm
+python "$SCRIPTDIR/scripts/write_tor_iptables.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTDIR/src/runmanager/"
+python "$SCRIPTDIR/scripts/write_network.py" "$GATEWAY_IP" "$NETMASK $SCRIPTDIR/res/vnet.xml"
+python "$SCRIPTDIR/scripts/write_runfile.py" "$GATEWAY_IP" 8080 "$SCRIPTDIR/res/run.ps1"
+cp -Rv "$SCRIPTDIR/src/runmanager/*" "/usr/local/unsafehex/$SBXNAME/runmanager/"
+cp -v "$SCRIPTDIR/res/sysmon.exe" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
+cp -v "$SCRIPTDIR/res/sysmon.xml" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
+cp -v "$SCRIPTDIR/res/run.ps1" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
+cp -v "$SCRIPTDIR/res/bios.bin" "/usr/local/unsafehex/$SBXNAME/"
+mkdir -v "/usr/local/unsafehex/$SBXNAME/www/$SBXNAME"
+cp -Rv "$SCRIPTDIR/src/node/*" "/usr/local/unsafehex/$SBXNAME/www/"
+mv -v "/usr/local/unsafehex/$SBXNAME/www/antfarm/*" "/usr/local/unsafehex/$SBXNAME/www/$SBXNAME"
+if [ "$SBXNAME" != "antfarm" ]; then
+	rmdir -v "/usr/local/unsafehex/$SBXNAME/www/antfarm"
 fi
-addgroup $SBXNAME
+addgroup "$SBXNAME"
 chmod 775 -R /usr/local/unsafehex
-usermod -a -G $SBXNAME $LABUSER
-python $SCRIPTDIR/scripts/writerunconf.py "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
-python $SCRIPTDIR/scripts/writewwwconf.py "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
+usermod -a -G "$SBXNAME" "$LABUSER"
+python "$SCRIPTDIR/scripts/writerunconf.py" "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
+python "$SCRIPTDIR/scripts/writewwwconf.py" "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
 
 echo -e "${GREEN}Building required version of libvirt...${NC}"
 addgroup libvirt-qemu
-mkdir -v /tmp/$SBXNAME
-mkdir -v /tmp/$SBXNAME/libvirt
-cd /tmp/$SBXNAME/libvirt
+mkdir -v "/tmp/$SBXNAME"
+mkdir -v "/tmp/$SBXNAME/libvirt"
+cd "/tmp/$SBXNAME/libvirt"
 wget https://libvirt.org/sources/libvirt-3.1.0.tar.xz
 tar xvfJ libvirt-3.1.0.tar.xz
 cd libvirt-3.1.0
 ./configure --with-qemu-group=libvirt-qemu --localstatedir=/usr/local/var --with-dnsmasq-path=/usr/sbin/dnsmasq
 make && make install
-usermod -a -G libvirt-qemu $LABUSER
-usermod -a -G kvm $LABUSER
+usermod -a -G libvirt-qemu "$LABUSER"
+usermod -a -G kvm "$LABUSER"
 apt-get install -y libvirt-daemon libvirt-clients virt-manager
-cp -v $SCRIPTDIR/res/libvirtd.service /etc/systemd/system
-rm -v /etc/libvirt/libvirtd.conf
-cp -v $SCRIPTDIR/res/libvirtd.conf /etc/libvirt/
+cp -v "$SCRIPTDIR/res/libvirtd.service" /etc/systemd/system
+rm -v "/etc/libvirt/libvirtd.conf"
+cp -v "$SCRIPTDIR/res/libvirtd.conf" /etc/libvirt/
 # socket file is not necessary and if not present in /etc/systemd/system, systemd will fall back to the next available one
 # better to make sure they're all gone otherwise libvirt sockets will be created in the wrong location and with wrong permissions
 rm -v /lib/systemd/system/libvirtd.socket
 
 echo -e "${GREEN}Building required version of Suricata...${NC}"
-mkdir -v /tmp/$SBXNAME/suricata
-cd /tmp/$SBXNAME/suricata
+mkdir -v "/tmp/$SBXNAME/suricata"
+cd "/tmp/$SBXNAME/suricata"
 wget https://www.openinfosecfoundation.org/download/suricata-4.0.0.tar.gz
 tar zxvf suricata-4.0.0.tar.gz
 cd suricata-4.0.0
@@ -176,7 +180,7 @@ make && make install
 make install-conf
 
 echo -e "${GREEN}Setting up Emerging Threats download...${NC}"
-cd /tmp/$SBXNAME/
+cd "/tmp/$SBXNAME/"
 git clone https://github.com/seanthegeek/etupdate.git
 cp -v etupdate/etupdate /usr/sbin
 /usr/sbin/etupdate -V
@@ -189,24 +193,24 @@ rm tmpcron
 echo -e "${GREEN}Configuring ClamAV to accept TCP connections...${NC}"
 echo "TCPSocket 9999" >> /etc/clamav/clamd.conf
 echo "TCPAddr 127.0.0.1" >> /etc/clamav/clamd.conf
-cp -rf $SCRIPTDIR/res/extend.conf /etc/systemd/system/clamav-daemon.socket.d/extend.conf
+cp -rf "$SCRIPTDIR/res/extend.conf" /etc/systemd/system/clamav-daemon.socket.d/extend.conf
 
 echo -e "${GREEN}Setting up nginx...${NC}"
-cd /tmp/$SBXNAME/
+cd "/tmp/$SBXNAME/"
 mkdir -v ssl
-cd /tmp/$SBXNAME/ssl
-openssl req -x509 -nodes -days 365 -newkey rsa:4096 -subj "/CN=$SBXNAME/O=$SBXNAME/C=$CCODE" -keyout $SBXNAME\.key -out $SBXNAME\.crt
+cd "/tmp/$SBXNAME/ssl"
+openssl req -x509 -nodes -days 365 -newkey rsa:4096 -subj "/CN=$SBXNAME/O=$SBXNAME/C=$CCODE" -keyout "$SBXNAME\.key" -out "$SBXNAME\.crt"
 openssl dhparam -out dhparam.pem 4096
 mkdir -v /etc/nginx/ssl
 chmod 700 /etc/nginx/ssl
-cp -v $SBXNAME\.key $SBXNAME\.crt dhparam.pem /etc/nginx/ssl
+cp -v "$SBXNAME\.key" "$SBXNAME\.crt" dhparam.pem /etc/nginx/ssl
 rm -v /etc/nginx/sites-enabled/default
-cp -v $SCRIPTDIR/res/nginx /etc/nginx/sites-enabled/$SBXNAME
+cp -v "$SCRIPTDIR/res/nginx" "/etc/nginx/sites-enabled/$SBXNAME"
 
 echo -e "${GREEN}Setting permissions on sandbox file structure...${NC}"
-chown root:$SBXNAME -R /usr/local/unsafehex
+chown root:"$SBXNAME" -R /usr/local/unsafehex
 
-cd $SCRIPTDIR
+cd "$SCRIPTDIR"
 
 echo -e "${GREEN}Starting clam and libvirt services...${NC}"
 # settings on libvirt not in effect until reloaded
@@ -225,18 +229,20 @@ service virtlogd stop
 service virtlogd start
 
 echo -e "${GREEN}Configuring tor, virtual network, and host run scripts${NC}"
-echo "" >> /etc/tor/torrc
-echo "TransListenAddress $GATEWAY_IP" >> /etc/tor/torrc
-echo "TransPort 8081" >> /etc/tor/torrc
-echo "DNSListenAddress $GATEWAY_IP" >> /etc/tor/torrc
-echo "DNSPort 5353" >> /etc/tor/torrc
+{
+	echo ""
+	echo "TransListenAddress $GATEWAY_IP"
+	echo "TransPort 8081"
+	echo "DNSListenAddress $GATEWAY_IP"
+	echo "DNSPort 5353"
+} >> /etc/tor/torrc
 
 virsh -c qemu:///system net-destroy default
 virsh -c qemu:///system net-undefine default
-virsh -c qemu:///system net-create $SCRIPTDIR/res/vnet.xml
+virsh -c qemu:///system net-create "$SCRIPTDIR/res/vnet.xml"
 
 echo -e "${GREEN}Cleaning up temporary files...${NC}"
-rm -rfv /tmp/$SBXNAME
+rm -rfv "/tmp/$SBXNAME"
 
 echo -e "${GREEN}INITIAL SETUP COMPLETE${NC}"
 echo -e "You will now need to fill in config options and create your Windows VMs. Please see ${RED}README.md${NC} for details."

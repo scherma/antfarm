@@ -121,7 +121,7 @@ var ParseSysmon = (sm_evt) => {
 	
 	var e = {};
 	//console.log(sm_evt.System[0].Execution[0]);
-	e.System = {
+	/*e.System = {
 		Level: sm_evt.System[0].Level[0],
 		Version: sm_evt.System[0].Version[0],
 		EventRecordID: sm_evt.System[0].EventRecordID[0],
@@ -145,29 +145,51 @@ var ParseSysmon = (sm_evt) => {
 		e.Data.SHA1 = e.Data.Hashes.split(",")[2].split("=")[1];
 		
 		delete(e.Data.Hashes);
+	}*/
+	
+	e.System = {
+		EventRecordID: sm_evt.recordid,
+		Computer: sm_evt.computer,
+		EventID: sm_evt.eventid,
+		EventName: reftable[sm_evt.eventid],
+		SystemTime: sm_evt.timestamp,
+		ProcessID: sm_evt.executionprocess,
+		ThreadID: sm_evt.executionthread
+	};
+	
+	if (sm_evt.eventdata) {
+		e.Data = sm_evt.eventdata;
 	}
 	
-	if (['5'].indexOf(e.System.EventID) >= 0) {
+	if (e.Data.Hashes) {
+		Object.keys(e.Data.Hashes).forEach((hashtype) => {
+			e.Data[hashtype] = e.Data.Hashes[hashtype];
+		});
+		
+		delete e.Data.Hashes;
+	}
+	
+	if ([5].indexOf(e.System.EventID) >= 0) {
 		e.Highlight = e.Data.Image;
 	}
 	
-	if (['1'].indexOf(e.System.EventID) >= 0) {
+	if ([1].indexOf(e.System.EventID) >= 0) {
 		e.Highlight = e.Data.CommandLine;
 	}
 	
-	if (['11'].indexOf(e.System.EventID) >= 0) {
+	if ([11].indexOf(e.System.EventID) >= 0) {
 		e.Highlight = e.Data.TargetFilename;
 	}
 	
-	if (['12', '13', '14'].indexOf(e.System.EventID) >= 0) {
+	if ([12, 13, 14].indexOf(e.System.EventID) >= 0) {
 		e.Highlight = e.Data.TargetObject;
 	}
 	
-	if (['8'].indexOf(e.System.EventID) >= 0) {
+	if ([8].indexOf(e.System.EventID) >= 0) {
 		e.Highlight = e.Data.SourceImage + ' -> ' + e.Data.TargetImage;
 	}
 	
-	if (['3'].indexOf(e.System.EventID) >= 0) {
+	if ([3].indexOf(e.System.EventID) >= 0) {
 		e.Highlight = e.Data.Image + ' -> ' + e.Data.DestinationIp + ':' + e.Data.DestinationPort;
 		if (e.Data.DestinationHostname) {
 			e.Highlight = e.Highlight + ' "' + e.Data.DestinationHostname + '"';
