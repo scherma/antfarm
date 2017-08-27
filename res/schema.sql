@@ -126,7 +126,7 @@ CREATE TABLE sysmon_evts (
 	executionProcess int,
 	executionThread int,
 	computer text,
-	eventData json,
+	eventData jsonb,
 	evt_xml xml
 );
 
