@@ -61,7 +61,7 @@ To install, perform the steps below:
 
 - Install your guest OS and configure it with a static IP address in the 192.168.43.0/24 range, with 192.168.43.1 as the gateway
 - Configure the main nginx reverse proxy to serve on the host's external IP. Fill in the `REPLACE_ME` sections with your external IP and sandbox name as applicable
-- Set Suricata up using the Cuckoo guide (unless you are comfortable enough to roll your own!)
+- I have included an example Suricata config in the res/ directory. If you feel comfortable rolling your own, go ahead!
 - Make sure that the file permissions for the eve.json output allow reading by all, OR that you manually change them once it is created.
 - The install.sh script has already configured automatic updates of the Emerging Threats signature list which I find works pretty well - add more if you like though
 - Start nginx
