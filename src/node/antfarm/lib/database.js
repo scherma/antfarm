@@ -3,6 +3,7 @@
 
 var moment = require('moment');
 var options = require('./options');
+var Promise = require('bluebird');
 var dbparams = {
 	client: 'pg',
 	connection: {
@@ -75,6 +76,14 @@ function show_case(uuid) {
 	return pg('cases').leftJoin('suspects', 'cases.sha256', '=', 'suspects.sha256').where({'cases.uuid': uuid});
 }
 
+function suricata_for_case(uuid) {
+	var dns = pg('suricata_dns').where({uuid: uuid});
+	var http = pg('suricata_http').where({uuid: uuid});
+	var alert = pg('suricata_alert').where({uuid: uuid});
+	var tls = pg('suricata_tls').where({uuid: uuid});
+	return Promise.all([dns, http, alert, tls]);
+}
+
 function delete_case(uuid) {
 	return pg('cases').where('uuid', uuid).del();
 }
@@ -87,5 +96,6 @@ module.exports = {
 	list_files: list_files,
 	list_workers: list_workers,
 	delete_case: delete_case,
-	sysmon_for_case: sysmon_for_case
+	sysmon_for_case: sysmon_for_case,
+	suricata_for_case: suricata_for_case
 	};

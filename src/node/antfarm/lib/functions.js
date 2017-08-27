@@ -244,12 +244,13 @@ var ofInterest = function(event) {
 		var s = Addr(subnet);
 		if (s.contains(Addr(event.src_ip)) || s.contains(Addr(event.dest_ip))) {
 			ofinterest = false;
+			console.log("subnet");
 		}
 	});
 	
 	
-	if (event.http) {
-		var namearr = event.http.hostname.split(".");
+	if (event.httpdata) {
+		var namearr = event.httpdata.hostname.split(".");
 		namearr.reverse();
 		switch (namearr[0]) {
 			case "com":
@@ -265,9 +266,9 @@ var ofInterest = function(event) {
 			default:
 				break;
 		}
-	} else if (event.tls) {
+	} else if (event.tlsdata) {
 		var CNs = [];
-		var attrs = event.tls.subject.split(",");
+		var attrs = event.tlsdata.subject.split(",");
 		attrs.forEach((attr) => {
 			var a = attr.trim().split("=");
 			if (a[0] == "CN") {

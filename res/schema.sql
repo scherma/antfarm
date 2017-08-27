@@ -132,6 +132,72 @@ CREATE TABLE sysmon_evts (
 
 ALTER TABLE sysmon_evts OWNER TO postgres;
 
+CREATE TABLE suricata_dns (
+	id SERIAL PRIMARY KEY,
+	uuid varchar(50),
+	src_ip inet,
+	src_port int,
+	dest_ip inet,
+	dest_port int,
+	"timestamp" timestamp with time zone,
+	dnsdata jsonb
+);
+
+ALTER TABLE suricata_dns OWNER TO postgres;
+
+CREATE TABLE suricata_http (
+	id SERIAL PRIMARY KEY,
+	uuid varchar(50),
+	src_ip inet,
+	src_port int,
+	dest_ip inet,
+	dest_port int,
+	"timestamp" timestamp with time zone,
+	httpdata jsonb
+);
+
+ALTER TABLE suricata_http OWNER TO postgres;
+
+CREATE TABLE suricata_alert (
+	id SERIAL PRIMARY KEY,
+	uuid varchar(50),
+	src_ip inet,
+	src_port int,
+	dest_ip inet,
+	dest_port int,
+	"timestamp" timestamp with time zone,
+	alert jsonb,
+	payload text
+);
+
+ALTER TABLE suricata_alert OWNER TO postgres;
+
+CREATE TABLE suricata_tls (
+	id SERIAL PRIMARY KEY,
+	uuid varchar(50),
+	src_ip inet,
+	src_port int,
+	dest_ip inet,
+	dest_port int,
+	"timestamp" timestamp with time zone,
+	tlsdata jsonb
+);
+
+ALTER TABLE suricata_tls OWNER TO postgres;
+
+
+ALTER TABLE ONLY suricata_dns
+	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
+	
+ALTER TABLE ONLY suricata_http
+	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
+	
+ALTER TABLE ONLY suricata_alert
+	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
+	
+ALTER TABLE ONLY suricata_tls
+	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
+
 --
 -- Name: sysmon_evts_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
@@ -248,6 +314,22 @@ GRANT ALL ON TABLE workerstate TO postgres;
 REVOKE ALL ON TABLE sysmon_evts FROM PUBLIC;
 REVOKE ALL ON TABLE sysmon_evts FROM postgres;
 GRANT ALL ON TABLE sysmon_evts TO postgres;
+
+REVOKE ALL ON TABLE suricata_dns FROM PUBLIC;
+REVOKE ALL ON TABLE suricata_dns FROM postgres;
+GRANT ALL ON TABLE suricata_dns TO postgres;
+
+REVOKE ALL ON TABLE suricata_http FROM PUBLIC;
+REVOKE ALL ON TABLE suricata_http FROM postgres;
+GRANT ALL ON TABLE suricata_http TO postgres;
+
+REVOKE ALL ON TABLE suricata_alert FROM PUBLIC;
+REVOKE ALL ON TABLE suricata_alert FROM postgres;
+GRANT ALL ON TABLE suricata_alert TO postgres;
+
+REVOKE ALL ON TABLE suricata_tls FROM PUBLIC;
+REVOKE ALL ON TABLE suricata_tls FROM postgres;
+GRANT ALL ON TABLE suricata_tls TO postgres;
 
 --
 -- PostgreSQL database dump complete

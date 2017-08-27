@@ -98,6 +98,11 @@ su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE victims TO $SBXNAME;\"" postgres
 su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE suspects TO $SBXNAME;\"" postgres
 su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE cases TO $SBXNAME;\"" postgres
 su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE sysmon_evts TO $SBXNAME;\"" postgres
+su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE suricata_dns TO $SBXNAME;\"" postgres
+su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE suricata_http TO $SBXNAME;\"" postgres
+su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE suricata_alert TO $SBXNAME;\"" postgres
+su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE suricata_tls TO $SBXNAME;\"" postgres
+su -c "psql $SBXNAME -c \"GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO $SBXNAME;\"" postgres
 
 echo -e "${GREEN}Granting user permissions for packet capture...${NC}"
 chmod +s /usr/sbin/tcpdump

@@ -3,7 +3,7 @@
 # © https://github.com/scherma
 # contact http_error_418@unsafehex.com
 
-import libvirt, sys, os, argparse, logging, uuid, time, pika, json, psycopg2, psycopg2.extras, arrow
+import libvirt, sys, os, argparse, logging, uuid, time, pika, json, psycopg2, psycopg2.extras, arrow, db_calls
 import shutil, time, evtx_dates, threading, socket, pcap_parser, pyvnc, psutil, ConfigParser, xmljson
 import scapy.all as scapy
 from subprocess import call
@@ -550,45 +550,6 @@ class RunInstance():
                         
             return events
         
-    def insert_sysmon(self, events_list, cursor):
-        schema = "{http://schemas.microsoft.com/win/2004/08/events/event}"
-        
-        values = []
-        sql = """INSERT INTO sysmon_evts (uuid, recordid, eventid, timestamp, executionprocess, executionthread, computer, eventdata, evt_xml) VALUES %s"""
-        
-        for event in events_list:
-            j = xmljson.badgerfish.data(event)
-            system = j["{0}Event".format(schema)]["{0}System".format(schema)]
-            evtdata = {}
-            for item in j["{0}Event".format(schema)]["{0}EventData".format(schema)]["{0}Data".format(schema)]:
-                if "$" not in item:
-                    evtdata[item["@Name"]] = None
-                else:
-                    evtdata[item["@Name"]] = item["$"]
-                if item["@Name"] == "Hashes":
-                    hasheslist = item["$"].split(",")
-                    evtdata["Hashes"] = {}
-                    for h in hasheslist:
-                        parts = h.split("=")
-                        hashtype = parts[0]
-                        hashval = parts[1]
-                        evtdata["Hashes"][hashtype] = hashval
-                        
-            evtjson = json.dumps(evtdata)
-            recordID = system["{0}EventRecordID".format(schema)]["$"]
-            eventID = system["{0}EventID".format(schema)]["$"]
-            timestamp = "{0} +0000".format(system["{0}TimeCreated".format(schema)]["@SystemTime"])
-            executionProcess = system["{0}Execution".format(schema)]["@ProcessID"]
-            executionThread = system["{0}Execution".format(schema)]["@ThreadID"]
-            computer = system["{0}Computer".format(schema)]["$"]
-            
-            row = (self.uuid, recordID, eventID, timestamp, executionProcess, executionThread, computer, evtjson, etree.tostring(event, 'utf-8'))
-            
-            values.append(row)
-        
-        psycopg2.extras.execute_values(cursor, sql, values)
-        logger.debug("Inserted {0} sysmon events for case {1}".format(len(values), self.uuid))
-        
     def behaviour(self, dom, lv_conn):
         cstr = "{0}::{1}".format(self.victim_params["vnc"]["address"], self.victim_params["vnc"]["port"])
         vncconn = pyvnc.Connector(cstr, self.victim_params["password"], (self.victim_params["display_x"], self.victim_params["display_y"]))
@@ -671,7 +632,7 @@ class RunInstance():
                 f.write('</Events>')
                 logger.info("Wrote {0} sysmon events to {1}".format(evctr, sysmon_file))
                 
-            self.insert_sysmon(evts, cursor)
+            db_calls.insert_sysmon(evts, self.uuid, cursor)
         except Exception:
             ex_type, ex, tb = sys.exc_info()
             fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
@@ -713,6 +674,14 @@ class RunInstance():
                 qty = {}
                 for evtype in events:
                     qty[evtype] = len(events[evtype])
+                    if evtype == "dns":
+                        db_calls.insert_dns(events[evtype], self.uuid, cursor)
+                    if evtype == "http":
+                        db_calls.insert_http(events[evtype], self.uuid, cursor)
+                    if evtype == "alert":
+                        db_calls.insert_alert(events[evtype], self.uuid, cursor)
+                    if evtype == "tls":
+                        db_calls.insert_tls(events[evtype], self.uuid, cursor)
                 logger.info("Wrote events to {0}: {1}".format(eventlog, str(qty)))
         except Exception:
             ex_type, ex, tb = sys.exc_info()
@@ -767,6 +736,7 @@ def main():
     
     logging.getLogger(__name__).setLevel(logging.DEBUG)
     logging.getLogger("pyvnc").setLevel(logging.DEBUG)
+    logging.getLogger("db_calls").setLevel(logging.DEBUG)
     
     if not os.access(conf.get('General', 'mountdir'), os.W_OK):
         logger.error("Mount directory {0} not writeable!".format(conf.get('General', 'mountdir')))

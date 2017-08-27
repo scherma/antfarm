@@ -111,7 +111,7 @@ $(document).ready(function() {
 				<tr class="dullevent">
 				{{/if}}
 					<td>{{this.timestamp}}</td>
-					<td>{{this.alert.signature}}</td>
+					<td>{{this.alertdata.signature}}</td>
 					<td>{{this.src_ip}}</td><td>{{this.src_port}}</td><td>-></td><td>{{this.dest_ip}}</td><td>{{this.dest_port}}</td>
 				</tr>
 			{{/suricata.alert}}
@@ -128,8 +128,8 @@ $(document).ready(function() {
 				{{/if}}
 					<td>{{this.timestamp}}</td>
 					<td>{{this.dest_ip}}:{{this.dest_port}}</td>
-					<td>{{this.http.http_method}}</td>
-					<td>{{this.http.hostname}}</td><td>{{this.http.url}}</td>
+					<td>{{this.httpdata.http_method}}</td>
+					<td>{{this.httpdata.hostname}}</td><td>{{this.httpdata.url}}</td>
 				</tr>
 			{{/suricata.http}}
 			</table>
@@ -145,8 +145,8 @@ $(document).ready(function() {
 				{{/if}}
 					<td>{{this.timestamp}}</td>
 					<td>{{this.dest_ip}}</td>
-					<td>{{this.tls.subject}}</td>
-					<td>{{this.tls.issuerdn}}</td>
+					<td>{{this.tlsdata.subject}}</td>
+					<td>{{this.tlsdata.issuerdn}}</td>
 				</tr>
 			{{/suricata.tls}}
 			</table>
@@ -162,10 +162,10 @@ $(document).ready(function() {
 				{{/if}}
 					<td>{{this.timestamp}}</td>
 					<td>{{this.src_ip}}</td><td>-></td><td>{{this.dest_ip}}</td>
-					<td>{{this.dns.rrtype}}</td>
-					<td>{{this.dns.rrname}}</td>
-					<td>{{this.dns.type}}</td>
-					<td>{{this.dns.rdata}}</td>
+					<td>{{this.dnsdata.rrtype}}</td>
+					<td>{{this.dnsdata.rrname}}</td>
+					<td>{{this.dnsdata.type}}</td>
+					<td>{{this.dnsdata.rdata}}</td>
 				</tr>
 			{{/suricata.dns}}
 			</table>
