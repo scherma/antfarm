@@ -86,9 +86,9 @@ $(document).ready(function() {
 				{{#pcapsummary}}
 				<tr>
 					<td>{{this.protocol}}</td>
-					<td>{{this.src}}</td><td>{{this.srcport}}</td>
+					<td>{{this.src_ip}}</td><td>{{this.src_port}}</td>
 					<td>-></td>
-					<td>{{this.dst}}</td><td>{{this.dstport}}</td>
+					<td>{{this.dest_ip}}</td><td>{{this.dest_port}}</td>
 				</tr>
 				{{/pcapsummary}}
 			</tbody>

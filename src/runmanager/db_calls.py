@@ -88,4 +88,4 @@ def insert_sysmon(events_list, uuid, cursor):
         values.append(row)
     
     psycopg2.extras.execute_values(cursor, sql, values)
-    logger.debug("Inserted {0} sysmon events for case {1}".format(len(values), self.uuid))
+    logger.debug("Inserted {0} sysmon events for case {1}".format(len(values), uuid))

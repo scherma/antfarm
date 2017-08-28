@@ -176,6 +176,8 @@ class Worker():
         try:
             cfg = self.conf
             suspect = RunInstance(
+                self.cursor,
+                self.dbconn,
                 cfg,
                 params["fname"],
                 params["uuid"],
@@ -290,7 +292,7 @@ class Worker():
             call(['guestmount', '--ro', '-a', self.victim_params["diskfile"], '-m', '/dev/sda2', self.mntdir])
             
             # write output to file/database
-            suspect.construct_record(self.mntdir, self.victim_params, self.cursor)
+            suspect.construct_record(self.mntdir, self.victim_params)
             logger.debug("Output written")
             self._case_update('complete', suspect.uuid)
              
@@ -343,6 +345,8 @@ class Worker():
 # Manages connection to VM and issuing of commands
 class RunInstance():
     def __init__(   self,
+                    cursor,
+                    dbconn,
                     conf,
                     fname,
                     uuid,
@@ -380,6 +384,8 @@ class RunInstance():
         self.pcap_file = os.path.join(self.rundir, "capture.pcap")
         self.stop_capture = False
         self.imgsequence = 0
+        self.cursor = cursor
+        self.dbconn = dbconn
         
     @property
     def rawfile(self):
@@ -509,17 +515,23 @@ class RunInstance():
     def _sc_writer(self, stream, data, b):
         b.write(data)
                     
-    def case_update(self, cursor, dbconn, status):
-        cursor.execute("""UPDATE "cases" SET status = %s WHERE uuid=%s""", (status, self.uuid))
-        dbconn.commit()
+    def case_update(self, status):
+        self.cursor.execute("""UPDATE "cases" SET status = %s WHERE uuid=%s""", (status, self.uuid))
+        self.dbconn.commit()
     
     def write_capture(self, pkt):
         scapy.wrpcap(self.pcap_file, pkt, append=True)
         if self.stop_capture:
             logger.info("Wrote pcap to file {0}".format(self.pcap_file))
             summary_file = os.path.join(self.rundir, 'pcap_summary.json')
+            c = pcap_parser.conversations(self.pcap_file)
+            sql = """INSERT INTO pcap_summary (uuid, src_ip, src_port, dest_ip, dest_port, protocol) VALUES %s"""
+            values = []
+            for cevent in c:
+                row = (self.uuid, cevent["src"], cevent["srcport"], cevent["dst"], cevent["dstport"], cevent["protocol"])
+                values.append(row)
+            psycopg2.extras.execute_values(self.cursor, sql, values)
             with open(summary_file, 'w') as f:
-                c = pcap_parser.conversations(self.pcap_file)
                 f.write(json.dumps(c))
             logger.debug("Stop capture issued, raising exception to terminate thread")
             raise StopCaptureException("Stop Capture flag set")
@@ -611,7 +623,7 @@ class RunInstance():
             os.remove(self.downloadfile)
             logger.debug("Removed download file")
     
-    def construct_record(self, guestmount_path, victim_params, cursor):
+    def construct_record(self, guestmount_path, victim_params):
         dtstart = arrow.get(self.starttime)
         dtend = arrow.get(self.endtime)
         try:
@@ -632,7 +644,7 @@ class RunInstance():
                 f.write('</Events>')
                 logger.info("Wrote {0} sysmon events to {1}".format(evctr, sysmon_file))
                 
-            db_calls.insert_sysmon(evts, self.uuid, cursor)
+            db_calls.insert_sysmon(evts, self.uuid, self.cursor)
         except Exception:
             ex_type, ex, tb = sys.exc_info()
             fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
@@ -675,13 +687,13 @@ class RunInstance():
                 for evtype in events:
                     qty[evtype] = len(events[evtype])
                     if evtype == "dns":
-                        db_calls.insert_dns(events[evtype], self.uuid, cursor)
+                        db_calls.insert_dns(events[evtype], self.uuid, self.cursor)
                     if evtype == "http":
-                        db_calls.insert_http(events[evtype], self.uuid, cursor)
+                        db_calls.insert_http(events[evtype], self.uuid, self.cursor)
                     if evtype == "alert":
-                        db_calls.insert_alert(events[evtype], self.uuid, cursor)
+                        db_calls.insert_alert(events[evtype], self.uuid, self.cursor)
                     if evtype == "tls":
-                        db_calls.insert_tls(events[evtype], self.uuid, cursor)
+                        db_calls.insert_tls(events[evtype], self.uuid, self.cursor)
                 logger.info("Wrote events to {0}: {1}".format(eventlog, str(qty)))
         except Exception:
             ex_type, ex, tb = sys.exc_info()

@@ -90,84 +90,47 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 	var imagepath = path.join(rootdir, 'www', options.conf.site.name, 'public', 'images', 'cases', uuidshort, req.params.uuid);
 	var imagepublicpath = path.join('/images', 'cases', uuidshort, req.params.uuid);
 	
-	/*var rawpropertiesP = new Promise((fulfill, reject) => {
-		fs.readFile(path.join(casepath, 'properties.json'), 'utf8', (err, data) => {
-			if (err === null) {
-				fulfill(JSON.parse(data));	
-			} else {
-				reject(err);
-			}
-		});
-	});*/
-	
 	var sysmonP = db.sysmon_for_case(req.params.uuid);
-	/*new Promise((fulfill, reject)=> {
-		var xmlp = xml2js.Parser();
-		fs.readFile(path.join(casepath, 'sysmon.xml'), 'utf8', (err, data) => {
-			if (err === null) {
-				// this is only parsing a single event - need to update so it parses all events
-				xmlp.parseString(data, (err, parsedxml) => {
-					if (err === null) {
-						fulfill(parsedxml);
-					} else {
-						console.log(format("Unable to provide sysmon events: {err}", {err: err}));
-						fulfill({});
-					}
-				});
-			} else {
-				console.log(format("Unable to provide sysmon events: {err}", {err: err}));
-				fulfill({});
-			}
-		});
-	});*/
 	
 	var eventsP = new Promise((fulfill, reject) => {
-		fs.readFile(path.join(casepath, 'eve.json'), 'utf8', (err, data) => {
-			if (err === null) {
-				try {
-					var d = JSON.parse(data);
-					Object.keys(d).forEach(function(key){
-						d[key].forEach(function(event, i){
-							if (functions.ofInterest(event)) {
-								d[key][i].interesting = true;
-							} else {
-								d[key][i].interesting = false;
-							}
-						});
-					});
-					fulfill(d);
-				} catch(err) {
-					console.log(err);
-					fulfill({});
-				}
-			} else {
-				console.log(format("Unable to provide suricata events: {err}", {err: err}));
-				fulfill({});
-			}
+		db.suricata_for_case(req.params.uuid).then((values) => {
+			var d = {
+				dns: [],
+				http: [],
+				alert: [],
+				tls: []
+			};
+			
+			values[0].forEach((dns_row) => {
+				dns_row.interesting = functions.ofInterest(dns_row);
+				d.dns.push(dns_row);
+			});
+			values[1].forEach((http_row) => {
+				http_row.interesting = functions.ofInterest(http_row);
+				d.http.push(http_row);
+			});
+			values[2].forEach((alert_row) => {
+				alert_row.interesting = functions.ofInterest(alert_row);
+				d.alert.push(alert_row);
+			});
+			values[3].forEach((tls_row) => {
+				tls_row.interesting = functions.ofInterest(tls_row);
+				d.dns.push(tls_row);
+			});
+			fulfill(d);
 		});
 	});
 	
 	var pcapsummaryP = new Promise((fulfill, reject) => {
-		fs.readFile(path.join(casepath, 'pcap_summary.json'), 'utf8', (err, data) => {
-			if (err === null) {
-				try {
-					var d = JSON.parse(data);
-					var result = [];
-					d.forEach(function(evt){
-						var e = {src_ip: evt.src, dest_ip: evt.dst};
-						if (functions.ofInterest(e)) {
-							result.push(evt);
-						}
-					});
-					fulfill(result);
-				} catch (e) {
-					console.log(e);
-					fulfill({});
+		db.pcap_summary_for_case(req.params.uuid).then((rows) => {
+			var result = [];
+			rows.forEach((row) => {
+				if (functions.pcapSummaryOfInterest(row)) {
+					result.push(row);
 				}
-			} else {
-				console.log(format("Unable to provide pcap summary: {err}", {err: err}));
-				fulfill({});
-			}
+			});
+			
+			fulfill(result);
 		});
 	});
 	
@@ -212,11 +175,16 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 	
 	Promise.all([eventsP, sysmonP, pcapsummaryP, runlogP, thiscase, screenshots])
 	.then((values) => {
+		if (values[4].length < 1) {
+			res.status = 404;
+			res.send("Case not found in DB");
+			throw "Case not found in DB";
+		}
+		var suspect = values[4][0];
 		var events = values[0];
 		var rawsysmon = values[1];
 		var pcapsummary = values[2];
 		var runlog = values[3];
-		var suspect = values[4][0];
 		var images = values[5];
 		var properties = {};
                 var showmagic = suspect.magic;
@@ -235,7 +203,6 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 		properties.os = {name: "VM OS", text: suspect.vm_os};
 		properties.uuid = {name: "Run UUID", text: suspect.uuid};
 		properties.params = {name: "Parameters", text: "Reboots: " + suspect.reboots + ", Banking interaction: " + suspect.banking + ", Web interaction: " + suspect.web};
-		//var shortdir = suspect.uuid.substr(0,2);
 		
 		var caseid = properties.sha256.text + "/" + properties.uuid.text;
 		
@@ -245,15 +212,8 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 			var parsed = functions.ParseSysmon(row);
 			sysmon.push(parsed);
 		});
-		/*if (rawsysmon.Events && rawsysmon.Events.Event) {
-			rawsysmon.Events.Event.forEach((object) => {
-				sysmon.push(functions.ParseSysmon(object));
-			});
-		}*/
-		//var screenshot = {path: path.join('/images/cases', shortdir, properties["Run UUID"], '1.png'), alt: ''};
 		
 		var pcaplink = '/cases/pcap/' + properties.sha256.text + '/' + properties.uuid.text;
-		
 		
 		var caseobj = {
 			mainmenu: mainmenu,
@@ -271,7 +231,7 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 	})
 	.catch((err) => {
 		// for debug; remove when live
-		res.render('error', {error: err});
+		console.log(err);
 	});
 });
 

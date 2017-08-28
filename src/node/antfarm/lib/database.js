@@ -84,8 +84,32 @@ function suricata_for_case(uuid) {
 	return Promise.all([dns, http, alert, tls]);
 }
 
+function pcap_summary_for_case(uuid) {
+	return pg('pcap_summary').where('uuid', uuid);
+}
+
 function delete_case(uuid) {
-	return pg('cases').where('uuid', uuid).del();
+	
+	return pg.transaction(t => {
+		
+		var delete_dns = pg('suricata_dns').where('uuid', uuid).del().transacting(t);
+		var delete_http = pg('suricata_http').where('uuid', uuid).del().transacting(t);
+		var delete_alert = pg('suricata_alert').where('uuid', uuid).del().transacting(t);
+		var delete_tls = pg('suricata_tls').where('uuid', uuid).del().transacting(t);
+		var delete_pcap = pg('pcap_summary').where('uuid', uuid).del().transacting(t);
+		var delete_sysmon = pg('sysmon_evts').where('uuid', uuid).del().transacting(t);
+		var del_case = pg('cases').where('uuid', uuid).del().transacting(t);
+		
+		return Promise.all([delete_dns, delete_http, delete_alert, delete_tls, delete_pcap, delete_sysmon])
+		.then(() => {
+			return del_case;
+		})
+		.then(t.commit)
+		.catch((err) => {
+			console.log(err);
+			t.rollback();
+		});
+	});
 }
 
 module.exports = {
@@ -97,5 +121,6 @@ module.exports = {
 	list_workers: list_workers,
 	delete_case: delete_case,
 	sysmon_for_case: sysmon_for_case,
-	suricata_for_case: suricata_for_case
+	suricata_for_case: suricata_for_case,
+	pcap_summary_for_case: pcap_summary_for_case
 	};

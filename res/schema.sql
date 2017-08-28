@@ -186,6 +186,18 @@ CREATE TABLE suricata_tls (
 ALTER TABLE suricata_tls OWNER TO postgres;
 
 
+CREATE TABLE pcap_summary (
+	id SERIAL PRIMARY KEY,
+	uuid varchar(50),
+	src_ip inet,
+	src_port int,
+	dest_ip inet,
+	dest_port int,
+	protocol text
+);
+
+ALTER TABLE pcap_summary OWNER TO postgres;
+
 ALTER TABLE ONLY suricata_dns
 	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
 	
@@ -196,6 +208,9 @@ ALTER TABLE ONLY suricata_alert
 	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
 	
 ALTER TABLE ONLY suricata_tls
+	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
+
+ALTER TABLE ONLY pcap_summary
 	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
 
 --
@@ -330,6 +345,10 @@ GRANT ALL ON TABLE suricata_alert TO postgres;
 REVOKE ALL ON TABLE suricata_tls FROM PUBLIC;
 REVOKE ALL ON TABLE suricata_tls FROM postgres;
 GRANT ALL ON TABLE suricata_tls TO postgres;
+
+REVOKE ALL ON TABLE pcap_summary FROM PUBLIC;
+REVOKE ALL ON TABLE pcap_summary FROM postgres;
+GRANT ALL ON TABLE pcap_summary TO postgres;
 
 --
 -- PostgreSQL database dump complete

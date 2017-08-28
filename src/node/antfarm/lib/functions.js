@@ -120,32 +120,6 @@ var ParseSysmon = (sm_evt) => {
 	};
 	
 	var e = {};
-	//console.log(sm_evt.System[0].Execution[0]);
-	/*e.System = {
-		Level: sm_evt.System[0].Level[0],
-		Version: sm_evt.System[0].Version[0],
-		EventRecordID: sm_evt.System[0].EventRecordID[0],
-		Computer: sm_evt.System[0].Computer[0],
-		EventID: sm_evt.System[0].EventID[0]._,
-		EventName: reftable[sm_evt.System[0].EventID[0]._],
-		SystemTime: sm_evt.System[0].TimeCreated[0].$.SystemTime,
-		ProcessID: sm_evt.System[0].Execution[0].$.ProcessID,
-		ThreadID: sm_evt.System[0].Execution[0].$.ThreadID
-	};
-	e.Data = {};
-	if (sm_evt.EventData) {
-		sm_evt.EventData[0].Data.forEach(function(data) {
-			e.Data[data.$.Name] = data._;
-		});	
-	}
-	
-	if (e.Data.Hashes) {
-		e.Data.IMPHASH = e.Data.Hashes.split(",")[0].split("=")[1];
-		e.Data.SHA256 = e.Data.Hashes.split(",")[1].split("=")[1];
-		e.Data.SHA1 = e.Data.Hashes.split(",")[2].split("=")[1];
-		
-		delete(e.Data.Hashes);
-	}*/
 	
 	e.System = {
 		EventRecordID: sm_evt.recordid,
@@ -234,6 +208,21 @@ var workerDisplayParams = function(rawparams) {
 	return displayparams;
 };
 
+var pcapSummaryOfInterest = function(event) {
+	var ofInterest = true;
+	
+	if ([137, 53].indexOf(event.src_port) >= 0 || [137, 53].indexOf(event.dest_port) >= 0) {
+		ofInterest = false;
+	}
+	
+	var s = Addr("224.0.0.0/10");
+	if (s.contains(Addr(event.dest_ip))) {
+		ofInterest = false;
+	}
+	
+	return ofInterest;
+};
+
 var ofInterest = function(event) {
 	var ofinterest = true;
 	var subnets = options.conf.filters.subnets;
@@ -292,5 +281,6 @@ module.exports = {
 	ParseSysmon: ParseSysmon,
 	deleteFolderRecursive: deleteFolderRecursive,
 	workerDisplayParams: workerDisplayParams,
-	ofInterest: ofInterest
+	ofInterest: ofInterest,
+	pcapSummaryOfInterest: pcapSummaryOfInterest
 };
