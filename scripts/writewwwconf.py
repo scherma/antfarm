@@ -63,5 +63,5 @@ conf = {
     }
 }
 
-with open('/usr/local/unsafehex/{0}/www/{0}/lib/config.json'.format(instancename), 'w') as f:
+with open('/usr/local/unsafehex/{0}/www/lib/config.json'.format(instancename), 'w') as f:
     f.write(json.dumps(conf, indent=4, separators=(",", ": ")))

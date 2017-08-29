@@ -29,7 +29,7 @@ class Worker():
         self.mntdir = None
         self.lv_conn = libvirt.open("qemu:///system")
         self.cursor, self.dbconn = self._db_conn(self.conf.get('General', 'dbname'), self.conf.get('General', 'dbuser'), self.conf.get('General' ,'dbpass'))
-        self.vm_uuid = self._select_vm()
+        self.vm_uuid, self.vm_id = self._select_vm()
         self.victim_params = self._get_victim_params()
         self.outputdata = {}
         
@@ -65,9 +65,18 @@ class Worker():
                 self.mntdir = mntdir
                 # ensure mount dir is clean from previous run
                 call(['guestunmount', self.mntdir])
-                return uuid
+                
+                dldir = os.path.join(self.conf.get('General', 'basedir'), self.conf.get('General', 'instancename'), 'suspects', 'downloads', str(available[0]))
+                if not os.path.exists(dldir):
+                    logger.debug("Download directory {} does not exist, creating...".format(dldir))
+                    os.makedirs(dldir)
+                
+                return (uuid, available[0])
             except Exception as e:
-                logger.error("Fatal error during VM selection: {0}".format(e))
+                ex_type, ex, tb = sys.exc_info()
+                fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
+                lineno = tb.tb_lineno
+                logger.error("Fatal error {0} {1} in {2}, line {3} during VM selection; exiting".format(ex_type, ex, fname, lineno))
                 self._db_cleanup(uuid)
                 self._exit(1)
                 
@@ -178,6 +187,7 @@ class Worker():
             suspect = RunInstance(
                 self.cursor,
                 self.dbconn,
+                self.vm_id,
                 cfg,
                 params["fname"],
                 params["uuid"],
@@ -212,7 +222,7 @@ class Worker():
             self._state_update('initialising', (True, suspect._dump_dict()))
             self._case_update('initialising', suspect.uuid)
             
-            imgshort = os.path.join(suspect.rootdir, 'www', self.conf.get('General', 'instancename'), 'public', 'images', 'cases', suspect.uuid[0:2])
+            imgshort = os.path.join(suspect.rootdir, 'www', 'public', 'images', 'cases', suspect.uuid[0:2])
             if not os.path.exists(imgshort):
                 os.mkdir(imgshort)
             imgdir = os.path.join(imgshort, suspect.uuid)
@@ -347,6 +357,7 @@ class RunInstance():
     def __init__(   self,
                     cursor,
                     dbconn,
+                    domid,
                     conf,
                     fname,
                     uuid,
@@ -386,6 +397,7 @@ class RunInstance():
         self.imgsequence = 0
         self.cursor = cursor
         self.dbconn = dbconn
+        self.domid = domid
         
     @property
     def rawfile(self):
@@ -393,7 +405,7 @@ class RunInstance():
     
     @property
     def downloadfile(self):
-        return os.path.join(self.filespath, 'downloads', self.fname)
+        return os.path.join(self.filespath, 'downloads', str(self.domid), self.fname)
     
     @property
     def banking(self):
@@ -467,7 +479,7 @@ class RunInstance():
         return rundir
     
     def _make_imgdir(self):
-        imgshort = os.path.join(self.rootdir, 'www', self.conf.get('General', 'instancename'), 'public', 'images', 'cases', self.uuid[0:2])
+        imgshort = os.path.join(self.rootdir, 'www', 'public', 'images', 'cases', self.uuid[0:2])
         if not os.path.exists(imgshort):
             os.mkdir(imgshort)
             logger.debug("Made images base dir {0}".format(imgshort))
@@ -537,7 +549,7 @@ class RunInstance():
             raise StopCaptureException("Stop Capture flag set")
     
     def capture(self):
-        fl = "host {0} and not (host {1} and dst port 8080)".format(self.victim_params["ip"], self.conf.get("General", "gateway_ip"))
+        fl = "host {0} and not (host {1} and port 8080)".format(self.victim_params["ip"], self.conf.get("General", "gateway_ip"))
         logger.debug("Packet capture starting with filter '{0}'".format(fl))
         scapy.sniff(iface="vnet0", filter=fl, prn=self.write_capture)
             
@@ -576,7 +588,7 @@ class RunInstance():
         
         macrotypes = ["doc", "xls", "ppt", "dot", "xlm", "docm", "dotm", "docb", "xlsm", "xltm", "pptm"]
         
-        vncconn.downloadAndRun(self.fname)
+        vncconn.downloadAndRun(str(self.domid), self.fname)
         if ext in macrotypes:
             vncconn.enable_macros(self.victim_params["ms_office_type"])
         
