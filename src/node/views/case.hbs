@@ -1,0 +1,244 @@
+<script>
+$(document).ready(function() {
+        $(document).tooltip({
+            tooltipClass: 'tooltip',
+            open: function (event, ui) {
+                ui.tooltip.css("max-width", "500px");
+            }
+        });
+	function loadLog(){
+		var detail = $(document).find("#detail-status");
+		if (detail.text() != "complete" && detail.text() != "failed") {
+			$(document).find(".runlog-detail").find("pre").load("/cases/runlog/" + $(document).find("#casetable").attr("caseid"))	
+		}
+	}
+	
+	function loadProperties(){
+		var detail = $(document).find("#detail-status");
+		if (detail.text() != "complete" && detail.text() != "failed") {
+			$.getJSON("/cases/properties/" + $(document).find("#casetable").attr("caseid"), (properties) => {
+				if (properties.status == "complete") {
+					location.reload();
+				}
+				$(detail).html(properties.status);
+				$(detail).parent().parent().find("#detail-endtime").html(properties.endtime);
+			});
+		}
+	}
+	
+	$('.showdull').on('click', function() {
+		$(".dullevent").each(function(i, obj) {
+			$(obj).slideToggle();
+		});
+	});
+	
+	var interval = setInterval(function(){
+		loadLog();
+		loadProperties();
+	}, 10000);
+	
+	loadLog();
+	
+	$('.detailbtn').on('click', function(){
+		
+		var id = $(this).attr("data-id");
+		$(this).parent().parent().parent().find("#"+id).slideToggle();
+	})
+	$('.pcapbtn').on('click', function(){
+		$('.pcap-detail').slideToggle();
+	})
+	$('.logbtn').on('click', function(){
+		$('.runlog-detail').slideToggle();
+	})
+});
+</script>
+<div id="details" class="casedetails">
+	<table caseid="{{caseid}}" id="casetable">
+		<tbody>
+			{{#each properties}}
+			<tr>
+				<th align="left">{{this.name}}</th>
+				<td id="detail-{{@key}}" class="{{this.class}}" title="{{this.htmltitle}}">{{this.text}}</td>
+			</tr>
+			{{/each}}
+		</tbody>
+	</table>
+</div>
+<div class="runlog">
+	<button class="logbtn">log</button>
+	<div class="runlog-detail hidden-detail" caseid="{{caseid}}">
+	{{#if runlog.length}}
+		<pre>{{runlog}}</pre>
+	{{else}}
+		<pre>Unable to show log</pre>
+	{{/if}}
+	</div>
+</div>
+<div class="pcap-dl">
+	<p><a href="{{pcaplink}}"><button>Get pcap</button></a></p>
+</div>
+<div class="pcap-summary">
+	{{#if pcapsummary.length}}
+	<button class="pcapbtn">pcap summary</button>
+	<div class="pcap-detail hidden-detail">
+		<table>
+			<tbody>
+				{{#pcapsummary}}
+				<tr>
+					<td>{{this.protocol}}</td>
+					<td>{{this.src_ip}}</td><td>{{this.src_port}}</td>
+					<td>-></td>
+					<td>{{this.dest_ip}}</td><td>{{this.dest_port}}</td>
+				</tr>
+				{{/pcapsummary}}
+			</tbody>
+		</table>
+	</div>
+	{{else}}
+	<p>No events of interest in pcap (MS/Google ranges filtered)</p>
+	{{/if}}
+</div>
+<div id="suricata-events" class="suricataevt">
+	<h4>Suricata output</h4><button class="showdull">Show/hide uninteresting events</button>
+	{{#if suricata}}
+		{{#if suricata.alert}}
+			<p><b>Alerts</b></p>
+			<table>
+			{{#suricata.alert}}
+				{{#if this.interesting}}
+				<tr>				
+				{{else}}
+				<tr class="dullevent">
+				{{/if}}
+					<td>{{this.timestamp}}</td>
+					<td>{{this.alert.signature}}</td>
+					<td>{{this.src_ip}}</td><td>{{this.src_port}}</td><td>-></td><td>{{this.dest_ip}}</td><td>{{this.dest_port}}</td>
+				</tr>
+			{{/suricata.alert}}
+			</table>
+		{{/if}}
+		{{#if suricata.http}}
+			<p><b>HTTP traffic</b></p>
+			<table>
+			{{#suricata.http}}
+				{{#if this.interesting}}
+				<tr>				
+				{{else}}
+				<tr class="dullevent">
+				{{/if}}
+					<td>{{this.timestamp}}</td>
+					<td>{{this.dest_ip}}:{{this.dest_port}}</td>
+					<td>{{this.httpdata.http_method}}</td>
+					<td>{{this.httpdata.hostname}}</td><td>{{this.httpdata.url}}</td>
+				</tr>
+			{{/suricata.http}}
+			</table>
+		{{/if}}
+		{{#if suricata.tls}}
+			<p><b>TLS traffic</b></p>
+			<table>
+			{{#suricata.tls}}
+				{{#if this.interesting}}
+				<tr>				
+				{{else}}
+				<tr class="dullevent">
+				{{/if}}
+					<td>{{this.timestamp}}</td>
+					<td>{{this.dest_ip}}</td>
+					<td>{{this.tlsdata.subject}}</td>
+					<td>{{this.tlsdata.issuerdn}}</td>
+				</tr>
+			{{/suricata.tls}}
+			</table>
+		{{/if}}
+		{{#if suricata.dns}}
+			<p><b>DNS traffic</b></p>
+			<table>
+			{{#suricata.dns}}
+				{{#if this.interesting}}
+				<tr>				
+				{{else}}
+				<tr class="dullevent">
+				{{/if}}
+					<td>{{this.timestamp}}</td>
+					<td>{{this.src_ip}}</td><td>-></td><td>{{this.dest_ip}}</td>
+					<td>{{this.dnsdata.rrtype}}</td>
+					<td>{{this.dnsdata.rrname}}</td>
+					<td>{{this.dnsdata.type}}</td>
+					<td>{{this.dnsdata.rdata}}</td>
+				</tr>
+			{{/suricata.dns}}
+			</table>
+		{{/if}}
+	{{else}}
+		<p>No suricata events to display</p>
+	{{/if}}
+</div>
+
+<div id="sysmon-events" class="sysmonevt">
+	{{#if sysmon.length}}
+	<p><b>Event log</b></p>
+	<table>
+		<thead>
+			<tr>
+				<th></th>
+				<th>System Time</th>
+				<th>Event Name</th>
+			</tr>
+		</thead>
+		<tbody>
+		{{#sysmon}}
+		<tr class="detail-blk">
+			<td>
+				<button class="detailbtn" data-id="sysmon-{{this.System.EventRecordID}}">Detail</button>
+			</td>
+			<td>{{this.System.SystemTime}}</td>
+			<td>{{this.System.EventName}}</td>
+			<td class="longrow">{{#if this.Highlight}}{{this.Highlight}}{{/if}}</td>
+
+			
+		</tr>
+		<tr class="togglerow">
+			<td colspan=4>
+				<div class="evtdetail hidden-detail" id="sysmon-{{this.System.EventRecordID}}">
+					<div class="evtdetailcontainer">
+						<div class="systemtbl evtdetailchild">
+							<table class="evtdetailtbl">
+								<tr>
+									<th>System</th>
+								</tr>
+								{{#each this.System}}
+								<tr>
+									<td>{{@key}}</td>
+									<td>{{this}}</td>
+								</tr>
+								{{/each}}
+							</table>
+						</div>
+						<div class="datatbl evtdetailchild">
+							<table class="evtdetailtbl">
+								<tr><th>Data</th></tr>
+								{{#each this.Data}}
+								<tr>
+									<td>{{@key}}</td>
+									<td class="break longrow">{{this}}</td>
+								</tr>
+								{{/each}}
+							</table>
+						</div>
+					</div>
+				</div>
+			</td>
+		</tr>
+		{{/sysmon}}
+		</tbody>
+	</table>
+	{{else}}
+	<p>Unable to list sysmon events</p>
+	{{/if}}
+</div>
+<div id="screenshot" class="screenshot">
+	{{#each screenshots}}
+		<a href="{{this.path}}"><img src="{{this.thumb}}" alt="{{this.alt}}"></a>
+	{{/each}}
+</div>
