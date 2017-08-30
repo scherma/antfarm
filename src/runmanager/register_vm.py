@@ -3,7 +3,7 @@
 # © https://github.com/scherma
 # contact http_error_418@unsafehex.com
 
-import libvirt, argparse, ConfigParser, psycopg2, psycopg2.extras, tabulate, arrow
+import libvirt, argparse, ConfigParser, psycopg2, psycopg2.extras, tabulate, arrow, os, logging
 from lxml import etree
 
 def main():
@@ -122,6 +122,25 @@ def main():
 					   (selected.name(), selected.UUIDString(), hostname, os, ip, username, password, chosendisk, 'production', 0, int(display_x), int(display_y), office_type))
 		
 		print("VM registered in database")
+		
+		dlfname = os.path.join(conf.get('General', 'basedir'), conf.get('General', 'instancename'), 'suspects', 'downloads', 'run.ps1')
+		
+		content = """# © https://github.com/scherma
+# contact http_error_418@unsafehex.com
+param(
+    [Parameter(Mandatory=$true)][string]$filename,
+    [Parameter(Mandatory=$true)][string]$dldir
+)
+
+$client = New-Object System.Net.WebClient
+$dlname = [uri]::EscapeDataString($filename)
+$client.DownloadFile("http://{0}:{1}/$dldir/$dlname", "C:\\Users\\{2}\\Downloads\\$filename")
+
+cmd /c start "C:\\Users\\{2}\\Downloads\\$filename" """.format(conf.get('General', 'gateway_ip'), '8080', conf.get('General', username)
+
+		with open(dlfname, 'w') as f:
+			f.write(content)
+			print('Wrote file {0} - please place this in your VM\'s "C:\\Program Files" directory'.format(dlfname))
 		
 	else:
 		print("No unregistered VMs found. Please note that only VMs that are unregistered AND paused will be listed.")

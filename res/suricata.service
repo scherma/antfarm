@@ -1,0 +1,13 @@
+[Unit]
+Description=Suricata IDS
+After=network.target syslog.target
+
+[Service]
+Type=forking
+PIDFile=/var/run/suricata.pid
+ExecStart=/usr/bin/suricata -c /etc/suricata/suricata.yaml -i vnet0 -v -D
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStopPost=/bin/kill $MAINPID
+
+[Install]
+WantedBy=multi-user.target

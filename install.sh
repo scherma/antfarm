@@ -136,14 +136,13 @@ chmod g+rw /mnt/images
 
 echo -e "${GREEN}Unwrapping sandbox manager files and utilities...${NC}"
 python "$SCRIPTDIR/scripts/write_tor_iptables.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTDIR/src/runmanager/"
-python "$SCRIPTDIR/scripts/write_network.py" "$GATEWAY_IP" "$NETMASK $SCRIPTDIR/res/vnet.xml"
-python "$SCRIPTDIR/scripts/write_runfile.py" "$GATEWAY_IP" 8080 "$SCRIPTDIR/res/run.ps1"
+#python "$SCRIPTDIR/scripts/write_runfile.py" "$GATEWAY_IP" 8080 "$SCRIPTDIR/res/run.ps1"
+python "$SCRIPTDIR/scripts/write_network.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTDIR/res/vnet.xml"
 cp -Rv "$SCRIPTDIR/src/runmanager/*" "/usr/local/unsafehex/$SBXNAME/runmanager/"
 cp -v "$SCRIPTDIR/res/sysmon.exe" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
 cp -v "$SCRIPTDIR/res/sysmon.xml" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
 cp -v "$SCRIPTDIR/res/run.ps1" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
 cp -v "$SCRIPTDIR/res/bios.bin" "/usr/local/unsafehex/$SBXNAME/"
-mkdir -v "/usr/local/unsafehex/$SBXNAME/www/$SBXNAME"
 cp -Rv "$SCRIPTDIR/src/node/*" "/usr/local/unsafehex/$SBXNAME/www/"
 addgroup "$SBXNAME"
 chmod 775 -R /usr/local/unsafehex
@@ -206,7 +205,7 @@ cd "/tmp/$SBXNAME/"
 mkdir -v ssl
 cd "/tmp/$SBXNAME/ssl"
 openssl req -x509 -nodes -days 365 -newkey rsa:4096 -subj "/CN=$SBXNAME/O=$SBXNAME/C=$CCODE" -keyout "$SBXNAME\.key" -out "$SBXNAME\.crt"
-openssl dhparam -out dhparam.pem 4096
+openssl dhparam -dsaparam -out dhparam.pem 4096
 mkdir -v /etc/nginx/ssl
 chmod 700 /etc/nginx/ssl
 cp -v "$SBXNAME\.key" "$SBXNAME\.crt" dhparam.pem /etc/nginx/ssl
