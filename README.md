@@ -35,7 +35,7 @@ To install, perform the steps below:
 
 - Check libvirtd is running and the libvirt socket files at /usr/local/var/run/libvirt/ have ownership of root:libvirt-qemu.
 - If they do not, contact me and I can provide the steps to make sure this is fixed
-- Start virt-manager. Verify that the network details you specified in the install script have been set correctly. Create a new virtual machine - recommend at least 2 CPUs and 2GB RAM
+- Start virt-manager. Verify that the network details you specified in the install script have been set correctly. Create a new virtual machine - I recommend at least 2 CPUs and 2GB RAM
 - __MAKE SURE__ to customise the VM before install:
   - Change the display type to VNC
   - Change the Video type to Cirrus (actually we want it to be VMVGA, but there's a bug with the virtualisation that makes the installer fail to boot with that setting)
@@ -59,9 +59,9 @@ To install, perform the steps below:
 
 ### Network, proxy, IDS config
 
-- Install your guest OS and configure it with a static IP address in the 192.168.43.0/24 range, with 192.168.43.1 as the gateway
-- Configure the main nginx reverse proxy to serve on the host's external IP. Fill in the `REPLACE_ME` sections with your external IP and sandbox name as applicable
-- I have included an example Suricata config in the res/ directory. If you feel comfortable rolling your own, go ahead!
+- Install your guest OS and configure it with the correct network settings to match what was chosen when running install.sh
+- Configure the main nginx reverse proxy to serve on the host's external IP. Fill in the `REPLACE_ME` sections with your external IP and sandbox name as applicable 
+- I have included an example Suricata config and service file in the res/ directory. If you feel comfortable rolling your own, go ahead!
 - Make sure that the file permissions for the eve.json output allow reading by all, OR that you manually change them once it is created.
 - The install.sh script has already configured automatic updates of the Emerging Threats signature list which I find works pretty well - add more if you like though
 - Start nginx
@@ -70,9 +70,8 @@ To install, perform the steps below:
 
 - Most of the functionality should be resolution independent but a few details (logging back in after reboot) need a screen resolution of 1680x1050. Please set this if you need that feature to work.
 - Change the display type to VMVGA now that installation is done.
-- I have collected some resources for preparing the VM, but for practical reasons they are not within the git repository.
-- Please download them from https://dl.hexistentialist.com with the username/password I have provided to you.
-- Copy the file to /usr/local/unsafehex/$SBXNAME/www/$SBXNAME/public/downloads.
+- I have collected some resources for preparing the VM, but for practical reasons they are not within the git repository. Please download them from https://dl.hexistentialist.com with the username/password I have provided to you.
+- Copy the file to /usr/local/unsafehex/$SBXNAME/www/public/downloads.
 - On the guest OS, navigate to http://your_gateway_ip:8080 and download the file `start_bundle.zip`
 - Run the following installers in this order - IMPORTANT! Windows 7 can be a massive pain to update purely from Windows Update and MS' website. Doing things in this order will vastly reduce the headache.
   - `Windows6.1-KB3020369-x64.msu` (Prerequisite, April 2015 servicing stack update)
@@ -81,24 +80,23 @@ To install, perform the steps below:
   - `NDP462-KB3151800-x86-x64-AllOS-ENU.exe` (.NET Framework 4.6.2)
   - `EIE11_EN-US_MCM_WIN764.EXE` (IE 11)
 - Please install sysmon with the config file provided, `sysmon.exe -i sysmon.xml`.
-- Place the run.ps1 script in C:\Program Files\.
 - I have included some vintage software to make it a nice and juicy target:
   - Flash Player 20.0.0.286
   - Java Runtime Environment v6
   - Adobe Reader 10.0
 - Also included are some generic documents and a desktop background.
-- The presence of Microsoft Office is assumed. Please configure it to automatically run macros.
+- The presence of Microsoft Office is assumed. You might see some odd behaviour if it is not installed; for instance, not being able to test any macro-laden documents.
 - Pause the guest VM and create a snapshot. __DO NOT FORGET THIS!__
 
 ### Final setup
 
 - The sandbox is configured to start testing a sample by restoring the VM to the most recent snapshot and unpausing it, then controlling via VNC. When starting a sample you will need to not have the guest open in virt-manager or it will block the initial stages of the run
-- Add your VM to the database with `/usr/local/unsafehex/$SBXNAME/runmanager/register_vm.py`
+- Add your VM to the database with `/usr/local/unsafehex/$SBXNAME/runmanager/register_vm.py`. This will also generate a powershell script _run.ps1_ which must be placed in C:\Program Files on the VM.
 - Run /usr/local/unsafehex/$SBXNAME/runmanager/toron.sh as root to enable the tor service and tunnel the VM's internet traffic via tor. If you do not do this, all outbound connections should fail provided you set the virtual network up as isolated/host only.
 - Test the connectivity if you wish; this is also a good stage to verify that Suricata is inspecting traffic and logging as expected
 - Check that ClamAV is listening on port 9999
 - Currently I run the user interface and sandbox scripts in screen sessions and suggest the same for your testing
-  - UI: from /usr/local/unsafehex/$SBXNAME/www/$SBXNAME/, run 'nodemon bin/www start'
+  - UI: from /usr/local/unsafehex/$SBXNAME/www/, run 'nodemon bin/www start'
   - sandbox manager: from /usr/local/unsafehex/$SBXNAME/runmanager/, run 'python runmanager.py runmanager.conf'
 - Access the UI at https://yourhost/ and run some malware!
 
