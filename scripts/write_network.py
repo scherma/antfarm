@@ -24,4 +24,4 @@ ip.set("address", gateway_ip)
 ip.set("netmask", netmask)
 
 with open(netfile, 'w') as f:
-	f.write(etree.tostring(root, pretty_print=True))
+	f.write(etree.tostring(root, encoding="unicode", pretty_print=True))

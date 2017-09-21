@@ -112,17 +112,21 @@ class Connector:
     def web(self):
         pass
 
-    def downloadAndRun(self, foldername, filename):
+    def downloadAndRun(self, foldername, filename, ext):
         logger.debug("Launching run window with WIN+R...")
         self.client.keyDown("lsuper")
         self.client.keyPress("r")
         self.client.keyUp("lsuper")
         self.client.pause(2)
-        cmdstr = 'powershell -executionPolicy bypass -file "C:\\Program Files\\run.ps1" "{}" "{}"'.format(filename, foldername)
+        cmdstr = 'powershell -executionPolicy bypass -windowstyle hidden -file "C:\\Program Files\\run.ps1" "{}" "{}"'.format(filename, foldername)
         logger.debug("Powershell command: {0}".format(cmdstr))
         self.typestring(cmdstr)
         self.client.keyPress("enter")
         self.client.pause(2)
+        if ext in ["exe"]:
+            self.client.keyPress('r')
+        elif ext in ["jse", "js", "vbe", "vbs", "wsf", "wsh"]:
+            self.client.keyPress('o')
         
     def restart(self):
         # start menu, right for shutdown, right for context menu, up one for restart

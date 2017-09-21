@@ -198,21 +198,6 @@ CREATE TABLE pcap_summary (
 
 ALTER TABLE pcap_summary OWNER TO postgres;
 
-ALTER TABLE ONLY suricata_dns
-	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
-	
-ALTER TABLE ONLY suricata_http
-	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
-	
-ALTER TABLE ONLY suricata_alert
-	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
-	
-ALTER TABLE ONLY suricata_tls
-	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
-
-ALTER TABLE ONLY pcap_summary
-	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
-
 --
 -- Name: sysmon_evts_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
@@ -276,6 +261,21 @@ ALTER TABLE ONLY workerstate
     ADD CONSTRAINT workerstate_uuid_fkey FOREIGN KEY (uuid) REFERENCES victims(uuid);
 
 
+ALTER TABLE ONLY suricata_dns
+	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
+	
+ALTER TABLE ONLY suricata_http
+	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
+	
+ALTER TABLE ONLY suricata_alert
+	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
+	
+ALTER TABLE ONLY suricata_tls
+	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
+
+ALTER TABLE ONLY pcap_summary
+	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
+	
 --
 -- Name: public; Type: ACL; Schema: -; Owner: postgres
 --

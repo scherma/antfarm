@@ -67,7 +67,8 @@ apt-get install -y --force-yes python-pip nodejs nginx libjpeg-dev libopenjpeg-d
 apt-get install -y --force-yes libpcre3-dev postgresql-9.5 postgresql-contrib curl libpcap-dev git npm screen python-lxml rabbitmq-server tor libguestfs-tools libffi-dev libssl-dev tshark
 apt-get install -y --force-yes libnl-3-dev libnl-route-3-dev libxml2-dev libdevmapper-dev libyajl2 libyajl-dev pkg-config libyaml-dev libguestfs-tools build-essential libpq-dev
 apt-get install -y --force-yes libnet1-dev zlib1g zlib1g-dev libcap-ng-dev libcap-ng0 libnss3-dev libgeoip-dev liblua5.1-dev libhiredis-dev libevent-dev libgeoip-dev
-apt-get install -y --force-yes clamav clamav-daemon clamav-freshclam 
+apt-get install -y --force-yes clamav clamav-daemon clamav-freshclam
+apt-get install -y --force-yes libpciaccess-dev # debian stretch
 apt-get upgrade -y --force-yes dnsmasq
 
 echo -e "${GREEN}Installing python dependencies...${NC}"
@@ -119,6 +120,8 @@ setcap cap_net_raw,cap_net_admin=eip /usr/bin/python2.7
 ln -s /usr/bin/gettext.sh /usr/local/bin/gettext.sh
 
 echo -e "${GREEN}Directory structure creation...${NC}"
+addgroup libvirt-qemu
+addgroup "$SBXNAME"
 mkdir -v /usr/local/unsafehex/
 mkdir -v "/usr/local/unsafehex/$SBXNAME"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/suspects"
@@ -129,22 +132,20 @@ mkdir -v "/usr/local/unsafehex/$SBXNAME/runmanager/logs"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/www"
 mkdir -v /mnt/images
 mkdir -v "/mnt/$SBXNAME"
-chown root:"$SBXNAME" "/mnt/$SBXNAME"
+chgrp "$SBXNAME" "/mnt/$SBXNAME"
 chmod g+rw /mnt/"$SBXNAME"
-chown root:libvirt-qemu /mnt/images
+chgrp libvirt-qemu /mnt/images
 chmod g+rw /mnt/images
 
 echo -e "${GREEN}Unwrapping sandbox manager files and utilities...${NC}"
 python "$SCRIPTDIR/scripts/write_tor_iptables.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTDIR/src/runmanager/"
 #python "$SCRIPTDIR/scripts/write_runfile.py" "$GATEWAY_IP" 8080 "$SCRIPTDIR/res/run.ps1"
 python "$SCRIPTDIR/scripts/write_network.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTDIR/res/vnet.xml"
-cp -Rv "$SCRIPTDIR/src/runmanager/*" "/usr/local/unsafehex/$SBXNAME/runmanager/"
+cp -rv "$SCRIPTDIR/src/runmanager/"* "/usr/local/unsafehex/$SBXNAME/runmanager/"
 cp -v "$SCRIPTDIR/res/sysmon.exe" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
 cp -v "$SCRIPTDIR/res/sysmon.xml" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
-cp -v "$SCRIPTDIR/res/run.ps1" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
 cp -v "$SCRIPTDIR/res/bios.bin" "/usr/local/unsafehex/$SBXNAME/"
-cp -Rv "$SCRIPTDIR/src/node/*" "/usr/local/unsafehex/$SBXNAME/www/"
-addgroup "$SBXNAME"
+cp -rv "$SCRIPTDIR/src/node/"* "/usr/local/unsafehex/$SBXNAME/www/"
 chmod 775 -R /usr/local/unsafehex
 usermod -a -G "$SBXNAME" "$LABUSER"
 python "$SCRIPTDIR/scripts/writerunconf.py" "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
@@ -155,7 +156,6 @@ cd "/usr/local/unsafehex/$SBXNAME/www"
 npm i
 
 echo -e "${GREEN}Building required version of libvirt...${NC}"
-addgroup libvirt-qemu
 mkdir -v "/tmp/$SBXNAME"
 mkdir -v "/tmp/$SBXNAME/libvirt"
 cd "/tmp/$SBXNAME/libvirt"
@@ -204,11 +204,11 @@ echo -e "${GREEN}Setting up nginx...${NC}"
 cd "/tmp/$SBXNAME/"
 mkdir -v ssl
 cd "/tmp/$SBXNAME/ssl"
-openssl req -x509 -nodes -days 365 -newkey rsa:4096 -subj "/CN=$SBXNAME/O=$SBXNAME/C=$CCODE" -keyout "$SBXNAME\.key" -out "$SBXNAME\.crt"
+openssl req -x509 -nodes -days 365 -newkey rsa:4096 -subj "/CN=$SBXNAME/O=$SBXNAME/C=$CCODE" -keyout "$SBXNAME".key -out "$SBXNAME".crt
 openssl dhparam -dsaparam -out dhparam.pem 4096
 mkdir -v /etc/nginx/ssl
 chmod 700 /etc/nginx/ssl
-cp -v "$SBXNAME\.key" "$SBXNAME\.crt" dhparam.pem /etc/nginx/ssl
+cp -v "$SBXNAME".key "$SBXNAME".crt dhparam.pem /etc/nginx/ssl
 rm -v /etc/nginx/sites-enabled/default
 cp -v "$SCRIPTDIR/res/nginx" "/etc/nginx/sites-enabled/$SBXNAME"
 

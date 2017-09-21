@@ -4,13 +4,18 @@
 # contact http_error_418@unsafehex.com
 
 import libvirt, sys, os, argparse, logging, uuid, time, pika, json, psycopg2, psycopg2.extras, arrow, db_calls
-import shutil, time, evtx_dates, threading, socket, pcap_parser, pyvnc, psutil, ConfigParser, xmljson
+import shutil, time, evtx_dates, threading, socket, pcap_parser, pyvnc, psutil, xmljson
 import scapy.all as scapy
 from subprocess import call
 from lxml import etree
-from StringIO import StringIO
 from PIL import Image
 from vncdotool import api as vncapi
+if sys.version_info[0] == 2 and sys.version_info[1] == 7:
+    import ConfigParser
+    from StringIO import StringIO
+elif sys.version_info[0] == 3 and sys.version_info[1] >= 5:
+    import configparser
+    from io import StringIO, BytesIO
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +162,12 @@ class Worker():
         
         state = "available"
         tryctr = 0
-        params = json.loads(body)
+        params = None
+        
+        if sys.version_info[0] == 2 and sys.version_info[1] == 7:
+            params = json.loads(body)
+        elif sys.version_info[0] == 3 and sys.version_info[1] >= 5:
+            params = json.loads(body.decode())
         
         while True:
             available = True
@@ -209,9 +219,9 @@ class Worker():
                             arrow.get(suspect.submittime).format(tformat),
                             arrow.get(suspect.starttime).format(tformat),
                             suspect.reboots,
-                            suspect.interactive,
-                            suspect.banking,
-                            suspect.web,
+                            bool(suspect.interactive),
+                            bool(suspect.banking),
+                            bool(suspect.web),
                             suspect.ttl,
                             suspect.uuid)
             logger.debug(updateparams)
@@ -511,9 +521,13 @@ class RunInstance():
         s = lv_conn.newStream()
         # cause libvirt to take the screenshot
         dom.screenshot(s, 0)
-        # copy the data into a buffer
-        buf = StringIO()
-        s.recvAll(self._sc_writer, buf)
+        # copy the data into a buffer        
+        if sys.version_info[0] == 2 and sys.version_info[1] == 7:
+            buf = StringIO()
+            s.recvAll(self._sc_writer, buf)
+        elif sys.version_info[0] == 3 and sys.version_info[1] >= 5:
+            buf = BytesIO()
+            s.recvAll(self._sc_writer, buf)
         s.finish()
         # write the buffer to file
         buf.seek(0)
@@ -588,9 +602,11 @@ class RunInstance():
         
         macrotypes = ["doc", "xls", "ppt", "dot", "xlm", "docm", "dotm", "docb", "xlsm", "xltm", "pptm"]
         
-        vncconn.downloadAndRun(str(self.domid), self.fname)
+        vncconn.downloadAndRun(str(self.domid), self.fname, ext)
+        self.screenshot(dom, lv_conn)
         if ext in macrotypes:
             vncconn.enable_macros(self.victim_params["ms_office_type"])
+            self.screenshot(dom, lv_conn)
         
         logger.info("VM prepped for suspect execution, starting behaviour sequence")
         if self.interactive:
@@ -650,7 +666,12 @@ class RunInstance():
             with open(sysmon_file, 'w') as f:
                 f.write('<Events>\n')
                 for e in matching_evtx:
-                    f.write(etree.tostring(e, pretty_print=True))
+                    # unicode error when writing in python3:
+                    # "Unicode strings with encoding declaration are not supported. Please use bytes input or XML fragments without declaration."                
+                    if sys.version_info[0] == 2 and sys.version_info[1] == 7:
+                        f.write(etree.tostring(e, pretty_print=True))
+                    elif sys.version_info[0] == 3 and sys.version_info[1] >= 5:
+                        f.write(etree.tostring(e, pretty_print=True).decode())
                     evts.append(e)
                     evctr += 1
                 f.write('</Events>')
@@ -724,7 +745,13 @@ def main():
     parser.add_argument('config', default='runmanager.conf', type=argparse.FileType())
     args = parser.parse_args()
     
-    conf = ConfigParser.ConfigParser()
+    conf = None
+    
+    if sys.version_info[0] == 2 and sys.version_info[1] == 7:
+        conf = ConfigParser.ConfigParser()
+    elif sys.version_info[0] == 3 and sys.version_info[1] >= 5:
+        conf = configparser.ConfigParser()
+    
     conf.readfp(args.config)
     if args.loglevel:
         conf.set('General', 'loglevel', args.loglevel)
@@ -760,6 +787,7 @@ def main():
     
     logging.getLogger(__name__).setLevel(logging.DEBUG)
     logging.getLogger("pyvnc").setLevel(logging.DEBUG)
+    logging.getLogger("evtx_dates").setLevel(logging.DEBUG)
     logging.getLogger("db_calls").setLevel(logging.DEBUG)
     
     if not os.access(conf.get('General', 'mountdir'), os.W_OK):
