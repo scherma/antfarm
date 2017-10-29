@@ -91,7 +91,8 @@ To install, perform the steps below:
 ### Final setup
 
 - The sandbox is configured to start testing a sample by restoring the VM to the most recent snapshot and unpausing it, then controlling via VNC. When starting a sample you will need to not have the guest open in virt-manager or it will block the initial stages of the run
-- Add your VM to the database with `/usr/local/unsafehex/$SBXNAME/runmanager/register_vm.py`. This will also generate a powershell script _run.ps1_ which must be placed in C:\Program Files on the VM.
+- Add your VM to the database with `/usr/local/unsafehex/$SBXNAME/runmanager/register_vm.py`.
+- Download and install the TeaService Setup.msi file; it should be available at the default gateway IP on port 28082. You will need to enter your VM user's credentials, and the name of the VM as it appears in Virt Manager.
 - Run /usr/local/unsafehex/$SBXNAME/runmanager/toron.sh as root to enable the tor service and tunnel the VM's internet traffic via tor. If you do not do this, all outbound connections should fail provided you set the virtual network up as isolated/host only.
 - Test the connectivity if you wish; this is also a good stage to verify that Suricata is inspecting traffic and logging as expected
 - Check that ClamAV is listening on port 9999

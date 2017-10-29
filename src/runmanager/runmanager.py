@@ -247,7 +247,7 @@ class Worker():
             self._state_update('restored', (False,None))
             self._case_update('restored', suspect.uuid)
             logger.debug("Resuming VM")
-            dom.resume()
+            #dom.resume()
             
             # start capture
             t = threading.Thread(name="pcap", target=suspect.capture)
@@ -563,7 +563,7 @@ class RunInstance():
             raise StopCaptureException("Stop Capture flag set")
     
     def capture(self):
-        fl = "host {0} and not (host {1} and port 8080)".format(self.victim_params["ip"], self.conf.get("General", "gateway_ip"))
+        fl = "host {0} and not (host {1} and port 28080)".format(self.victim_params["ip"], self.conf.get("General", "gateway_ip"))
         logger.debug("Packet capture starting with filter '{0}'".format(fl))
         scapy.sniff(iface="vnet0", filter=fl, prn=self.write_capture)
             
@@ -589,49 +589,65 @@ class RunInstance():
             return events
         
     def behaviour(self, dom, lv_conn):
-        cstr = "{0}::{1}".format(self.victim_params["vnc"]["address"], self.victim_params["vnc"]["port"])
-        vncconn = pyvnc.Connector(cstr, self.victim_params["password"], (self.victim_params["display_x"], self.victim_params["display_y"]))
-        logger.debug("Initialised VNC connection")
-        t = arrow.now()
-        wintime = t.strftime('%H:%M:%S')
-        windate = t.strftime('%d/%m/%Y')
-        vncconn.prepVM(windate, wintime)
-        logger.debug("Victim date/time set to {0} {1}".format(windate, wintime))
-        
-        ext = self.fname.split(".")[-1]
-        
-        macrotypes = ["doc", "xls", "ppt", "dot", "xlm", "docm", "dotm", "docb", "xlsm", "xltm", "pptm"]
-        
-        vncconn.downloadAndRun(str(self.domid), self.fname, ext)
-        self.screenshot(dom, lv_conn)
-        if ext in macrotypes:
-            vncconn.enable_macros(self.victim_params["ms_office_type"])
+        # ensure service has obtained file before performing any actions
+        try:
+            obtained = False
+            while not obtained:
+                self.cursor.execute("""SELECT status FROM cases WHERE uuid=%s""", (self.uuid,))
+                rows = self.cursor.fetchall()
+                if rows[0]["status"] == "obtained":
+                    obtained = True
+                time.sleep(5)
+             
+            cstr = "{0}::{1}".format(self.victim_params["vnc"]["address"], self.victim_params["vnc"]["port"])
+            vncconn = pyvnc.Connector(cstr, self.victim_params["password"], (self.victim_params["display_x"], self.victim_params["display_y"]))
+            logger.debug("Initialised VNC connection")
+            #t = arrow.now()
+            #wintime = t.strftime('%H:%M:%S')
+            #windate = t.strftime('%d/%m/%Y')
+            #vncconn.prepVM(windate, wintime)
+            #logger.debug("Victim date/time set to {0} {1}".format(windate, wintime))
+            
+            ext = self.fname.split(".")[-1]
+            
+            macrotypes = ["doc", "xls", "ppt", "dot", "xlm", "docm", "dotm", "docb", "xlsm", "xltm", "pptm"]
+            
+            #vncconn.downloadAndRun(str(self.domid), self.fname, ext)
             self.screenshot(dom, lv_conn)
+            if ext in macrotypes:
+                vncconn.enable_macros(self.victim_params["ms_office_type"])
+                self.screenshot(dom, lv_conn)
+            
+            #logger.info("VM prepped for suspect execution, starting behaviour sequence")
+            if self.interactive:
+                logger.info("Passing control to user")
+            else:
+                vncconn.basic()
+                logger.info("Basic behaviour complete")
+                self.screenshot(dom, lv_conn)
+                if self.banking:
+                    vncconn.bank()
+                    self.screenshot(dom, lv_conn)
+                    logger.info("Banking happened")
+                if self.reboots:
+                    vncconn.restart()
+                    logger.info("System rebooted")
+                if self.web:
+                    vncconn.web()
+                    self.screenshot(dom, lv_conn)
+                    logger.info("Web activity happened")
+                if self.reboots > 1:
+                    vncconn.restart()
+                    logger.info("System rebooted")
+            logger.info("Behaviour sequence complete")
+            vncconn.disconnect()
+            logger.debug("VNC disconnect issued")
         
-        logger.info("VM prepped for suspect execution, starting behaviour sequence")
-        if self.interactive:
-            logger.info("Passing control to user")
-        else:
-            vncconn.basic()
-            logger.info("Basic behaviour complete")
-            self.screenshot(dom, lv_conn)
-            if self.banking:
-                vncconn.bank()
-                self.screenshot(dom, lv_conn)
-                logger.info("Banking happened")
-            if self.reboots:
-                vncconn.restart()
-                logger.info("System rebooted")
-            if self.web:
-                vncconn.web()
-                self.screenshot(dom, lv_conn)
-                logger.info("Web activity happened")
-            if self.reboots > 1:
-                vncconn.restart()
-                logger.info("System rebooted")
-        logger.info("Behaviour sequence complete")
-        vncconn.disconnect()
-        logger.debug("VNC disconnect issued")
+        except Exception as e:
+            ex_type, ex, tb = sys.exc_info()
+            fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
+            lineno = tb.tb_lineno
+            raise RuntimeError("Exception {0} {1} in {2}, line {3} while processing job, run not completed. Aborting.".format(ex_type, ex, fname, lineno))
         
     def do_run(self, dom, lv_conn):
         logger.debug("Started run sequence")
@@ -639,6 +655,8 @@ class RunInstance():
         shutil.copy(self.rawfile, self.downloadfile)
         logger.debug("File copied ready for download")
         try:
+            dom.resume()
+            logger.debug("Resumed VM in preparation for run")
             self.behaviour(dom, lv_conn)
         # except block for debugging purposes - clean this up for production
         except Exception as e:

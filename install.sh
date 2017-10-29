@@ -130,6 +130,7 @@ mkdir -v "/usr/local/unsafehex/$SBXNAME/output"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/runmanager"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/runmanager/logs"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/www"
+mkdir -v "/usr/local/unsafehex/$SBXNAME/api"
 mkdir -v /mnt/images
 mkdir -v "/mnt/$SBXNAME"
 chgrp "$SBXNAME" "/mnt/$SBXNAME"
@@ -144,8 +145,10 @@ python "$SCRIPTDIR/scripts/write_network.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTDI
 cp -rv "$SCRIPTDIR/src/runmanager/"* "/usr/local/unsafehex/$SBXNAME/runmanager/"
 cp -v "$SCRIPTDIR/res/sysmon.exe" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
 cp -v "$SCRIPTDIR/res/sysmon.xml" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
+cp -v "$SCRIPTDIR/res/TeaService\ Setup.msi" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
 cp -v "$SCRIPTDIR/res/bios.bin" "/usr/local/unsafehex/$SBXNAME/"
 cp -rv "$SCRIPTDIR/src/node/"* "/usr/local/unsafehex/$SBXNAME/www/"
+cp -rv "$SCRIPTDIR/src/api/"* "/usr/local/unsafehex/$SBXNAME/api/"
 chmod 775 -R /usr/local/unsafehex
 usermod -a -G "$SBXNAME" "$LABUSER"
 python "$SCRIPTDIR/scripts/writerunconf.py" "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
@@ -153,6 +156,8 @@ python "$SCRIPTDIR/scripts/writewwwconf.py" "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "
 
 echo -e "${GREEN}Installing required node modules...${NC}"
 cd "/usr/local/unsafehex/$SBXNAME/www"
+npm i
+cd "/usr/local/unsafehex/$SBXNAME/api"
 npm i
 
 echo -e "${GREEN}Building required version of libvirt...${NC}"

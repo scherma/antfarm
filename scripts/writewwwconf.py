@@ -63,5 +63,20 @@ conf = {
     }
 }
 
+apiconf = {
+    "database": {
+        "username": instancename,
+        "password": dbpass
+    },
+    
+    "site": {
+        "name": instancename,
+        "displayName": displayname
+    }
+}
+
 with open('/usr/local/unsafehex/{0}/www/lib/config.json'.format(instancename), 'w') as f:
     f.write(json.dumps(conf, indent=4, separators=(",", ": ")))
+
+with open('/sur/local/unsafehex/{0}/api/lib/config.json'.format(instancename), 'w') as f:
+    f.write(json.dumps(apiconf, indent=4, separators=(",", ": ")))

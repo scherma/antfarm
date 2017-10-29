@@ -22,7 +22,20 @@ function new_suspect(sha256, sha1, md5, originalname, magic, avresult) {
 
 function new_case(uuid, unixtime, sha256, fname) {
 	var formatted = moment.unix(unixtime).format('YYYY-MM-DD HH:mm:ss');
-	return pg.insert({uuid: uuid, submittime: formatted, sha256: sha256, fname: fname, status: 'submitted'}).into('cases');
+	
+	var components = fname.split(".");
+	var ext = components[components.length - 1];
+	var runstyle = 2;
+	var type0 = ["exe", "com", "bat", "bin", "cpl", "ins", "inx", "isu", "job", "pif", "paf", "mst", "msi", "msc"]; // direct CallProcessAsUser
+	var type1 = []; // explorer.exe <file>
+	var type2 = []; // cmd /c start <file>
+	if (type0.indexOf(ext) >= 0) {
+		runstyle = 0;
+	} else if (type1.indexOf(ext) >= 0) {
+		runstyle = 1;
+	}
+	
+	return pg.insert({uuid: uuid, submittime: formatted, sha256: sha256, fname: fname, status: 'submitted', runstyle: runstyle}).into('cases');
 }
 
 function list_cases(page=0, desc=true, where={}, limit=20) {

@@ -51,7 +51,8 @@ CREATE TABLE cases (
     banking boolean,
     web boolean,
     vm_os text,
-    runtime integer
+    runtime integer,
+	runstyle integer
 );
 
 
@@ -81,6 +82,7 @@ ALTER TABLE suspects OWNER TO postgres;
 CREATE TABLE victims (
     libvirtname character varying(100),
     uuid character varying(50) NOT NULL,
+	guid character varying(50),
     hostname text,
     os text,
     ip text,

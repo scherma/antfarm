@@ -34,14 +34,23 @@ server {
 
 
 server {
-  listen REPLACE_ME:8080;
+    listen REPLACE_ME:28080;
 
     root /usr/local/unsafehex/REPLACE_ME/suspects/downloads;
 
      location / {
-           try_files $uri $uri/ =404;
-           autoindex on;
-           autoindex_exact_size off;
-           autoindex_localtime on;
+           proxy_pass http://127.0.0.1:28081;
      }
+}
+
+server {
+    listen REPLACE_ME: 28082;
+  
+    root /usr/local/unsafehex/REPLACE_ME/suspects/downloads;
+    location / {
+        try_files $uri $uri/ =404;
+        autoindex on;
+        autoindex_exact_size off;
+        autoindex_localtime on;
+    }
 }

@@ -67,35 +67,39 @@ def main():
 		
 		chosendisk = None
 		chosendisk = disks[0].xpath("./source")[0].get("file")
+		
+		# manual specification of this content no longer required - it is discovered via the installed service and registered over API
+		
 		#for i, disk in enumerate(disks):
 		#	if disk.find("./boot") is not None:
 		#		source = disk.xpath("./source")[0]
 		#		chosendisk = source.get("file")
 				
-		print("Please enter the following settings according to how you have configured your VM")
-		hostname = raw_input("Hostname: ")
-		opsys = raw_input("Operating system: ")
-		username = raw_input("Username: ")
-		password = raw_input("Password: ")
-		ip = raw_input("IP address: ")
-		display_x = raw_input("Display width: ")
-		display_y = raw_input("Display height: ")
-		print("\n")
-		office_type = None
-		versions = [
-			"None",
-			"MS Office 2007",
-			"MS Office 2010",
-			"MS Office 2013",
-			"Office 365"
-		]
+		#print("Please enter the following settings according to how you have configured your VM")
+		#hostname = raw_input("Hostname: ")
+		#opsys = raw_input("Operating system: ")
+		#username = raw_input("Username: ")
+		#password = raw_input("Password: ")
+		#ip = raw_input("IP address: ")
+		#display_x = raw_input("Display width: ")
+		#display_y = raw_input("Display height: ")
+		#print("\n")
+		#office_type = None
+		#versions = [
+		#	"None",
+		#	"MS Office 2007",
+		#	"MS Office 2010",
+		#	"MS Office 2013",
+		#	"MS Office 2016",
+		#	"Office 365"
+		#]
 		
-		while office_type not in range(0, len(versions)):
-			print("What installation of MS Office is there?")
-			vopts = [[i, val] for i, val in enumerate(versions)]
-			
-			print(tabulate.tabulate(vopts))
-			office_type = int(raw_input("Please enter a number corresponding to your installation: "))
+		#while office_type not in range(0, len(versions)):
+		#	print("What installation of MS Office is there?")
+		#	vopts = [[i, val] for i, val in enumerate(versions)]
+		#	
+		#	print(tabulate.tabulate(vopts))
+		#	office_type = int(raw_input("Please enter a number corresponding to your installation: "))
 		
 
 		print("\nYour VM will be registered with the following settings:\n")
@@ -103,44 +107,48 @@ def main():
 		options = [
 			["libvirtname", selected.name()],
 			["uuid", selected.UUIDString()],
-			["hostname", hostname],
-			["os", opsys],
-			["ip", ip],
-			["username", username],
-			["password", password],
-			["diskfile", chosendisk],
-			["resolution", "{0}x{1}".format(display_x, display_y)],
-			["office version", versions[office_type]]
+		#	["hostname", hostname],
+		#	["os", opsys],
+		#	["ip", ip],
+		#	["username", username],
+		#	["password", password],
+		#	["diskfile", chosendisk],
+		#	["resolution", "{0}x{1}".format(display_x, display_y)],
+		#	["office version", versions[office_type]]
 			]
 		
 		print(tabulate.tabulate(options, headers=["Option", "Value"]))
 		
 		raw_input("Press enter to confirm this selection (ctrl + c to abort)")
 		
-		cursor.execute("""INSERT INTO "victims" (libvirtname, uuid, hostname, os, ip, username, password, diskfile, status, runcounter, display_x, display_y, ms_office_type) """ +
-					   """VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-					   (selected.name(), selected.UUIDString(), hostname, opsys, ip, username, password, chosendisk, 'production', 0, int(display_x), int(display_y), office_type))
+		#cursor.execute("""INSERT INTO "victims" (libvirtname, uuid, hostname, os, ip, username, password, diskfile, status, runcounter, display_x, display_y, ms_office_type) """ +
+		#			   """VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+		#			   (selected.name(), selected.UUIDString(), hostname, opsys, ip, username, password, chosendisk, 'production', 0, int(display_x), int(display_y), office_type))
+		
+		cursor.execute("""INSERT INTO "victims" (libvirtname, uuid) """ +
+					   """VALUES (%s, %s)""",
+					   (selected.name(), selected.UUIDString()))
 		
 		print("VM registered in database")
 		
-		dlfname = os.path.join(conf.get('General', 'basedir'), conf.get('General', 'instancename'), 'suspects', 'downloads', 'run.ps1')
+		#dlfname = os.path.join(conf.get('General', 'basedir'), conf.get('General', 'instancename'), 'suspects', 'downloads', 'run.ps1')
 		
-		content = """# © https://github.com/scherma
-# contact http_error_418@unsafehex.com
-param(
-    [Parameter(Mandatory=$true)][string]$filename,
-    [Parameter(Mandatory=$true)][string]$dldir
-)
+		#content = """# © https://github.com/scherma
+## contact http_error_418@unsafehex.com
+#param(
+#    [Parameter(Mandatory=$true)][string]$filename,
+#    [Parameter(Mandatory=$true)][string]$dldir
+#)
 
-$client = New-Object System.Net.WebClient
-$dlname = [uri]::EscapeDataString($filename)
-$client.DownloadFile("http://{0}:{1}/$dldir/$dlname", "C:\\Users\\{2}\\Downloads\\$filename")
+#$client = New-Object System.Net.WebClient
+#$dlname = [uri]::EscapeDataString($filename)
+#$client.DownloadFile("http://{0}:{1}/$dldir/$dlname", "C:\\Users\\{2}\\Downloads\\$filename")
 
-cmd /c start "C:\\Users\\{2}\\Downloads\\$filename" """.format(conf.get('General', 'gateway_ip'), '8080', username)
+#cmd /c start "C:\\Users\\{2}\\Downloads\\$filename" """.format(conf.get('General', 'gateway_ip'), '8080', username)
 
-		with open(dlfname, 'w') as f:
-			f.write(content)
-			print('Wrote file {0} - please place this in your VM\'s "C:\\Program Files" directory'.format(dlfname))
+		#with open(dlfname, 'w') as f:
+		#	f.write(content)
+		#	print('Wrote file {0} - please place this in your VM\'s "C:\\Program Files" directory'.format(dlfname))
 		
 	else:
 		print("No unregistered VMs found. Please note that only VMs that are unregistered AND paused will be listed.")
