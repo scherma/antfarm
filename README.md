@@ -72,7 +72,7 @@ To install, perform the steps below:
 - Change the display type to VMVGA now that installation is done.
 - I have collected some resources for preparing the VM, but for practical reasons they are not within the git repository. Please download them from https://dl.hexistentialist.com with the username/password I have provided to you.
 - Copy the file to /usr/local/unsafehex/$SBXNAME/www/public/downloads.
-- On the guest OS, navigate to http://your_gateway_ip:8080 and download the file `start_bundle.zip`
+- On the guest OS, navigate to http://your_gateway_ip:28082 and download the file `start_bundle.zip`
 - Run the following installers in this order - IMPORTANT! Windows 7 can be a massive pain to update purely from Windows Update and MS' website. Doing things in this order will vastly reduce the headache.
   - `Windows6.1-KB3020369-x64.msu` (Prerequisite, April 2015 servicing stack update)
   - `Windows6.1-KB3172605-x64.msu` (Includes latest Windows Update client)
