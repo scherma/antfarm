@@ -25,10 +25,17 @@ function new_case(uuid, unixtime, sha256, fname) {
 	
 	var components = fname.split(".");
 	var ext = components[components.length - 1];
+	
+	// default method to run a suspect
+	// cmd /c start <file>
 	var runstyle = 2;
-	var type0 = ["exe", "com", "bat", "bin", "cpl", "ins", "inx", "isu", "job", "pif", "paf", "mst", "msi", "msc"]; // direct CallProcessAsUser
-	var type1 = []; // explorer.exe <file>
-	var type2 = []; // cmd /c start <file>
+	
+	// direct CallProcessAsUser
+	var type0 = ["exe", "com", "bat", "bin", "cpl", "ins", "inx", "isu", "job", "pif", "paf", "mst", "msi", "msc"];
+	
+	// explorer.exe <file>
+	var type1 = ["jse", "wsf", "vbs", "js"];
+	
 	if (type0.indexOf(ext) >= 0) {
 		runstyle = 0;
 	} else if (type1.indexOf(ext) >= 0) {

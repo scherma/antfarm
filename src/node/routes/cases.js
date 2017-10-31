@@ -213,6 +213,17 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 			sysmon.push(parsed);
 		});
 		
+		sysmon.sort(function(a,b){
+			if (parseInt(a.System.EventRecordID) < parseInt(b.System.EventRecordID)) {
+				return -1;
+			}
+			if (parseInt(a.System.EventRecordID) > parseInt(b.System.EventRecordID)) {
+				return 1;
+			}
+			
+			return 0;
+		});
+		
 		var pcaplink = '/cases/pcap/' + properties.sha256.text + '/' + properties.uuid.text;
 
 		var caseobj = {
