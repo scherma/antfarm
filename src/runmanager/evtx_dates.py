@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
-# © https://github.com/scherma
-# contact http_error_418@unsafehex.com
+# MIT License © https://github.com/scherma
+# contact http_error_418 @ unsafehex.com
 
 import sys, traceback, os, arrow, logging
 from lxml import etree

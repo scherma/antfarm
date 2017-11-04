@@ -1,3 +1,6 @@
+// MIT License © https://github.com/scherma
+// contact http_error_418 @ unsafehex.com
+
 var express = require('express');
 var path = require('path');
 var favicon = require('serve-favicon');

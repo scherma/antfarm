@@ -1,5 +1,5 @@
-// © https://github.com/scherma
-// contact http_error_418@unsafehex.com
+// MIT License © https://github.com/scherma
+// contact http_error_418 @ unsafehex.com
 
 const uuidv4 = require('uuid/v4');
 var amqp = require('amqplib/callback_api');

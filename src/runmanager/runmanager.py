@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 # coding: utf-8
-# © https://github.com/scherma
-# contact http_error_418@unsafehex.com
+# MIT License © https://github.com/scherma
+# contact http_error_418 @ unsafehex.com
 
 import libvirt, sys, os, argparse, logging, uuid, time, pika, json, psycopg2, psycopg2.extras, arrow, db_calls
 import shutil, time, evtx_dates, threading, socket, pcap_parser, pyvnc, psutil, xmljson

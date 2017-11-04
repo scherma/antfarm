@@ -1,5 +1,5 @@
-// © https://github.com/scherma
-// contact http_error_418@unsafehex.com
+// MIT License © https://github.com/scherma
+// contact http_error_418 @ unsafehex.com
 
 var moment = require('moment');
 var options = require('./options');

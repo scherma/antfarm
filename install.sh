@@ -1,6 +1,6 @@
 #!/bin/bash
-# © https://github.com/scherma
-# contact http_error_418@unsafehex.com
+# MIT License © https://github.com/scherma
+# contact http_error_418 @ unsafehex.com
 
 if [[ $EUID -ne 0 ]]; then
     echo "This script must be run as root"
