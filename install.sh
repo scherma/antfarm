@@ -13,7 +13,7 @@ NC='\033[0m'
 
 echo -e "${GREEN}If system time is wrong, lots of things break. Updating now...${NC}"
 
-apt-get install -y --force-yes ntpdate
+apt-get install -y ntpdate
 ntpdate -s time.nist.gov
 D=$(date)
 echo "Date has been set to $D"
@@ -55,32 +55,40 @@ chown "$LABUSER:$LABUSER" "/home/$LABUSER/.bash_profile"
 echo -e "${GREEN}Running basic updates...${NC}"
 
 # stock version of postgresql (9.4) does not support ON CONFLICT
-echo "deb http://apt.postgresql.org/pub/repos/apt/ jessie-pgdg main" >> /etc/apt/sources.list.d/pgdg.list
-wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
+#echo "deb http://apt.postgresql.org/pub/repos/apt/ jessie-pgdg main" >> /etc/apt/sources.list.d/pgdg.list
+#wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
 
 apt-get update -y
 apt-get upgrade -y
 apt-get dist-upgrade -y
 
 echo -e "${GREEN}Installing core dependencies...${NC}"
-apt-get install -y --force-yes python-pip nodejs nginx libjpeg-dev libopenjpeg-dev python-dev curl tcpdump libcap2-bin libcap-ng-dev libmagic-dev libjansson-dev libpcre3 libpcre3-dbg
-apt-get install -y --force-yes libpcre3-dev postgresql-9.5 postgresql-contrib curl libpcap-dev git npm screen python-lxml rabbitmq-server tor libguestfs-tools libffi-dev libssl-dev tshark
-apt-get install -y --force-yes libnl-3-dev libnl-route-3-dev libxml2-dev libdevmapper-dev libyajl2 libyajl-dev pkg-config libyaml-dev libguestfs-tools build-essential libpq-dev
-apt-get install -y --force-yes libnet1-dev zlib1g zlib1g-dev libcap-ng-dev libcap-ng0 libnss3-dev libgeoip-dev liblua5.1-dev libhiredis-dev libevent-dev libgeoip-dev
-apt-get install -y --force-yes clamav clamav-daemon clamav-freshclam
-apt-get install -y --force-yes libpciaccess-dev # debian stretch
-apt-get upgrade -y --force-yes dnsmasq
+# stretch does not include npm with default nodejs install
+curl -sL https://deb.nodesource.com/setup_9.x | sudo -E bash -
+
+apt-get install -y python3-pip nodejs nginx libjpeg-dev curl tcpdump libcap2-bin libcap-ng-dev libmagic-dev libjansson-dev libpcre3 libpcre3-dbg libpciaccess-dev
+apt-get install -y libpcre3-dev postgresql-9.6 postgresql-contrib curl libpcap-dev git screen python3-lxml tor libguestfs-tools libffi-dev libssl-dev tshark
+apt-get install -y libnl-3-dev libnl-route-3-dev libxml2-dev libdevmapper-dev libyajl2 libyajl-dev pkg-config libyaml-dev build-essential libpq-dev python3-libvirt
+apt-get install -y libnet1-dev zlib1g zlib1g-dev libcap-ng-dev libcap-ng0 libnss3-dev libgeoip-dev liblua5.1-dev libhiredis-dev libevent-dev libgeoip-dev python3-dev
+apt-get install -y clamav clamav-daemon clamav-freshclam python3-guestfs xsltproc pm-utils
+apt-get install -y libpciaccess-dev # debian stretch
+apt-get upgrade -y dnsmasq
+
+# failed to find in stretch: libopenjpeg-dev
 
 echo -e "${GREEN}Installing python dependencies...${NC}"
-apt-get remove -y python-cffi
-pip install pika psycopg2 arrow vncdotool pyshark psutil scapy tabulate ipaddress
-pip install --upgrade Pillow
-pip install --upgrade twisted
-# pip3 install scapy-python3
+# apt-get remove -y python-cffi # probably not required anymore
+pip3 install --upgrade Pillow
+pip3 install --upgrade twisted
+pip3 install scapy-python3 pytest vncdotool Pillow pika psycopg2 arrow pyshark psutil tabulate ipaddress
 # vncdotool currently has bugs in python3 - can't move this to py3 just yet
 
-echo -e "${GREEN}Installing Python EVTX Parser by Willi Ballenthin$...${NC}"
-pip install git+https://github.com/williballenthin/python-evtx
+echo -e "${GREEN}Installing Python EVTX Parser by Willi Ballenthin...${NC}"
+pip3 install git+https://github.com/williballenthin/python-evtx
+# cd /tmp
+# git clone https://github.com/williballenthin/python-evtx
+# cd python-evtx
+# python3 setup.py install
 
 echo -e "${GREEN}Installing global nodejs packages...${NC}"
 npm cache clean -f
@@ -114,8 +122,8 @@ chgrp pcap /usr/sbin/tcpdump
 chmod 750 /usr/sbin/tcpdump
 # possibly only python needs cap_net_raw but setting on both to be sure
 setcap cap_net_raw,cap_net_admin=eip /usr/sbin/tcpdump
-setcap cap_net_raw,cap_net_admin=eip /usr/bin/python2.7
-# setcap cap_net_raw,cap_net_admin=eip /usr/bin/python3.4
+setcap cap_net_raw,cap_net_admin=eip /usr/bin/python3.5
+# setcap cap_net_raw,cap_net_admin=eip /usr/bin/python3.6
 # when running as non-root, tcpdump looks for gettext in the wrong place (as does libvirt)
 ln -s /usr/bin/gettext.sh /usr/local/bin/gettext.sh
 
@@ -139,9 +147,8 @@ chgrp libvirt-qemu /mnt/images
 chmod g+rw /mnt/images
 
 echo -e "${GREEN}Unwrapping sandbox manager files and utilities...${NC}"
-python "$SCRIPTDIR/scripts/write_tor_iptables.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTDIR/src/runmanager/"
-#python "$SCRIPTDIR/scripts/write_runfile.py" "$GATEWAY_IP" 8080 "$SCRIPTDIR/res/run.ps1"
-python "$SCRIPTDIR/scripts/write_network.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTDIR/res/vnet.xml"
+python3 "$SCRIPTDIR/scripts/write_tor_iptables.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTDIR/src/runmanager/"
+python3 "$SCRIPTDIR/scripts/write_network.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTDIR/res/vnet.xml"
 cp -rv "$SCRIPTDIR/src/runmanager/"* "/usr/local/unsafehex/$SBXNAME/runmanager/"
 cp -v "$SCRIPTDIR/res/sysmon.exe" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
 cp -v "$SCRIPTDIR/res/sysmon.xml" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
@@ -151,8 +158,8 @@ cp -rv "$SCRIPTDIR/src/node/"* "/usr/local/unsafehex/$SBXNAME/www/"
 cp -rv "$SCRIPTDIR/src/api/"* "/usr/local/unsafehex/$SBXNAME/api/"
 chmod 775 -R /usr/local/unsafehex
 usermod -a -G "$SBXNAME" "$LABUSER"
-python "$SCRIPTDIR/scripts/writerunconf.py" "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
-python "$SCRIPTDIR/scripts/writewwwconf.py" "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
+python3 "$SCRIPTDIR/scripts/writerunconf.py" "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
+python3 "$SCRIPTDIR/scripts/writewwwconf.py" "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
 
 echo -e "${GREEN}Installing required node modules...${NC}"
 cd "/usr/local/unsafehex/$SBXNAME/www"
@@ -164,9 +171,9 @@ echo -e "${GREEN}Building required version of libvirt...${NC}"
 mkdir -v "/tmp/$SBXNAME"
 mkdir -v "/tmp/$SBXNAME/libvirt"
 cd "/tmp/$SBXNAME/libvirt"
-wget https://libvirt.org/sources/libvirt-3.1.0.tar.xz
-tar xvfJ libvirt-3.1.0.tar.xz
-cd libvirt-3.1.0
+wget https://libvirt.org/sources/libvirt-4.0.0.tar.xz
+tar xvfJ libvirt-4.0.0.tar.xz
+cd libvirt-4.0.0
 ./configure --with-qemu-group=libvirt-qemu --localstatedir=/usr/local/var --with-dnsmasq-path=/usr/sbin/dnsmasq
 make && make install
 usermod -a -G libvirt-qemu "$LABUSER"
@@ -188,6 +195,7 @@ cd suricata-4.0.0
 ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-geoip
 make && make install
 make install-conf
+cp -v "$SCRIPTDIR/res/suricata.yaml" /etc/suricata
 
 echo -e "${GREEN}Setting up Emerging Threats download...${NC}"
 cd "/tmp/$SBXNAME/"
@@ -203,7 +211,7 @@ rm tmpcron
 echo -e "${GREEN}Configuring ClamAV to accept TCP connections...${NC}"
 echo "TCPSocket 9999" >> /etc/clamav/clamd.conf
 echo "TCPAddr 127.0.0.1" >> /etc/clamav/clamd.conf
-cp -rf "$SCRIPTDIR/res/extend.conf" /etc/systemd/system/clamav-daemon.socket.d/extend.conf
+cp -rf "$SCRIPTDIR/res/extend.conf" /etc/systemd/system/clamav-daemon.service.d/extend.conf
 
 echo -e "${GREEN}Setting up nginx...${NC}"
 cd "/tmp/$SBXNAME/"

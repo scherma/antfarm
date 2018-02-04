@@ -51,8 +51,9 @@ CREATE TABLE cases (
     banking boolean,
     web boolean,
     vm_os text,
-    runtime integer,
-	runstyle integer
+    runtime integer DEFAULT 180,
+	runstyle integer,
+	priority integer DEFAULT 0
 );
 
 

@@ -20,7 +20,7 @@ function new_suspect(sha256, sha1, md5, originalname, magic, avresult) {
 				  [sha256, sha1, md5, originalname, magic, avresult, formatted]);
 }
 
-function new_case(uuid, unixtime, sha256, fname) {
+function new_case(uuid, unixtime, sha256, fname, reboots, banking, web, runtime) {
 	var formatted = moment.unix(unixtime).format('YYYY-MM-DD HH:mm:ss');
 	
 	var components = fname.split(".");
@@ -42,7 +42,18 @@ function new_case(uuid, unixtime, sha256, fname) {
 		runstyle = 1;
 	}
 	
-	return pg.insert({uuid: uuid, submittime: formatted, sha256: sha256, fname: fname, status: 'submitted', runstyle: runstyle}).into('cases');
+	return pg.insert({
+		uuid: uuid,
+		submittime: formatted,
+		sha256: sha256,
+		fname: fname,
+		status: 'submitted',
+		runstyle: runstyle,
+		reboots: reboots,
+		banking: banking,
+		web: web,
+		runtime: runtime})
+	.into('cases');
 }
 
 function list_cases(page=0, desc=true, where={}, limit=20) {

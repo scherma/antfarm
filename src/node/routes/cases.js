@@ -61,13 +61,19 @@ router.get('/', function(req, res, next) {
 router.post('/start', function(req, res, next) {
 	functions.Suspect(req.body.filename, req.body.sha256, fdir, req.body.interactive, req.body.banking, req.body.web, parseInt(req.body.reboots), parseInt(req.body.runtime))
 	.then(function(suspect) {
-		var s = db.new_case(suspect.uuid, suspect.submittime, suspect.hashes.sha256, suspect.fname)
+		var s = db.new_case(suspect.uuid,
+							suspect.submittime,
+							suspect.hashes.sha256,
+							suspect.fname,
+							suspect.reboots,
+							suspect.banking,
+							suspect.web,
+							suspect.runtime)
 		.then(function() {
 			return suspect;
 		});
 		return s;
 	})
-	.then(functions.QueueSuspect)
 	.then(function(suspect) {
 		res.redirect(format('/cases/view/{sha256}/{uuid}', {sha256: req.body.sha256, uuid: suspect.uuid}));
 	})

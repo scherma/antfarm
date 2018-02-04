@@ -1,6 +1,6 @@
 # Hello, malware junkies
 
-Thank you for helping me to test my sandbox. Currently this has only been tested with 64-bit Debian Jessie, and a guest VM OS of Windows 7 SP 1 x86-64; if you want to adapt it to anything else you are welcome to try but I make no guarantees!
+Thank you for helping me to test my sandbox. Currently this has only been tested with 64-bit Debian Stretch, and a guest VM OS of Windows 7 SP 1 x86-64; if you want to adapt it to anything else you are welcome to try but I make no guarantees!
 
 At this stage I have not chosen a license. Please do not distribute code that is © myself at this time.
 
@@ -40,6 +40,7 @@ To install, perform the steps below:
   - Change the display type to VNC
   - Change the Video type to Cirrus (actually we want it to be VMVGA, but there's a bug with the virtualisation that makes the installer fail to boot with that setting)
   - Save the config and halt the VM
+  - Set the disk cache mode to writethrough
   - I set my VMs up with UK keyboard layouts. You must also set the keymap in the VM configuration. I believe this should work with other combinations, provided the Libvirt keymap reflects the guest VM's, but I have not tested this yet.
 - Move the virtual disk file to /mnt/images
 - Set ownership to root:libvirt-qemu and chmod g+rw

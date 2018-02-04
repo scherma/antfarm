@@ -43,7 +43,7 @@ router.get('/case/:guid', function(req, res, next) {
     if (rows.length > 0) {
       var options = {};
       var ts = moment.utc();
-      options.Year = ts.years();
+      options.Year = ts.year();
       options.Month = ts.month() + 1; // months are zero indexed because moment js is clearly smoking crack
       options.Day = ts.date();
       options.Hour = ts.hours();

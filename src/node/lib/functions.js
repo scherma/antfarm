@@ -65,6 +65,7 @@ var Suspect = function(fname,
 				s.interactive = interactive;
 				s.banking = banking;
 				s.reboots = reboots;
+				s.runtime = runtime;
 				s.ttl = runtime + 60; // allow 1 minute extra for victim prep
 				s.web = web;
 				Hashes(finalpath).done(function(res){
@@ -78,23 +79,6 @@ var Suspect = function(fname,
 					});
 				});
 			} else { reject(err); }
-		});
-	});
-};
-
-var QueueSuspect = function(suspect) {
-	return new Promise(function(fulfill, reject){
-		amqp.connect('amqp://localhost', function(err, conn) {
-			conn.createChannel(function(err, ch){
-				var q = 'suspects';
-				ch.assertQueue(q, {durable: true});
-				ch.sendToQueue(q, new Buffer(JSON.stringify(suspect)), {persistent: true});
-				var uuid = suspect.uuid;
-				var sha256 = suspect.hashes.sha256;
-				console.log(`Sent suspect UUID ${uuid} with sha256 ${sha256} to Rabbit queue`);
-				fulfill(suspect);
-			});
-			setTimeout(function() {conn.close(); reject("Submission to RabbitMQ timeout exceeded"); }, 500);
 		});
 	});
 };
@@ -281,7 +265,6 @@ var ofInterest = function(event) {
 module.exports = {
 	Hashes: Hashes,
 	Suspect: Suspect,
-	QueueSuspect: QueueSuspect,
 	ParseSysmon: ParseSysmon,
 	deleteFolderRecursive: deleteFolderRecursive,
 	workerDisplayParams: workerDisplayParams,

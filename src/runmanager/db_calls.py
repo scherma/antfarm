@@ -4,7 +4,7 @@
 # contact http_error_418 @ unsafehex.com
 
 
-import psycopg2, psycopg2.extras, json, logging, xmljson
+import psycopg2, psycopg2.extras, json, logging, xmljson, sys, os
 from lxml import etree
 
 logger = logging.getLogger(__name__)
@@ -57,35 +57,42 @@ def insert_sysmon(events_list, uuid, cursor):
     values = []
     sql = """INSERT INTO sysmon_evts (uuid, recordid, eventid, timestamp, executionprocess, executionthread, computer, eventdata, evt_xml) VALUES %s"""
     
-    for event in events_list:
-        j = xmljson.badgerfish.data(event)
-        system = j["{0}Event".format(schema)]["{0}System".format(schema)]
-        evtdata = {}
-        for item in j["{0}Event".format(schema)]["{0}EventData".format(schema)]["{0}Data".format(schema)]:
-            if "$" not in item:
-                evtdata[item["@Name"]] = None
-            else:
-                evtdata[item["@Name"]] = item["$"]
-            if item["@Name"] == "Hashes":
-                hasheslist = item["$"].split(",")
-                evtdata["Hashes"] = {}
-                for h in hasheslist:
-                    parts = h.split("=")
-                    hashtype = parts[0]
-                    hashval = parts[1]
-                    evtdata["Hashes"][hashtype] = hashval
-                    
-        evtjson = json.dumps(evtdata)
-        recordID = system["{0}EventRecordID".format(schema)]["$"]
-        eventID = system["{0}EventID".format(schema)]["$"]
-        timestamp = "{0} +0000".format(system["{0}TimeCreated".format(schema)]["@SystemTime"])
-        executionProcess = system["{0}Execution".format(schema)]["@ProcessID"]
-        executionThread = system["{0}Execution".format(schema)]["@ThreadID"]
-        computer = system["{0}Computer".format(schema)]["$"]
-        
-        row = (uuid, recordID, eventID, timestamp, executionProcess, executionThread, computer, evtjson, etree.tostring(event))
-        
-        values.append(row)
+    try:
+        for event in events_list:
+            j = xmljson.badgerfish.data(event)
+            system = j["{0}Event".format(schema)]["{0}System".format(schema)]
+            evtdata = {}
+            for item in j["{0}Event".format(schema)]["{0}EventData".format(schema)]["{0}Data".format(schema)]:
+                if "$" not in item:
+                    evtdata[item["@Name"]] = None
+                else:
+                    evtdata[item["@Name"]] = item["$"]
+                if item["@Name"] == "Hashes":
+                    hasheslist = item["$"].split(",")
+                    evtdata["Hashes"] = {}
+                    for h in hasheslist:
+                        parts = h.split("=")
+                        hashtype = parts[0]
+                        hashval = parts[1]
+                        evtdata["Hashes"][hashtype] = hashval
+                        
+            evtjson = json.dumps(evtdata)
+            recordID = system["{0}EventRecordID".format(schema)]["$"]
+            eventID = system["{0}EventID".format(schema)]["$"]
+            timestamp = "{0} +0000".format(system["{0}TimeCreated".format(schema)]["@SystemTime"])
+            executionProcess = system["{0}Execution".format(schema)]["@ProcessID"]
+            executionThread = system["{0}Execution".format(schema)]["@ThreadID"]
+            computer = system["{0}Computer".format(schema)]["$"]
+            
+            row = (uuid, recordID, eventID, timestamp, executionProcess, executionThread, computer, evtjson, etree.tostring(event).decode("utf-8"))
+            
+            values.append(row)
+        psycopg2.extras.execute_values(cursor, sql, values)
+        logger.debug("Inserted {0} sysmon events for case {1}".format(len(values), uuid))
     
-    psycopg2.extras.execute_values(cursor, sql, values)
-    logger.debug("Inserted {0} sysmon events for case {1}".format(len(values), uuid))
+    except Exception:
+        ex_type, ex, tb = sys.exc_info()
+        fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
+        lineno = tb.tb_lineno
+        logger.error("Exception {0} {1} in {2}, line {3} parsing Sysmon data, events not written to DB".format(ex_type, ex, fname, lineno))
+        

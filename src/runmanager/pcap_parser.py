@@ -14,13 +14,20 @@ def conversation_starter(pkt):
 		dst_addr = pkt.ip.dst
 		dst_port = pkt[pkt.transport_layer].dstport
 		if protocol == "TCP":
-			if int(pkt["TCP"].flags) & 2 and not int(pkt["TCP"].flags) & 16: # syn flag set, ack not set
+			str_flags = (pkt["TCP"].flags)
+			str_flags = str_flags[-4:]
+			int_flags = int(str_flags)
+			# this try/except is magic: if it is present, no exception is thrown
+			# if not, the bitwise operation triggers a TypeError
+
+			if int_flags == 2: # syn flag set, ack not set
 				d["protocol"] = protocol
 				d["src"] = src_addr
 				d["dst"] = dst_addr
 				d["srcport"] = src_port
 				d["dstport"] = dst_port
 				return d
+			
 		else:
 			d["protocol"] = protocol
 			d["src"] = src_addr
