@@ -16,11 +16,12 @@ server {
     #add_header Strict-Transport-Security "max-age=63072000; includeSubdomains; preload";
     add_header X-Frame-Options SAMEORIGIN;
     add_header X-Content-Type-Options nosniff;
-    root /usr/share/nginx/html;
     index index.php index.html index.htm;
-    server_name REPLACE_ME
+    server_name REPLACE_ME;
     client_max_body_size 101M;
     auth_basic "off";
+    
+    root /usr/share/nginx/html;
     
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -34,13 +35,28 @@ server {
 
 
 server {
-    listen REPLACE_ME:28080;
+    listen REPLACE_ME:28080 ssl;
+    ssl_certificate /etc/nginx/ssl/REPLACE_ME;
+    ssl_certificate_key /etc/nginx/ssl/REPLACE_ME;
+    ssl_dhparam /etc/nginx/ssl/dhparam.pem;
+    ssl_protocols TLSv1.2;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers "EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH";
+    ssl_ecdh_curve secp384r1; # Requires nginx >= 1.1.0
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_tickets off; # Requires nginx >= 1.5.9
+    # Uncomment this next line if you are using a signed, trusted cert
+    #add_header Strict-Transport-Security "max-age=63072000; includeSubdomains; preload";
+    add_header X-Frame-Options SAMEORIGIN;
+    add_header X-Content-Type-Options nosniff;
+    client_max_body_size 101M;
+    auth_basic "off";
 
     root /usr/local/unsafehex/REPLACE_ME/suspects/downloads;
 
-     location / {
-           proxy_pass http://127.0.0.1:28081;
-     }
+    location / {
+          proxy_pass http://127.0.0.1:28081;
+    }
 }
 
 server {

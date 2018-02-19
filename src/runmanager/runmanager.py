@@ -92,12 +92,11 @@ class Broker():
         
     def manage(self, host='localhost'):
         try:
-            available = self._list_available_victims()
-            logger.info("Found {0} available victims".format(len(available)))
             while True:
                 cases = self._check_cases()
                 if cases:
-                    logger.info("Found {0} case(s) ready to assign".format(len(cases)))
+                    available = self._list_available_victims()
+                    logger.info("Found {0} available victims".format(len(available)))
                     for case in cases:
                         if available:
                             case["hashes"] = {"sha256": case["sha256"], "sha1": case["sha1"], "md5": case["md5"]}
@@ -110,6 +109,7 @@ class Broker():
                             t = threading.Thread(target=w.process, args=(case,))
                             t.start()
                         else:
+                            logger.info("Found {0} case(s) ready to assign but no workers were available".format(len(cases)))
                             break
                     
                 time.sleep(10)

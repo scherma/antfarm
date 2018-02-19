@@ -222,7 +222,7 @@ class RunInstance():
             events = {}
             evctr = 0
             for line in f:
-                d = json.loads(line)
+                d = json.loads(line.rstrip(' \t\r\n\0').lstrip(' \t\r\n\0'))
                 t = arrow.get(d["timestamp"])
                 # ensure only event types we can handle safely get looked at
                 if d["event_type"] in ["tls", "http", "dns", "alert"]:
@@ -245,6 +245,8 @@ class RunInstance():
             cstr = "{0}::{1}".format(self.victim_params["vnc"]["address"], self.victim_params["vnc"]["port"])
             vncconn = pyvnc.Connector(cstr, self.victim_params["password"], (self.victim_params["display_x"], self.victim_params["display_y"]))
             logger.debug("Initialised VNC connection")
+            
+            vncconn.run_sample(37,235)
             
             ext = self.fname.split(".")[-1]
             
@@ -328,7 +330,7 @@ class RunInstance():
             # get sysmon events
             logger.debug("Gathering sysmon output between {0} and {1}".format(dtstart.format('YYYY-MM-DD HH:mm:ss'), dtend.format('YYYY-MM-DD HH:mm:ss')))
             sysmon_path = os.path.join("/", "Windows", "System32", "winevt", "Logs", "Microsoft-Windows-Sysmon%4Operational.evtx")
-            sysmon_tmp = os.path.join(copyd, "sysmon.xml")
+            sysmon_tmp = os.path.join(copyd, "sysmon.evtx")
             g.download(sysmon_path, sysmon_tmp)
             
             g.umount("/")

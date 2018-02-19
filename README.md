@@ -69,9 +69,10 @@ To install, perform the steps below:
 
 ### Guest VM setup
 
-- Most of the functionality should be resolution independent but a few details (logging back in after reboot) need a screen resolution of 1680x1050. Please set this if you need that feature to work.
 - Change the display type to VMVGA now that installation is done.
-- I have collected some resources for preparing the VM, but for practical reasons they are not within the git repository. Please download them from https://dl.hexistentialist.com with the username/password I have provided to you.
+- I have collected some resources for preparing the VM, but for practical reasons (size) they are not within the git repository.
+  - They can be download from their respective sources for free, though this can be very time consuming
+  - They are available from https://dl.hexistentialist.com with a username and password I will provide on request, for convenience
 - Copy the file to /usr/local/unsafehex/$SBXNAME/www/public/downloads.
 - On the guest OS, navigate to http://your_gateway_ip:28082 and download the file `start_bundle.zip`
 - Run the following installers in this order - IMPORTANT! Windows 7 can be a massive pain to update purely from Windows Update and MS' website. Doing things in this order will vastly reduce the headache.
@@ -87,19 +88,20 @@ To install, perform the steps below:
   - Adobe Reader 10.0
 - Also included are some generic documents and a desktop background.
 - The presence of Microsoft Office is assumed. You might see some odd behaviour if it is not installed; for instance, not being able to test any macro-laden documents.
+- Currently I run the user interface and sandbox scripts in screen sessions and suggest the same for your testing
+  - UI: from /usr/local/unsafehex/$SBXNAME/www/, run 'nodemon'
+  - VM-facing API: /usr/local/unsafehex/$SBXNAME/api/, run 'nodemon'
+  - sandbox manager: from /usr/local/unsafehex/$SBXNAME/runmanager/, run 'python3 runmanager.py runmanager.conf'
+- Once the API is running you should run the 'TeaService Setup.msi' file from the resource directory mentioned above. This will register the VM with the manager and act as the agent which executes your suspect files.
 - Pause the guest VM and create a snapshot. __DO NOT FORGET THIS!__
 
 ### Final setup
 
 - The sandbox is configured to start testing a sample by restoring the VM to the most recent snapshot and unpausing it, then controlling via VNC. When starting a sample you will need to not have the guest open in virt-manager or it will block the initial stages of the run
-- Add your VM to the database with `/usr/local/unsafehex/$SBXNAME/runmanager/register_vm.py`.
 - Download and install the TeaService Setup.msi file; it should be available at the default gateway IP on port 28082. You will need to enter your VM user's credentials, and the name of the VM as it appears in Virt Manager.
 - Run /usr/local/unsafehex/$SBXNAME/runmanager/toron.sh as root to enable the tor service and tunnel the VM's internet traffic via tor. If you do not do this, all outbound connections should fail provided you set the virtual network up as isolated/host only.
 - Test the connectivity if you wish; this is also a good stage to verify that Suricata is inspecting traffic and logging as expected
 - Check that ClamAV is listening on port 9999
-- Currently I run the user interface and sandbox scripts in screen sessions and suggest the same for your testing
-  - UI: from /usr/local/unsafehex/$SBXNAME/www/, run 'nodemon bin/www start'
-  - sandbox manager: from /usr/local/unsafehex/$SBXNAME/runmanager/, run 'python runmanager.py runmanager.conf'
 - Access the UI at https://yourhost/ and run some malware!
 
 ## Contact/help

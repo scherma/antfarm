@@ -1,5 +1,5 @@
-// MIT License © https://github.com/scherma
-// contact http_error_418 @ unsafehex.com
+// © https://github.com/scherma
+// contact http_error_418@unsafehex.com
 
 var moment = require('moment');
 var options = require('./options');
@@ -67,7 +67,11 @@ function findCaseForVM(guid) {
 	.from('cases')
 	.innerJoin('workerstate', 'cases.uuid', 'workerstate.job_uuid')
 	.innerJoin('victims', 'workerstate.uuid', 'victims.uuid')
-	.where({'victims.guid': guid});
+	.where({'victims.guid': guid}).andWhereNot('workerstate.position', 'idle');
+}
+
+function sysmonInsert(rows) {
+	return pg('sysmon_evts').insert(rows);
 }
 
 function markCaseObtained(uuid) {
@@ -81,5 +85,6 @@ module.exports = {
 	vmExists: vmExists,
 	registerVictimService: registerVictimService,
 	findCaseForVM: findCaseForVM,
-	markCaseObtained: markCaseObtained
+	markCaseObtained: markCaseObtained,
+	sysmonInsert: sysmonInsert
 };

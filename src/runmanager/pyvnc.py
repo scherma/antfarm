@@ -35,7 +35,7 @@ class Connector:
             else:
                 self.client.keyPress(c)
             if pause:
-                self.client.pause(self.randomTime(0.1))
+                self.client.pause(self.randomTime(0.3))
     
     def mouseMove(self, x, y):
         self.client.mouseMove(x, y)
@@ -112,21 +112,13 @@ class Connector:
     def web(self):
         pass
 
-    def downloadAndRun(self, foldername, filename, ext):
-        logger.debug("Launching run window with WIN+R...")
-        self.client.keyDown("lsuper")
-        self.client.keyPress("r")
-        self.client.keyUp("lsuper")
-        self.client.pause(2)
-        cmdstr = 'powershell -executionPolicy bypass -windowstyle hidden -file "C:\\Program Files\\run.ps1" "{}" "{}"'.format(filename, foldername)
-        logger.debug("Powershell command: {0}".format(cmdstr))
-        self.typestring(cmdstr)
-        self.client.keyPress("enter")
-        self.client.pause(2)
-        if ext in ["exe"]:
-            self.client.keyPress('r')
-        elif ext in ["jse", "js", "vbe", "vbs", "wsf", "wsh"]:
-            self.client.keyPress('o')
+            
+    def run_sample(self, x, y):
+        logger.debug("Executing sample from location {},{} on desktop".format(x,y))
+        self.mouseMove(x, y)
+        self.client.mousePress(1)
+        self.client.mousePress(1)
+        
         
     def restart(self):
         # start menu, right for shutdown, right for context menu, up one for restart
@@ -173,7 +165,7 @@ class Connector:
         self.singleKey("enter")
         self.singleKey("enter")
         self.client.pause(self.randomTime(4))
-        self.closeWindow()
+        #self.closeWindow()
         #self.mouseMove(127, 909)
         #self.mouseMove(1462, 932)
         self.randomMouseMove()
