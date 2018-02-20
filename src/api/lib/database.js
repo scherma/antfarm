@@ -30,7 +30,18 @@ function vmExists(vmname) {
 	});
 }
 
-function registerVictimService(guid, vmname, vmip, osname, officeVersionString, officeVersionNum, username, password, displayHeight, displayWidth) {
+function registerVictimService(guid,
+							   vmname,
+							   vmip,
+							   osname,
+							   officeVersionString,
+							   officeVersionNum,
+							   username,
+							   password,
+							   displayHeight,
+							   displayWidth,
+							   malwareX,
+							   malwareY) {
 	var officeType = 0;
 	switch(officeVersionNum) {
 		case "12.0":
@@ -58,7 +69,9 @@ function registerVictimService(guid, vmname, vmip, osname, officeVersionString, 
 		username: username,
 		password: password,
 		display_x: displayWidth,
-		display_y: displayHeight
+		display_y: displayHeight,
+		malware_pos_x: malwareX,
+		malware_pos_y: malwareY
 		}).where({vmname: vmname});
 }
 

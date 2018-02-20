@@ -16,9 +16,10 @@ router.get('/', function(req, res, next) {
 });
 
 router.post('/register', function(req, res, next) {
-  if (db.isServiceRegistered(req.body.GUID)) {
+  /*if (db.isServiceRegistered(req.body.GUID)) {
     res.status(204).send("Already registered");  
-  } else if (db.vmExists(req.body.VMName)) {
+  } else */
+  if (db.vmExists(req.body.VMName)) {
     db.registerVictimService(
       req.body.GUID,
       req.body.VMName,
@@ -29,7 +30,9 @@ router.post('/register', function(req, res, next) {
       req.body.username,
       req.body.password,
       req.body.DisplayHeight,
-      req.body.DisplayWidth
+      req.body.DisplayWidth,
+			req.body.MalwareX,
+			req.body.MalwareY
     )
     .then(() => {
       res.status(200).send("Registered");

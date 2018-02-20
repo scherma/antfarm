@@ -95,7 +95,9 @@ CREATE TABLE victims (
     last_reboot timestamp without time zone,
 	display_x integer,
 	display_y integer,
-	ms_office_type integer
+	ms_office_type integer,
+	malware_pos_x integer,
+	malware_pos_y integer
 );
 
 

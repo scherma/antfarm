@@ -80,7 +80,7 @@ echo -e "${GREEN}Installing python dependencies...${NC}"
 # apt-get remove -y python-cffi # probably not required anymore
 pip3 install --upgrade Pillow
 pip3 install --upgrade twisted
-pip3 install scapy-python3 pytest vncdotool Pillow pika psycopg2 arrow pyshark psutil tabulate ipaddress
+pip3 install scapy-python3 pytest vncdotool Pillow pika psycopg2 arrow pyshark psutil tabulate ipaddress xmljson
 # vncdotool currently has bugs in python3 - can't move this to py3 just yet
 
 echo -e "${GREEN}Installing Python EVTX Parser by Willi Ballenthin...${NC}"
@@ -91,6 +91,7 @@ pip3 install git+https://github.com/williballenthin/python-evtx
 # python3 setup.py install
 
 echo -e "${GREEN}Installing global nodejs packages...${NC}"
+apt-get install nodejs
 npm cache clean -f
 npm install -g n
 # lots of features missing from repository version of nodejs - update it
@@ -150,9 +151,10 @@ echo -e "${GREEN}Unwrapping sandbox manager files and utilities...${NC}"
 python3 "$SCRIPTDIR/scripts/write_tor_iptables.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTDIR/src/runmanager/"
 python3 "$SCRIPTDIR/scripts/write_network.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTDIR/res/vnet.xml"
 cp -rv "$SCRIPTDIR/src/runmanager/"* "/usr/local/unsafehex/$SBXNAME/runmanager/"
-cp -v "$SCRIPTDIR/res/sysmon.exe" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
+wget https://live.sysinternals.com/Sysmon64.exe -o "/usr/local/unsafehex/$SBXNAME/suspects/downloads/Sysmon64.exe"
 cp -v "$SCRIPTDIR/res/sysmon.xml" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
 cp -v "$SCRIPTDIR/res/TeaService\ Setup.msi" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
+cp -v "$SCRIPTDIR/res/MousePos.exe" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
 cp -v "$SCRIPTDIR/res/bios.bin" "/usr/local/unsafehex/$SBXNAME/"
 cp -rv "$SCRIPTDIR/src/node/"* "/usr/local/unsafehex/$SBXNAME/www/"
 cp -rv "$SCRIPTDIR/src/api/"* "/usr/local/unsafehex/$SBXNAME/api/"

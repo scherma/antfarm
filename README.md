@@ -81,7 +81,8 @@ To install, perform the steps below:
   - `windows6.1-kb3125574-v4-x64_2dafb1d203c8964239af3048b5dd4b1264cd93b9.msu` (May 2016 hotfix rollup)
   - `NDP462-KB3151800-x86-x64-AllOS-ENU.exe` (.NET Framework 4.6.2)
   - `EIE11_EN-US_MCM_WIN764.EXE` (IE 11)
-- Please install sysmon with the config file provided, `sysmon.exe -i sysmon.xml`.
+- Please install sysmon with the config file provided, `Sysmon64.exe -i sysmon.xml`.
+  - Newer versions of Sysmon support renaming the service and driver. This will not impact the operation of the sandbox - feel free to do this.
 - I have included some vintage software to make it a nice and juicy target:
   - Flash Player 20.0.0.286
   - Java Runtime Environment v6
@@ -93,12 +94,13 @@ To install, perform the steps below:
   - VM-facing API: /usr/local/unsafehex/$SBXNAME/api/, run 'nodemon'
   - sandbox manager: from /usr/local/unsafehex/$SBXNAME/runmanager/, run 'python3 runmanager.py runmanager.conf'
 - Once the API is running you should run the 'TeaService Setup.msi' file from the resource directory mentioned above. This will register the VM with the manager and act as the agent which executes your suspect files.
-- Pause the guest VM and create a snapshot. __DO NOT FORGET THIS!__
+- The sandbox executes malware by copying it to the destkop and double clicking it. It requires the position of the malware to be given. To obtain this, download the file MousePos.exe from the link given above, place it on the desktop and run it. Use this to provide the co-ordinates, then delete it from the desktop. Malware samples will appear in the same location and be double clicked by the sandbox.
+- A snapshot in which the guest VM is paused is required. __DO NOT FORGET THIS!__
+- It is __STRONGLY__ recommended that you also create an offline snapshot. Some situations can cause running snapshots to fail to restore to a clean state. The offline snapshot is your get-out-of-jail-free card for this situation.
 
 ### Final setup
 
 - The sandbox is configured to start testing a sample by restoring the VM to the most recent snapshot and unpausing it, then controlling via VNC. When starting a sample you will need to not have the guest open in virt-manager or it will block the initial stages of the run
-- Download and install the TeaService Setup.msi file; it should be available at the default gateway IP on port 28082. You will need to enter your VM user's credentials, and the name of the VM as it appears in Virt Manager.
 - Run /usr/local/unsafehex/$SBXNAME/runmanager/toron.sh as root to enable the tor service and tunnel the VM's internet traffic via tor. If you do not do this, all outbound connections should fail provided you set the virtual network up as isolated/host only.
 - Test the connectivity if you wish; this is also a good stage to verify that Suricata is inspecting traffic and logging as expected
 - Check that ClamAV is listening on port 9999
