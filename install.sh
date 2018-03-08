@@ -251,10 +251,8 @@ service virtlogd start
 echo -e "${GREEN}Configuring tor, virtual network, and host run scripts${NC}"
 {
 	echo ""
-	echo "TransListenAddress $GATEWAY_IP"
-	echo "TransPort 8081"
-	echo "DNSListenAddress $GATEWAY_IP"
-	echo "DNSPort 5353"
+	echo "TransPort $GATEWAY_IP:8081"
+	echo "DNSPort $GATEWAY_IP:5353"
 } >> /etc/tor/torrc
 
 virsh -c qemu:///system net-destroy default

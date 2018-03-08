@@ -14,6 +14,7 @@ displayname = instancename[0].upper() + instancename[1:]
 
 conf = {
     "database": {
+        "name": instancename,
         "username": instancename,
         "password": dbpass
     },

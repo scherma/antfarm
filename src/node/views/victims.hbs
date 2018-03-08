@@ -9,6 +9,20 @@ $(document).ready(function() {
 		})
 		.countdown('start');
 	});
+	$('.vstatus').change(function() {
+		var sendInfo = {
+			status: $(this).val()
+		}
+		$.ajax({
+			type: "POST",
+			url: "/victims/" + $(this).attr("uuid") + "/status",
+			async: false,
+			error: function(xhr, status, error) {
+				alert('Error ' + error + ' when setting status');
+			},
+			data: sendInfo
+		});
+	});
 });
 </script>
 <div class="workers">
@@ -17,10 +31,11 @@ $(document).ready(function() {
 			<tr>
 				<th>Victim</th>
 				<th>OS</th>
-				<th>Status</th>
+				<th>Case status</th>
 				<th>Current parameters</th>
 				<th>Runs since last reboot</th>
 				<th>Last reboot time</th>
+				<th>Victim status</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -43,6 +58,11 @@ $(document).ready(function() {
 				</td>
 				<td>{{this.runcounter}}</td>
 				<td>{{this.last_reboot}}</td>
+				<td>
+				<select class='vstatus' uuid="{{this.uuid}}">
+					{{{this.selectopts}}}
+				</select>
+				</td>
 			</tr>
 			{{/each}}
 		</tbody>

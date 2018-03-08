@@ -237,7 +237,7 @@ class RunInstance():
             logger.debug("Identified {0} events to include from {1}".format(evctr, searchfile))
                         
             return events
-        
+    
     def behaviour(self, dom, lv_conn):
         # give 15 seconds for execution to take place before starting behaviour
         time.sleep(15)
@@ -246,7 +246,7 @@ class RunInstance():
             vncconn = pyvnc.Connector(cstr, self.victim_params["password"], (self.victim_params["display_x"], self.victim_params["display_y"]))
             logger.debug("Initialised VNC connection")
             
-            vncconn.run_sample(37,235)
+            vncconn.run_sample(self.victim_params["malware_pos_x"], self.victim_params["malware_pos_y"])
             
             ext = self.fname.split(".")[-1]
             
@@ -255,7 +255,10 @@ class RunInstance():
             self.screenshot(dom, lv_conn)
             if ext in macrotypes:
                 vncconn.enable_macros(self.victim_params["ms_office_type"])
+                vncconn.enable_dde()
                 self.screenshot(dom, lv_conn)
+                vncconn.client.pause(10)
+                vncconn.close_window()
             
             #logger.info("VM prepped for suspect execution, starting behaviour sequence")
             if self.interactive:

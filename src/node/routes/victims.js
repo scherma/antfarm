@@ -18,9 +18,26 @@ router.get('/', function(req, res, next) {
 				if (workers[w].params) {
 					workers[w].parsedparams = functions.workerDisplayParams(JSON.parse(workers[w].params));
 				}
+				var workerStateOpts = ["pre-prod", "production", "maintenance"];
+				var optslist = '';
+				workerStateOpts.forEach((opt) => {
+					if (workers[w].status == opt) {
+						optslist = optslist + `<option value="${opt}" selected>${opt}</option>\n`;
+					} else {
+						optslist = optslist + `<option value="${opt}">${opt}</option>\n`;
+					}
+				});
+				workers[w].selectopts = optslist;
 			}
 		}
 		res.render('victims', {workers: workers, mainmenu: mainmenu});
+	});
+});
+
+router.post('/:uuid/status', function(req, res, next) {
+	db.set_victim_status(req.params.uuid, req.body.status)
+	.then((result) => {
+		res.sendStatus(200);
 	});
 });
 

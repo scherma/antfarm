@@ -8,7 +8,7 @@ var dbparams = {
 	client: 'pg',
 	connection: {
 		user: options.conf.database.username,
-		database: options.conf.site.name,
+		database: options.conf.database.name,
 		password: options.conf.database.password,
 		host:"localhost"}
 	};
@@ -22,8 +22,8 @@ function isServiceRegistered(guid) {
 	});
 }
 
-function vmExists(vmname) {
-	return pg('victims').select('*').where({vmname: vmname})
+function vmCanRegister(vmname) {
+	return pg('victims').select('*').where({libvirtname: vmname}).andWhereNot({status: 'production'})
 	.then(function(result)
 	{
 		return (result.length > 0);
@@ -65,14 +65,14 @@ function registerVictimService(guid,
 		ip: vmip,
 		os: osname,
 		ms_office_type: officeType,
-		ms_office_name: officeVersionString,
+		ms_office_string: officeVersionString,
 		username: username,
 		password: password,
 		display_x: displayWidth,
 		display_y: displayHeight,
 		malware_pos_x: malwareX,
 		malware_pos_y: malwareY
-		}).where({vmname: vmname});
+		}).where({libvirtname: vmname});
 }
 
 function findCaseForVM(guid) {
@@ -95,7 +95,7 @@ function markCaseObtained(uuid) {
 
 module.exports = {
 	isServiceRegistered: isServiceRegistered,
-	vmExists: vmExists,
+	vmCanRegister: vmCanRegister,
 	registerVictimService: registerVictimService,
 	findCaseForVM: findCaseForVM,
 	markCaseObtained: markCaseObtained,

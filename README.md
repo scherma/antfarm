@@ -47,16 +47,48 @@ To install, perform the steps below:
 
 ### VM cloaking/obfuscation
 
+#### BASIC CLOAKING
+ After rewriting this section many times due to finding clues and scraps in many corners of the internet, I finally found a post which covers much of it in much better detail than I had written.
+__BEFORE__ installing the OS:
 - Edit your VM XML (virsh edit vmname) and do the following
-  - In the main `<domain>` section add a new element `<sysinfo type='smbios'/>`
-  - Within `<features>`, add `<kvm><hidden state='on'/></kvm>`
+  - In the main `<domain>` section add a new element 'sysinfo', and create entries with fake BIOS data; I have given an example below. The uuid value __must__ match the content of the main `<uuid>` tag at the top of your VM XML.
+`<sysinfo type='smbios'>
+  <bios>
+    <entry name='vendor'>Phoenix</entry>
+    <entry name='version'>1707</entry>
+  </bios>
+  <system>
+    <entry name='manufacturer'>ACER</entry>
+    <entry name='product'>Phoenix</entry>
+    <entry name='version'>17.07</entry>
+    <entry name='serial'>PH756011-L</entry>
+    <entry name='uuid'>REPLACE\_ME</entry>
+    <entry name='sku'>PHB-1707-R3</entry>
+    <entry name='family'>PHB_BIOS</entry>
+  </system>
+  <baseBoard>
+    <entry name='version'>ALASKA-1072009</entry>
+  </baseBoard>
+</sysinfo>`
+  - Within `<features>`, add
+`<kvm>
+  <hidden state='on'/>
+</kvm>`
   - Within `<cpu>`, specify `<feature policy='disable' name='hypervisor'/>`
   - In `<clock>`, change `<timer name='rtc' tickpolicy='catchup'/>` to `<timer name='rtc' track='wall'/>`
   - Add the following elements to `<os>`: 
     - `<loader readonly='yes' type='rom'>/usr/local/unsafehex/REPLACE\_ME/bios.bin</loader>` (replacing with your sandbox name)
     - `<smbios mode='sysinfo'/>`
   - Update the path to the disk file so it points to the new location in /mnt/images
-- Save the XML and go back to virt-manager;
+  
+#### ADVANCED CLOAKING
+_this section to later be rewritten as part of the install script_
+- Please start with the excellent [guide by D00m3dR4v3n](http://www.doomedraven.com/2016/05/kvm.html#why-cant-i-connect-to-a-local-uri-eg-qemusystem). Using the script for installing QEMU and SeaBios as a reference, [obtain the source code for QEMU](https://download.qemu.org/) - version 2.8.1 should be appropriate if you are using Debian Stretch.
+- After unzipping, identify the files/values mentioned in qemu_func and replace as indicated in D00m3dR4v3n's script with the exception of the 'KVMKVMKVM' string - for this one, replace the value with "GenuineIntel" or "AuthenticAMD" (depending on what you have selected for your VM).
+- I have not yet isolated the exact ./configure options required for this setup, but the following definitely works:
+`./configure --enable-virtfs --enable-kvm --enable-vnc --enable-spice --enable-libnfs --enable-cap-ng --enable-libssh2 --enable-sdl --enable-gtk --enable-vte --enable-kvm --enable-bzip2 --enable-linux-user --enable-docs --enable-gnutls --enable-nettle --enable-modules --enable-curl --enable-fdt --enable-rdma --enable-uuid --enable-linux-aio --enable-attr --enable-vhost-net --enable-spice --enable-rbd --enable-libiscsi --enable-smartcard --enable-libusb --enable-usb-redir --enable-lzo --enable-snappy --enable-seccomp --enable-coroutine-pool --enable-tpm --enable-vhdx --enable-tcmalloc`
+- Compile and install QEMU
+- The instructions for configuring networking in his guide are also relevant, but optional
 
 ### Network, proxy, IDS config
 
@@ -69,6 +101,7 @@ To install, perform the steps below:
 
 ### Guest VM setup
 
+- Register your VM in the database by running /usr/local/unsafehex/$SBXNAME/runmanager/register_vm.py
 - Change the display type to VMVGA now that installation is done.
 - I have collected some resources for preparing the VM, but for practical reasons (size) they are not within the git repository.
   - They can be download from their respective sources for free, though this can be very time consuming

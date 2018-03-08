@@ -8,7 +8,7 @@ var dbparams = {
 	client: 'pg',
 	connection: {
 		user: options.conf.database.username,
-		database: options.conf.site.name,
+		database: options.conf.database.name,
 		password: options.conf.database.password,
 		host:"localhost"}
 	};
@@ -77,7 +77,11 @@ function list_cases(page=0, desc=true, where={}, limit=20) {
 }
 
 function list_workers() {
-	return pg('victims').select('*').leftJoin('workerstate', 'victims.uuid', 'workerstate.uuid');
+	return pg('victims').select('victims.*', 'workerstate.id', 'workerstate.pid', 'workerstate.position', 'workerstate.params', 'workerstate.job_uuid').leftJoin('workerstate', 'victims.uuid', 'workerstate.uuid');
+}
+
+function set_victim_status(uuid, status) {
+	return pg('victims').update({status: status}).where({uuid: uuid});
 }
 
 function list_files(page=0, where={}, limit=20) {
@@ -150,6 +154,7 @@ module.exports = {
 	show_case: show_case,
 	list_files: list_files,
 	list_workers: list_workers,
+	set_victim_status: set_victim_status,
 	delete_case: delete_case,
 	sysmon_for_case: sysmon_for_case,
 	suricata_for_case: suricata_for_case,

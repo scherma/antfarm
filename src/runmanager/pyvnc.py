@@ -118,7 +118,12 @@ class Connector:
         self.mouseMove(x, y)
         self.client.mousePress(1)
         self.client.mousePress(1)
-        
+    
+    def enable_dde(self):
+        self.singleKey("left")
+        self.client.pause(self.randomTime(1))
+        self.singleKey("enter")
+        self.client.pause(self.randomTime(1))
         
     def restart(self):
         # start menu, right for shutdown, right for context menu, up one for restart
@@ -165,6 +170,7 @@ class Connector:
         self.singleKey("enter")
         self.singleKey("enter")
         self.client.pause(self.randomTime(4))
+        self.close_window()
         #self.closeWindow()
         #self.mouseMove(127, 909)
         #self.mouseMove(1462, 932)
@@ -183,7 +189,7 @@ class Connector:
         #self.mouseMove(33, 1036)
         self.randomMouseMove()
         
-    def closeWindow(self):
+    def close_window(self):
         logger.debug("Closing window")
         self.client.keyDown("alt")
         self.client.keyPress("f4")

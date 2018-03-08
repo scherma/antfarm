@@ -16,10 +16,7 @@ router.get('/', function(req, res, next) {
 });
 
 router.post('/register', function(req, res, next) {
-  /*if (db.isServiceRegistered(req.body.GUID)) {
-    res.status(204).send("Already registered");  
-  } else */
-  if (db.vmExists(req.body.VMName)) {
+  if (db.vmCanRegister(req.body.VMName)) {
     db.registerVictimService(
       req.body.GUID,
       req.body.VMName,
