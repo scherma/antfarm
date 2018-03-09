@@ -11,6 +11,8 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
 
+echo -e "${GREEN}Thank you for choosing to install the Antfarm sandbox${NC}"
+
 echo -e "${GREEN}If system time is wrong, lots of things break. Updating now...${NC}"
 
 apt-get install -y ntpdate
@@ -153,7 +155,7 @@ python3 "$SCRIPTDIR/scripts/write_network.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTD
 cp -rv "$SCRIPTDIR/src/runmanager/"* "/usr/local/unsafehex/$SBXNAME/runmanager/"
 wget https://live.sysinternals.com/Sysmon64.exe -o "/usr/local/unsafehex/$SBXNAME/suspects/downloads/Sysmon64.exe"
 cp -v "$SCRIPTDIR/res/sysmon.xml" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
-cp -v "$SCRIPTDIR/res/TeaService\ Setup.msi" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
+wget https://github.com/scherma/teaservice/releases/download/0.1/TeaService.Setup.msi -o "/usr/local/unsafehex/$SBXNAME/suspects/downloads/TeaService Setup.msi"
 cp -v "$SCRIPTDIR/res/MousePos.exe" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
 cp -v "$SCRIPTDIR/res/bios.bin" "/usr/local/unsafehex/$SBXNAME/"
 cp -rv "$SCRIPTDIR/src/node/"* "/usr/local/unsafehex/$SBXNAME/www/"

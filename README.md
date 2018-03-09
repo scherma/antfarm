@@ -27,7 +27,7 @@ To install, perform the steps below:
 
 - Clone this repository to your sandbox host and execute the *install.sh* script as root.
 - The script requires access to the internet via HTTP, HTTPS and NTP. Please ensure this access is available before running the installer.
-- Run install.sh and enter the desired parameters. Installation involves compiling libvirt and Suricata from source, and generating Diffie-Hellman parameters. Go play outside for a bit.
+- Run install.sh as root and enter the desired parameters. Installation involves compiling libvirt and Suricata from source, and generating Diffie-Hellman parameters. Go play outside for a bit.
 
 ## SETUP
 
