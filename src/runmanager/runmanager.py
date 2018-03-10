@@ -182,12 +182,9 @@ def main():
     #logger.addHandler(ch)
     #logger.setLevel(num_level)
     
-    logging.getLogger(__name__).setLevel(logging.DEBUG)
-    logging.getLogger("pyvnc").setLevel(logging.DEBUG)
-    logging.getLogger("vmworker").setLevel(logging.DEBUG)
-    logging.getLogger("runinstance").setLevel(logging.DEBUG)
-    #logging.getLogger("evtx_dates").setLevel(logging.DEBUG)
-    logging.getLogger("db_calls").setLevel(logging.DEBUG)
+    log_modules = [__name__, "pyvnc", "vmworker", "runinstance", "db_calls", "victimfiles"]
+    for module in log_modules:
+        logging.getLogger(module).setLevel(NUM_LEVEL)
     
     if not os.access(conf.get('General', 'mountdir'), os.W_OK):
         logger.error("Mount directory {0} not writeable!".format(conf.get('General', 'mountdir')))

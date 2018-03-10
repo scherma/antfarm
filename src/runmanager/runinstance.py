@@ -3,7 +3,7 @@
 # MIT License © https://github.com/scherma
 # contact http_error_418 @ unsafehex.com
 
-import logging, os, configparser, libvirt, json, arrow, pyvnc, shutil, guestfs, time
+import logging, os, configparser, libvirt, json, arrow, pyvnc, shutil, guestfs, time, victimfiles
 import tempfile, evtx_dates, db_calls, psycopg2, psycopg2.extras, sys, pcap_parser
 import scapy.all as scapy
 from lxml import etree
@@ -135,6 +135,8 @@ class RunInstance():
         rundir = os.path.join(fdir, self.uuid)
         if not os.path.exists(rundir):
             os.mkdir(rundir)
+            fscopy = os.path.join(rundir, 'filesystem')
+            os.mkdir(fscopy)
         logger.debug("Created run instance directory {0}".format(rundir))
         return rundir
     
@@ -323,41 +325,16 @@ class RunInstance():
         dtstart = arrow.get(self.starttime)
         dtend = arrow.get(self.endtime)
         try:
-            g = guestfs.GuestFS(python_return_dict=True)
-            g.set_backend_setting("force_tcg", "1") # required to resolve error "Assertion `ret == cpu->kvm_msr_buf->nmsrs` failed"; caused by running within vmware
-            g.add_drive_opts(victim_params["diskfile"], readonly=True, format="raw")
-            g.launch()
-            g.mount("/dev/sda2", "/")
-        
-            copyd = tempfile.mkdtemp()
-            # get sysmon events
-            logger.debug("Gathering sysmon output between {0} and {1}".format(dtstart.format('YYYY-MM-DD HH:mm:ss'), dtend.format('YYYY-MM-DD HH:mm:ss')))
-            sysmon_path = os.path.join("/", "Windows", "System32", "winevt", "Logs", "Microsoft-Windows-Sysmon%4Operational.evtx")
-            sysmon_tmp = os.path.join(copyd, "sysmon.evtx")
-            g.download(sysmon_path, sysmon_tmp)
+            logger.info("Obtaining new files from guest filesystem")
+            vf = victimfiles.VictimFiles(self.victim_params["diskfile"], '/dev/sda2')
+            fsroot = os.path.join(self.rundir, 'filesystem')
+            vf.download_new_files(dtstart, fsroot)
             
-            g.umount("/")
-            
-            sysmon_file = os.path.join(self.rundir, "sysmon.xml")
-            evctr = 0
-            # write sysmon events
-            matching_evtx = evtx_dates.matching_records(sysmon_tmp, dtstart, dtend)
-            evts = []
-            with open(sysmon_file, 'w') as f:
-                f.write('<Events>\n')
-                for e in matching_evtx:
-                    f.write(etree.tostring(e, pretty_print=True).decode())
-                    evts.append(e)
-                    evctr += 1
-                f.write('</Events>')
-                logger.info("Wrote {0} sysmon events to {1}".format(evctr, sysmon_file))
-                
-            db_calls.insert_sysmon(evts, self.uuid, self.cursor)
         except Exception:
             ex_type, ex, tb = sys.exc_info()
             fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
             lineno = tb.tb_lineno
-            logger.error("Exception {0} {1} in {2}, line {3} while processing sysmon output".format(ex_type, ex, fname, lineno))
+            logger.error("Exception {0} {1} in {2}, line {3} while processing filesystem output".format(ex_type, ex, fname, lineno))
                    
         try:
             # record suricata events
