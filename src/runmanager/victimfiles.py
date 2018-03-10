@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # coding: utf-8
 # MIT License © https://github.com/scherma
 # contact http_error_418 @ unsafehex.com
@@ -51,3 +51,18 @@ class VictimFiles:
                 logger.debug("Unable to capture file {}".format(file_in_guestfs))
                 report["errors"] += 1
         logger.info("Filesystem report: {}".format(report))
+        
+    def download_modified_registries(self, starttime, dest_root, systemuser):
+        registries = [
+            "/Windows/System32/config/SECURITY",
+            "/Windows/System32/config/SOFTWARE",
+            "/Windows/System32/config/SYSTEM",
+            "/Users/{}/NTUSER.DAT".format(systemuser),
+            "/Users/{}/AppData/Local/Microsoft/Windows/UsrClass.dat".format(systemuser)
+            ]
+        for registry in registries:
+            if arrow.get(self.gfs.statns(registry)["st_mtime_sec"]) > starttime:
+                destdir = os.path.join(dest_root, os.path.dirname(registry))
+                os.makedirs(destdir)
+                destfile = os.path.join(dest_root, registry)
+                self.gfs.download(registry, destfile)

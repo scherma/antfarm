@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # coding: utf-8
 # MIT License © https://github.com/scherma
 # contact http_error_418 @ unsafehex.com
@@ -329,6 +329,7 @@ class RunInstance():
             vf = victimfiles.VictimFiles(self.victim_params["diskfile"], '/dev/sda2')
             fsroot = os.path.join(self.rundir, 'filesystem')
             vf.download_new_files(dtstart, fsroot)
+            vf.download_modified_registries(dtstart, fsroot)
             
         except Exception:
             ex_type, ex, tb = sys.exc_info()

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # coding: utf-8
 # MIT License © https://github.com/scherma
 # contact http_error_418 @ unsafehex.com
@@ -46,10 +46,14 @@ conf = {
                 "verisign",
                 "symantec",
                 "bing",
-                "identrust"
+                "identrust",
+                "google"
             ],
             "co.uk": [
                 "hsbc"
+            ],
+            "goog": [
+                "pki"
             ]
         },
         "tlsnames": [

@@ -122,10 +122,10 @@ _this section to later be rewritten as part of the install script_
   - Adobe Reader 10.0
 - Also included are some generic documents and a desktop background.
 - The presence of Microsoft Office is assumed. You might see some odd behaviour if it is not installed; for instance, not being able to test any macro-laden documents.
-- Currently I run the user interface and sandbox scripts in screen sessions and suggest the same for your testing
+- Currently I run the user interface and api scripts in screen sessions and suggest the same for your testing
   - UI: from /usr/local/unsafehex/$SBXNAME/www/, run 'nodemon'
   - VM-facing API: /usr/local/unsafehex/$SBXNAME/api/, run 'nodemon'
-  - sandbox manager: from /usr/local/unsafehex/$SBXNAME/runmanager/, run 'python3 runmanager.py runmanager.conf'
+- The core manager script now runs as a systemd (yuck) service with the same name you chose for your sandbox.
 - Once the API is running you should run the 'TeaService Setup.msi' file from the resource directory mentioned above. This will register the VM with the manager and act as the agent which executes your suspect files.
 - The sandbox executes malware by copying it to the destkop and double clicking it. It requires the position of the malware to be given. To obtain this, download the file MousePos.exe from the link given above, place it on the desktop and run it. Use this to provide the co-ordinates, then delete it from the desktop. Malware samples will appear in the same location and be double clicked by the sandbox.
 - A snapshot in which the guest VM is paused is required. __DO NOT FORGET THIS!__
