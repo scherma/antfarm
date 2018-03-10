@@ -230,17 +230,17 @@ var ofInterest = function(event) {
 		var namearr = event.httpdata.hostname.split(".");
 		namearr.reverse();
 		switch (namearr[0]) {
-			case "com":
-				if (hostnames.com.indexOf(namearr[1]) >= 0) {
-					ofinterest = false;
-				}
-				break;
 			case "uk":
 				if (namearr[1] == "co" && hostnames["co.uk"].indexOf(namearr[2]) >= 0) {
 					ofinterest = false;
 				}
 				break;
 			default:
+				if (namearr[0] in hostnames) {
+					if (hostnames[namearr[0]].indexOf(namearr[1]) >= 0) {
+						ofinterest = false;
+					}	
+				}
 				break;
 		}
 	} else if (event.tlsdata) {

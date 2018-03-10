@@ -106,20 +106,24 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 				alert: [],
 				tls: []
 			};
-			
+						
 			values[0].forEach((dns_row) => {
+				dns_row.timestamp = moment(dns_row.timestamp).toISOString();
 				dns_row.interesting = functions.ofInterest(dns_row);
 				d.dns.push(dns_row);
 			});
 			values[1].forEach((http_row) => {
+				http_row.timestamp = moment(http_row.timestamp).toISOString();
 				http_row.interesting = functions.ofInterest(http_row);
 				d.http.push(http_row);
 			});
 			values[2].forEach((alert_row) => {
+				alert_row.timestamp = moment(alert_row.timestamp).toISOString();
 				alert_row.interesting = functions.ofInterest(alert_row);
 				d.alert.push(alert_row);
 			});
 			values[3].forEach((tls_row) => {
+				tls_row.timestamp = moment(tls_row.timestamp).toISOString();
 				tls_row.interesting = functions.ofInterest(tls_row);
 				d.dns.push(tls_row);
 			});
@@ -145,7 +149,7 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 			if (err === null) {
 				fulfill(data);	
 			} else {
-				console.log(format("Unable to provide pcap summary: {err}", {err: err}));
+				console.log(format("Unable to provide runlog: {err}", {err: err}));
 				fulfill("");
 			}
 		});
@@ -200,9 +204,9 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 		properties.fname = {name: "File name", text: suspect.fname};
 		properties.avresult = {name: "Clam AV result", text: suspect.avresult};
 		properties.mimetype = {name: "File MIME type", text: showmagic, "class": "mime", htmltitle: suspect.magic};
-		properties.submittime = {name: "Submit time", text: suspect.submittime};
-		properties.starttime = {name: "Run start time", text: suspect.starttime};
-		properties.endtime = {name: "Run end time", text: suspect.endtime};
+		properties.submittime = {name: "Submit time", text: moment(suspect.submittime).toISOString()};
+		properties.starttime = {name: "Run start time", text: moment(suspect.starttime).toISOString()};
+		properties.endtime = {name: "Run end time", text: moment(suspect.endtime).toISOString()};
 		properties.status = {name: "Status", text: suspect.status};
 		properties.sha256 = {name: "SHA256", text: suspect.sha256};
 		properties.sha1 = {name: "SHA1", text: suspect.sha1};
