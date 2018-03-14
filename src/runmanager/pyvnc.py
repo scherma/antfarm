@@ -197,6 +197,12 @@ class Connector:
         self.client.pause(self.randomTime(2))
         self.singleKey("n")
         
+    def restart(self):
+        self.singleKey("lsuper")
+        self.singleKey("right")
+        self.singleKey("right")
+        self.singleKey("up")
+        self.singleKey("enter")
 
     def disconnect(self):
         self.client.disconnect()
@@ -217,9 +223,8 @@ class Connector:
         logger.debug("Finding office macro enable sequence...")
         if office_type == 1:
             self.office_2007_enable_macros()
+            
+    def login(self, password):
+        self.typestring(password)
+        self.singleKey("enter")
 
-#c = Connector("127.0.0.1::5900")
-
-#c.prepVM('08/04/2017', '22:50:53')
-#c.downloadAndRun('pafish.exe')
-#c.closeWindow()

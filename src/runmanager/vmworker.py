@@ -3,7 +3,8 @@
 # MIT License © https://github.com/scherma
 # contact http_error_418 @ unsafehex.com
 
-import logging, libvirt, psycopg2, psycopg2.extras, pika, os, psutil, arrow, socket, json, sys, runinstance, threading, time, pcap_parser
+import logging, libvirt, psycopg2, psycopg2.extras, os, psutil, arrow, socket, json, sys
+import runinstance, threading, time, pcap_parser, maintenance
 from lxml import etree
 import configparser
 from io import StringIO, BytesIO
@@ -12,10 +13,10 @@ fmt = '[%(asctime)s] %(levelname)s\t%(message)s'
 dfmt ='%Y%m%d %H:%M:%S'
 formatter = logging.Formatter(fmt=fmt, datefmt=dfmt)
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 class Worker():
-    def __init__(self, config, vmdata, RUN_NUM_LEVEL=logging.INFO):
+    def __init__(self, config, vmdata, RUN_NUM_LEVEL):
         self._conf = config
         self._vm_uuid = vmdata["uuid"]
         self._vm_id = vmdata["id"]
@@ -27,13 +28,13 @@ class Worker():
         self.outputdata = {}
         
         logfile = os.path.join(self._conf.get('General', 'logdir'), str(self._vm_uuid)) + '.log'
-    
+        logger.info("Logging at level {}".format(RUN_NUM_LEVEL))
         fh = logging.FileHandler(logfile)
         fh.setLevel(RUN_NUM_LEVEL)
         fh.setFormatter(formatter)
-        LOGGER.addHandler(fh)
+        logger.addHandler(fh)
         
-        LOGGER.info("Instantiated worker object")
+        logger.info("Instantiated worker object")
         
         
     def _db_conn(self, db, user, password):
@@ -42,23 +43,23 @@ class Worker():
         conn = psycopg2.connect(conn_string)
         conn.autocommit = True
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        LOGGER.debug('DB connection started on {0} to db "{1}" with user "{2}"'.format(host, db, user))
+        logger.debug('DB connection started on {0} to db "{1}" with user "{2}"'.format(host, db, user))
         return cursor, conn
     
     def _check_mntdir(self):
         # make sure directory for mounting vm disk to exists and nothing is mounted to it
         mntdir = os.path.join(self._conf.get('General', 'mountdir'), '{0}'.format(self._vm_uuid))
-        LOGGER.debug("Selected mount directory {0}".format(mntdir))
+        logger.debug("Selected mount directory {0}".format(mntdir))
         if not os.path.isdir(mntdir):
-            LOGGER.debug("Mount directory does not exist, creating...")
+            logger.debug("Mount directory does not exist, creating...")
             os.makedirs(mntdir)
         return mntdir
         
     def _check_dldir(self):
         dldir = os.path.join(self._conf.get('General', 'basedir'), self._conf.get('General', 'instancename'), 'suspects', 'downloads', str(self._vm_id))
-        LOGGER.debug("Selected download directory {0}".format(dldir))
+        logger.debug("Selected download directory {0}".format(dldir))
         if not os.path.exists(dldir):
-            LOGGER.debug("Download directory {} does not exist, creating...".format(dldir))
+            logger.debug("Download directory {} does not exist, creating...".format(dldir))
             os.makedirs(dldir)
             
         return dldir
@@ -66,14 +67,14 @@ class Worker():
                 
     def _exit(self, value=0):
         dbconn.close()
-        LOGGER.info("Closed connection to DB - cleanup complete, exiting now.")
+        logger.info("Closed connection to DB - cleanup complete, exiting now.")
         exit(value)
     
     def _db_cleanup(self, vm_uuid):
         self._dbconn.rollback()
         self._cursor.execute("""DELETE FROM "workerstate" WHERE uuid=%s""", (vm_uuid,))
         self._dbconn.commit()
-        LOGGER.info("Removed worker state entry from DB")
+        logger.info("Removed worker state entry from DB")
             
     def _list_unavailable_vms(self):
         self._cursor.execute("""SELECT uuid FROM "workerstate" """)
@@ -81,7 +82,7 @@ class Worker():
         in_use = []
         for r in records:
             in_use.append(r["uuid"])
-        LOGGER.debug('In use VM IDs: {0}'.format(json.dumps(in_use)))
+        logger.debug('In use VM IDs: {0}'.format(json.dumps(in_use)))
         return in_use
     
     def _list_available_vms(self):
@@ -91,7 +92,7 @@ class Worker():
         production_uuids = []
         for row in rows:
             production_uuids.append(row["uuid"])
-        LOGGER.debug("Production VM UUIDs: {0}".format(json.dumps(production_uuids)))
+        logger.debug("Production VM UUIDs: {0}".format(json.dumps(production_uuids)))
         available = []
         in_use = self._list_unavailable_vms()
         if domains:
@@ -100,14 +101,14 @@ class Worker():
                 if uuid not in in_use and uuid in production_uuids:
                     available.append(dom)
         else:
-            LOGGER.error("No victims online")
+            logger.error("No victims online")
         return available
     
     def _state_update(self, state, params=(False, None)):
         if not params[0]:
             self._cursor.execute("""UPDATE "workerstate" SET position = %s WHERE uuid=%s""", (state, self._vm_uuid))
             self._dbconn.commit()
-            LOGGER.debug("Worker state changed to '{0}'".format(state))
+            logger.debug("Worker state changed to '{0}'".format(state))
         else:
             uuid = ""
             if "uuid" in params[1]:
@@ -122,24 +123,24 @@ class Worker():
             pstring = json.dumps(d)
             self._cursor.execute("""UPDATE "workerstate" SET (position, params, job_uuid) = (%s, %s, %s) WHERE uuid=%s""", (state, pstring, uuid, self._vm_uuid))
             self._dbconn.commit()
-            LOGGER.debug("Worker state changed to '{0}' with details '{1}'".format(state, params))
+            logger.debug("Worker state changed to '{0}' with details '{1}'".format(state, params))
             
     def _case_update(self, status, case_uuid):
         self._cursor.execute("""UPDATE "cases" SET status = %s WHERE uuid=%s""", (status, case_uuid))
         self._dbconn.commit()
-        LOGGER.info("Case status for case UUID {0} changed to '{1}'".format(case_uuid, status))
+        logger.info("Case status for case UUID {0} changed to '{1}'".format(case_uuid, status))
     
     def _get_victim_params(self):
         self._cursor.execute('SELECT * FROM victims WHERE uuid=%s LIMIT 1', (self._vm_uuid,))
         data = self._cursor.fetchall()
         params = data[0]
         params["last_reboot"] = arrow.get(params["last_reboot"]).format('YYYY-MM-DD HH:mm:ss.SSSZ')
-        LOGGER.debug("Got details for VM UUID {0}, IP is {1}, username is '{2}'".format(self._vm_uuid, params["ip"], params["username"]))
+        logger.debug("Got details for VM UUID {0}, IP is {1}, username is '{2}'".format(self._vm_uuid, params["ip"], params["username"]))
         return params
 
     # core sequence of actions to take for a received job
     def process(self, params):
-        LOGGER.info("Message received: {0}".format(params))
+        logger.info("Message received: {0}".format(params))
         try:
             dom = self._lv_conn.lookupByUUIDString(self._vm_uuid)
             domstruct = etree.fromstring(dom.XMLDesc())
@@ -163,7 +164,7 @@ class Worker():
                         self._state_update("vnc_blocked")
                         self._case_update("vnc_blocked", params["uuid"])
                         state = "vnc_blocked"
-                    LOGGER.error("VNC connection blocked, sleeping 20 seconds...")
+                    logger.error("VNC connection blocked, sleeping 20 seconds...")
                     time.sleep(20)
                     tryctr += 1
             
@@ -218,14 +219,12 @@ class Worker():
                 os.mkdir(imgdir)
             
             # revert to most recent snapshot
-            LOGGER.debug("Restoring VM snapshot")
+            logger.debug("Restoring VM snapshot")
             snapshot = dom.snapshotCurrent()
             dom.revertToSnapshot(snapshot)
             
             self._state_update('restored', (False,None))
             self._case_update('restored', suspect.uuid)
-            LOGGER.debug("Resuming VM")
-            #dom.resume()
             
             # start capture
             t = threading.Thread(name="pcap", target=suspect.capture)
@@ -244,7 +243,7 @@ class Worker():
                 suspect.ttl = mintime
                 
             # run process as per params given
-            LOGGER.info("Issuing command set to victim, worker allowing {0} seconds runtime".format(suspect.ttl))
+            logger.info("Issuing command set to victim, worker allowing {0} seconds runtime".format(suspect.ttl))
             self._state_update('running', (False,None))
             self._case_update('running', suspect.uuid)
             
@@ -256,7 +255,7 @@ class Worker():
             while arrow.utcnow() < end:
                 time.sleep(5)
             
-            LOGGER.info("Runtime limit reached, starting data collection")
+            logger.info("Runtime limit reached, starting data collection")
             
             suspect.stop_capture = True
             
@@ -273,11 +272,11 @@ class Worker():
             # make a screenshot
             imgpath = os.path.join(suspect.imgdir, "1.png")
             suspect.screenshot(dom, self._lv_conn)
-            LOGGER.debug("Creating screenshot at {0}".format(imgpath))
+            logger.debug("Creating screenshot at {0}".format(imgpath))
             
             # pause the vm before mounting filesystem
             dom.suspend()
-            LOGGER.debug("VM suspended, starting data collection")
+            logger.debug("VM suspended, starting data collection")
             self._state_update('collecting', (False,None))
             self._case_update('collecting', suspect.uuid)
             suspect.endtime = arrow.utcnow().format(tformat)
@@ -285,14 +284,14 @@ class Worker():
             self._state_update('collecting', (False, None))
             # gather data
             suspect.construct_record(self._victim_params)
-            LOGGER.debug("Output written")
+            logger.debug("Output written")
             self._case_update('complete', suspect.uuid)
              
         except Exception:
             ex_type, ex, tb = sys.exc_info()
             fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
             lineno = tb.tb_lineno
-            LOGGER.error("Exception {0} {1} in {2}, line {3} while processing job, aborting".format(ex_type, ex, fname, lineno))
+            logger.error("Exception {0} {1} in {2}, line {3} while processing job, aborting".format(ex_type, ex, fname, lineno))
             self._case_update('failed', suspect.uuid)
         finally:
             self._state_update('cleanup', (False,None))
@@ -302,10 +301,18 @@ class Worker():
                 socket.create_connection((suspect.victim_params["ip"], 389), timeout=1)
             except:
                 pass
-            LOGGER.removeHandler(suspect.runlog)
+            logger.removeHandler(suspect.runlog)
             # ensure vm suspended
             self._lv_conn.lookupByUUIDString(self._vm_uuid).suspend()
             self._cursor.execute("""UPDATE victims SET (runcounter)=(runcounter + 1) WHERE uuid=%s""", (self._victim_params["uuid"],))
             self._dbconn.commit()
+            self._cursor.execute("""SELECT runcounter FROM victims WHERE uuid=%s""", (self._victim_params["uuid"],))
+            rows = self._cursor.fetchall()
+            if rows[0]["runcounter"] >= 100:
+                self.do_maintenance()
             self._state_update('idle', params=(False, dict()))
-        
+            
+    def do_maintenance(self):
+        logger.info("Entering maintenance cycle...")
+        janitor = maintenance.Janitor(self._conf, self._victim_params)
+        janitor.standard_maintenance()

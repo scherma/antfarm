@@ -72,7 +72,7 @@ apt-get install -y python3-pip nodejs nginx libjpeg-dev curl tcpdump libcap2-bin
 apt-get install -y libpcre3-dev postgresql-9.6 postgresql-contrib curl libpcap-dev git screen python3-lxml tor libguestfs-tools libffi-dev libssl-dev tshark
 apt-get install -y libnl-3-dev libnl-route-3-dev libxml2-dev libdevmapper-dev libyajl2 libyajl-dev pkg-config libyaml-dev build-essential libpq-dev python3-libvirt
 apt-get install -y libnet1-dev zlib1g zlib1g-dev libcap-ng-dev libcap-ng0 libnss3-dev libgeoip-dev liblua5.1-dev libhiredis-dev libevent-dev libgeoip-dev python3-dev
-apt-get install -y clamav clamav-daemon clamav-freshclam python3-guestfs xsltproc pm-utils
+apt-get install -y clamav clamav-daemon clamav-freshclam python3-guestfs xsltproc pm-utils yara libyara-dev
 apt-get install -y libpciaccess-dev # debian stretch
 apt-get upgrade -y dnsmasq
 
@@ -80,13 +80,13 @@ apt-get upgrade -y dnsmasq
 
 echo -e "${GREEN}Installing python dependencies...${NC}"
 # apt-get remove -y python-cffi # probably not required anymore
+pip3 uninstall yara
 pip3 install --upgrade Pillow
 pip3 install --upgrade twisted
-pip3 install scapy-python3 pytest vncdotool Pillow pika psycopg2 arrow pyshark psutil tabulate ipaddress xmljson
-# vncdotool currently has bugs in python3 - can't move this to py3 just yet
+pip3 install scapy-python3 pytest vncdotool Pillow pika psycopg2 arrow pyshark psutil tabulate ipaddress xmljson yara-python
 
 echo -e "${GREEN}Installing Python EVTX Parser by Willi Ballenthin...${NC}"
-pip3 install git+https://github.com/williballenthin/python-evtx
+pip3 install https://github.com/williballenthin/python-evtx
 # cd /tmp
 # git clone https://github.com/williballenthin/python-evtx
 # cd python-evtx
@@ -140,6 +140,7 @@ mkdir -v "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/output"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/runmanager"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/runmanager/logs"
+mkdir -v "/usr/local/unsafehex/$SBXNAME/yara"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/www"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/api"
 mkdir -v /mnt/images

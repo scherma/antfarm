@@ -7,7 +7,7 @@ import libvirt, psycopg2, psycopg2.extras, configparser, logging,os, sys, vmwork
 
 logger = logging.getLogger(__name__)
 
-fmt = '[%(asctime)s] %(levelname)s\t%(message)s'
+fmt = '%(levelname)s %(message)s'
 dfmt ='%Y%m%d %H:%M:%S'
 formatter = logging.Formatter(fmt=fmt, datefmt=dfmt)
 
@@ -100,7 +100,6 @@ class Broker():
                     for case in cases:
                         if available:
                             case["hashes"] = {"sha256": case["sha256"], "sha1": case["sha1"], "md5": case["md5"]}
-                            print(case)
                             case["reboots"] = int(case["reboots"]);
                             victim = available.pop()
                             logger.info("Allocated case {0} to victim uuid {1}".format(case["uuid"], victim["uuid"]))
@@ -149,12 +148,7 @@ def main():
     parser.add_argument('config', default='runmanager.conf', type=argparse.FileType())
     args = parser.parse_args()
     
-    conf = None
-    
-    if sys.version_info[0] == 2 and sys.version_info[1] == 7:
-        conf = ConfigParser.ConfigParser()
-    elif sys.version_info[0] == 3 and sys.version_info[1] >= 5:
-        conf = configparser.ConfigParser()
+    conf = configparser.ConfigParser()
     
     conf.readfp(args.config)
     if args.loglevel:
@@ -163,8 +157,6 @@ def main():
         conf.set('General', 'logdir', args.logdir)
     if args.instancename:
         conf.set('General', 'instancename', args.instancename)
-    if args.mountdir:
-        conf.set('General', 'mountdir', args.mountdir)
     
     NUM_LEVEL = getattr(logging, conf.get('General', 'loglevel').upper(), None)
     if not isinstance(NUM_LEVEL, int):
@@ -182,23 +174,19 @@ def main():
     #logger.addHandler(ch)
     #logger.setLevel(num_level)
     
-    log_modules = [__name__, "pyvnc", "vmworker", "runinstance", "db_calls", "victimfiles"]
+    log_modules = [__name__, "pyvnc", "vmworker", "runinstance", "db_calls", "victimfiles", "maintenance"]
     for module in log_modules:
         logging.getLogger(module).setLevel(NUM_LEVEL)
-    
-    if not os.access(conf.get('General', 'mountdir'), os.W_OK):
-        logger.error("Mount directory {0} not writeable!".format(conf.get('General', 'mountdir')))
-        exit(1)                 
-    
-    logger.debug('Starting broker...')
-    
+        
+    logger.setLevel(NUM_LEVEL)
+            
     try:        
         b = Broker(conf)
     except KeyError:
         logger.error("Invalid configuration supplied!")
         exit(1)
     
-    logger.info('Broker starting')
+    logger.info('Broker starting...')
     
     b.manage()
     

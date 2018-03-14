@@ -154,8 +154,12 @@ class RunInstance():
     def _register_logger(self):
         formatter = logging.Formatter(fmt='[%(asctime)s] %(levelname)s\t%(message)s', datefmt='%Y%m%d %H:%M:%S')
         runlog = logging.FileHandler(os.path.join(self.rundir, 'run.log'))
-        runlog.setLevel(getattr(logging, self.conf.get('General', 'runloglevel')))
+        RUN_NUM_LEVEL = getattr(logging, self.conf.get('General', 'runloglevel'))
+        runlog.setLevel(RUN_NUM_LEVEL)
         runlog.setFormatter(formatter)
+        log_modules = [__name__, "pyvnc", "vmworker", "runinstance", "db_calls", "victimfiles"]
+        for module in log_modules:
+            logging.getLogger(module).setLevel(RUN_NUM_LEVEL)
         logger.addHandler(runlog)
         return runlog
 
@@ -169,27 +173,27 @@ class RunInstance():
     def screenshot(self, dom, lv_conn):
         imgpath = os.path.join(self.imgdir, "{0}.png".format(self.imgsequence))
         thumbpath = os.path.join(self.imgdir, "{0}-thumb.png".format(self.imgsequence))
-        
-        s = lv_conn.newStream()
+        i = get_screen_image(dom, lv_conn)
+        #s = lv_conn.newStream()
         # cause libvirt to take the screenshot
-        dom.screenshot(s, 0)
+        #dom.screenshot(s, 0)
         # copy the data into a buffer        
-        if sys.version_info[0] == 2 and sys.version_info[1] == 7:
-            buf = StringIO()
-            s.recvAll(self._sc_writer, buf)
-        elif sys.version_info[0] == 3 and sys.version_info[1] >= 5:
-            buf = BytesIO()
-            s.recvAll(self._sc_writer, buf)
-        s.finish()
+        #if sys.version_info[0] == 2 and sys.version_info[1] == 7:
+        #    buf = StringIO()
+        #    s.recvAll(self._sc_writer, buf)
+        #elif sys.version_info[0] == 3 and sys.version_info[1] >= 5:
+        #    buf = BytesIO()
+        #    s.recvAll(self._sc_writer, buf)
+        #s.finish()
         # write the buffer to file
-        buf.seek(0)
-        i = Image.open(buf)
+        #buf.seek(0)
+        #i = Image.open(buf)
         i.save(imgpath)
         i.thumbnail((400, 400))
         i.save(thumbpath)
         logger.debug("Took screenshot {0}".format(imgpath))
         self.imgsequence += 1
-    
+
     def _sc_writer(self, stream, data, b):
         b.write(data)
                     
@@ -329,7 +333,7 @@ class RunInstance():
             vf = victimfiles.VictimFiles(self.victim_params["diskfile"], '/dev/sda2')
             fsroot = os.path.join(self.rundir, 'filesystem')
             vf.download_new_files(dtstart, fsroot)
-            vf.download_modified_registries(dtstart, fsroot)
+            vf.download_modified_registries(dtstart, fsroot, self.victim_params["username"])
             
         except Exception:
             ex_type, ex, tb = sys.exc_info()
@@ -364,6 +368,23 @@ class RunInstance():
             fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
             lineno = tb.tb_lineno
             logger.error("Exception {0} {1} in {2}, line {3} while processing job, Suricata data not written".format(ex_type, ex, fname, lineno))
+            
+def get_screen_image(dom, lv_conn):
+    s = lv_conn.newStream()
+    # cause libvirt to take the screenshot
+    dom.screenshot(s, 0)
+    # copy the data into a buffer        
+    buf = BytesIO()
+    s.recvAll(sc_writer, buf)
+    s.finish()
+    # write the buffer to file
+    buf.seek(0)
+    i = Image.open(buf)
+    
+    return i
+
+def sc_writer(stream, data, b):
+    b.write(data)
             
 class StopCaptureException(RuntimeError):
     def __init__(self, message, errors):
