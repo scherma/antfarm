@@ -134,7 +134,8 @@ outputs:
   - eve-log:
       enabled: yes
       filetype: regular #regular|syslog|unix_dgram|unix_stream|redis
-      filename: eve.json
+      filename: eve-%Y%m%d.json
+      rotate-interval: 1d
       filemode: 644
       #prefix: "@cee: " # prefix to prepend to each log entry
       # the following are valid when type: syslog above
