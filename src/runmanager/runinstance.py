@@ -3,8 +3,8 @@
 # MIT License © https://github.com/scherma
 # contact http_error_418 @ unsafehex.com
 
-import logging, os, configparser, libvirt, json, arrow, pyvnc, shutil, guestfs, time, victimfiles
-import tempfile, evtx_dates, db_calls, psycopg2, psycopg2.extras, sys, pcap_parser
+import logging, os, configparser, libvirt, json, arrow, pyvnc, shutil, time, victimfiles
+import tempfile, evtx_dates, db_calls, psycopg2, psycopg2.extras, sys, pcap_parser, yarahandler
 import scapy.all as scapy
 from lxml import etree
 from io import StringIO, BytesIO
@@ -58,6 +58,7 @@ class RunInstance():
         self.cursor = cursor
         self.dbconn = dbconn
         self.domid = domid
+        self.yara_test()
         
     @property
     def rawfile(self):
@@ -157,7 +158,7 @@ class RunInstance():
         RUN_NUM_LEVEL = getattr(logging, self.conf.get('General', 'runloglevel'))
         runlog.setLevel(RUN_NUM_LEVEL)
         runlog.setFormatter(formatter)
-        log_modules = [__name__, "pyvnc", "vmworker", "runinstance", "db_calls", "victimfiles"]
+        log_modules = [__name__, "pyvnc", "vmworker", "runinstance", "db_calls", "victimfiles", "yarahandler"]
         for module in log_modules:
             logging.getLogger(module).setLevel(RUN_NUM_LEVEL)
         logger.addHandler(runlog)
@@ -167,6 +168,14 @@ class RunInstance():
         open(self.rawfile).close()
         logger.debug("Confirmed file '{0}' exists with sha256 '{1}'".format(fname, self.hashes["sha256"]))
         return fname
+    
+    def yara_test(self):
+        matches = yarahandler.testyara(self.conf, self.rawfile)
+        if matches:
+            logger.info("Found yara matches: {}".format(matches))
+            db_calls.yara_detection(matches, self.hashes["sha256"], self.cursor)
+        else:
+            logger.info("No yara matches found")
         
     # make a screenshot
     # https://www.linuxvoice.com/issues/003/LV3libvirt.pdf
@@ -174,20 +183,6 @@ class RunInstance():
         imgpath = os.path.join(self.imgdir, "{0}.png".format(self.imgsequence))
         thumbpath = os.path.join(self.imgdir, "{0}-thumb.png".format(self.imgsequence))
         i = get_screen_image(dom, lv_conn)
-        #s = lv_conn.newStream()
-        # cause libvirt to take the screenshot
-        #dom.screenshot(s, 0)
-        # copy the data into a buffer        
-        #if sys.version_info[0] == 2 and sys.version_info[1] == 7:
-        #    buf = StringIO()
-        #    s.recvAll(self._sc_writer, buf)
-        #elif sys.version_info[0] == 3 and sys.version_info[1] >= 5:
-        #    buf = BytesIO()
-        #    s.recvAll(self._sc_writer, buf)
-        #s.finish()
-        # write the buffer to file
-        #buf.seek(0)
-        #i = Image.open(buf)
         i.save(imgpath)
         i.thumbnail((400, 400))
         i.save(thumbpath)
@@ -223,23 +218,27 @@ class RunInstance():
         logger.debug("Packet capture starting with filter '{0}'".format(fl))
         scapy.sniff(iface="vnet0", filter=fl, prn=self.write_capture)
             
-    def events_to_store(self, searchfile, startdate, enddate):
-        with open(searchfile) as f:
-            events = {}
-            evctr = 0
-            for line in f:
-                d = json.loads(line.rstrip(' \t\r\n\0').lstrip(' \t\r\n\0'))
-                t = arrow.get(d["timestamp"])
-                # ensure only event types we can handle safely get looked at
-                if d["event_type"] in ["tls", "http", "dns", "alert"]:
-                    if ((d["src_ip"] == self.victim_params["ip"] or d["dest_ip"] == self.victim_params["ip"]) and
-                    d["src_ip"] != self.conf.get("General", "gateway_ip") and d["dest_ip"] != self.conf.get("General", "gateway_ip") and t >= startdate and t <= enddate):
-                        if d["event_type"] != "alert" or (d["event_type"] == "alert" and d["alert"]["category"] != "Generic Protocol Command Decode"):
-                            if d["event_type"] not in events:
-                                events[d["event_type"]] = [d]
-                            else:
-                                events[d["event_type"]].append(d)
-                            evctr += 1
+    def events_to_store(self, searchfiles, startdate, enddate):
+        events = {}
+        evctr = 0
+        for searchfile in searchfiles:
+            if os.path.exists(searchfile):
+                with open(searchfile) as f:
+                    for line in f:
+                        d = json.loads(line.rstrip(' \t\r\n\0').lstrip(' \t\r\n\0'))
+                        t = arrow.get(d["timestamp"])
+                        # ensure only event types we can handle safely get looked at
+                        if d["event_type"] in ["tls", "http", "dns", "alert"]:
+                            if ((d["src_ip"] == self.victim_params["ip"] or d["dest_ip"] == self.victim_params["ip"]) and
+                                 d["src_ip"] != self.conf.get("General", "gateway_ip") and
+                                 d["dest_ip"] != self.conf.get("General", "gateway_ip") and
+                                 t >= startdate and t <= enddate):
+                                if d["event_type"] != "alert" or (d["event_type"] == "alert" and d["alert"]["category"] != "Generic Protocol Command Decode"):
+                                    if d["event_type"] not in events:
+                                        events[d["event_type"]] = [d]
+                                    else:
+                                        events[d["event_type"]].append(d)
+                                    evctr += 1
             logger.debug("Identified {0} events to include from {1}".format(evctr, searchfile))
                         
             return events
@@ -345,11 +344,8 @@ class RunInstance():
             # record suricata events
             eventlog = os.path.join(self.rundir, "eve.json")
             with open(eventlog, 'w') as e:
-                events = {}
-                if os.path.exists(self.conf.get('General', 'suricata_log')):
-                    events = self.events_to_store(self.conf.get('General', 'suricata_log'), dtstart, dtend)
-                else:
-                    logger.debug("Suricata eve.json file not present")
+                files = self._suricata_logfiles
+                events = self.events_to_store(files, dtstart, dtend)
                 #e.write(json.dumps(events))
                 qty = {}
                 for evtype in events:
@@ -368,6 +364,18 @@ class RunInstance():
             fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
             lineno = tb.tb_lineno
             logger.error("Exception {0} {1} in {2}, line {3} while processing job, Suricata data not written".format(ex_type, ex, fname, lineno))
+    
+    @property
+    def _suricata_logfiles(self):
+        files = []
+        startday = arrow.get(self.starttime).floor("day")
+        endday = arrow.get(self.endtime).floor("day")
+        fileformat = "/var/log/suricata/eve-{}.json"
+        days = arrow.Arrow.interval('hour', startday, endday)
+        for day in days:
+            files.append(fileformat.format(day[0].format('YYYYMMDD')))
+        return files
+            
             
 def get_screen_image(dom, lv_conn):
     s = lv_conn.newStream()

@@ -51,6 +51,19 @@ def insert_tls(evts, uuid, cursor):
     psycopg2.extras.execute_values(cursor, tls_sql, values)
     logger.debug("inserted {0} tls events for case {1}".format(len(values), uuid))
     
+def yara_detection(yara_matches, sha256, cursor):
+    match_json = {}
+    for match in yara_matches:
+        match_json[match.rule] = {}
+        match_json[match.rule]["Author"] = match.meta["author"] if "author" in match.meta else "unknown"
+        match_json[match.rule]["Description"] = match.meta["description"] if "description" in match.meta else "unknown"
+        match_json[match.rule]["Reference"] = match.meta["reference"] if "reference" in match.meta else "unknown"
+        match_json[match.rule]["Date"] = match.meta["date"] if "date" in match.meta else "unknown"
+        match_json[match.rule]["tags"] = match.tags
+    
+    yara_sql = """UPDATE suspects SET yararesult = %s WHERE sha256 = %s"""
+    cursor.execute(yara_sql, (json.dumps(match_json), sha256))
+    
 def insert_sysmon(events_list, uuid, cursor):
     schema = "{http://schemas.microsoft.com/win/2004/08/events/event}"
     

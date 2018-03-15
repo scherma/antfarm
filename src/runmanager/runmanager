@@ -7,24 +7,24 @@ import libvirt, psycopg2, psycopg2.extras, configparser, logging,os, sys, vmwork
 
 logger = logging.getLogger(__name__)
 
-fmt = '%(levelname)s %(message)s'
-dfmt ='%Y%m%d %H:%M:%S'
+fmt = "%(levelname)s %(message)s"
+dfmt ="%Y%m%d %H:%M:%S"
 formatter = logging.Formatter(fmt=fmt, datefmt=dfmt)
 
-NUM_LEVEL = 3
-RUN_NUM_LEVEL = 3
+NUM_LEVEL = 20
+RUN_NUM_LEVEL = 20
 
 
 class Broker():
     def __init__(self, config):
         self.conf = config
         self.lv_conn = libvirt.open("qemu:///system")
-        self.cursor, self.dbconn = self._db_conn(self.conf.get('General', 'dbname'), self.conf.get('General', 'dbuser'), self.conf.get('General' ,'dbpass'))
+        self.cursor, self.dbconn = self._db_conn(self.conf.get("General", "dbname"), self.conf.get("General", "dbuser"), self.conf.get("General" ,"dbpass"))
         self._wipe_workerstate()
         self._register_workers()
         
     def _db_conn(self, db, user, password):
-        host = 'localhost'
+        host = "localhost"
         conn_string = "host='{0}' dbname='{1}' user='{2}' password='{3}'".format(host, db, user, password)
         conn = psycopg2.connect(conn_string)
         conn.autocommit = True
@@ -37,7 +37,7 @@ class Broker():
             self.cursor.execute("""INSERT INTO "workerstate" (uuid, id, pid, position, params) VALUES (%s, %s, %s, %s, '{}')""", (uuid, vm["id"], os.getpid(), 'idle'))
             self.dbconn.commit()
             vm["state"] = "idle"
-            logger.info('Selected VM UUID {0} and registered worker in DB'.format(uuid))
+            logger.info("Selected VM UUID {0} and registered worker in DB".format(uuid))
             
     def _list_available_victims(self):
         self.cursor.execute("""SELECT id, uuid FROM workerstate WHERE position = 'idle'""")
@@ -90,7 +90,7 @@ class Broker():
         return rows
         
         
-    def manage(self, host='localhost'):
+    def manage(self, host="localhost"):
         try:
             while True:
                 cases = self._check_cases()
@@ -140,41 +140,37 @@ class ResourceUnavailable(IndexError):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--loglevel', dest='loglevel')
-    parser.add_argument('--logdir', dest='logdir')
-    parser.add_argument('--runloglevel', dest='runloglevel')
-    parser.add_argument('-n', '--instancename', dest='instancename')
-    parser.add_argument('-m', '--mountdir', dest='mountdir')
-    parser.add_argument('config', default='runmanager.conf', type=argparse.FileType())
+    parser.add_argument("--loglevel", dest="loglevel")
+    parser.add_argument("--logdir", dest="logdir")
+    parser.add_argument("--runloglevel", dest="runloglevel")
+    parser.add_argument("-n", "--instancename", dest="instancename")
+    parser.add_argument("-m", "--mountdir", dest="mountdir")
+    parser.add_argument("config", default="runmanager.conf", type=argparse.FileType())
     args = parser.parse_args()
     
     conf = configparser.ConfigParser()
     
     conf.readfp(args.config)
     if args.loglevel:
-        conf.set('General', 'loglevel', args.loglevel)
+        conf.set("General", "loglevel", args.loglevel)
+    if args.runloglevel:
+        conf.set("General", "runloglevel", args.loglevel)
     if args.logdir:
-        conf.set('General', 'logdir', args.logdir)
+        conf.set("General", "logdir", args.logdir)
     if args.instancename:
-        conf.set('General', 'instancename', args.instancename)
+        conf.set("General", "instancename", args.instancename)
     
-    NUM_LEVEL = getattr(logging, conf.get('General', 'loglevel').upper(), None)
+    NUM_LEVEL = getattr(logging, conf.get("General", "loglevel").upper(), None)
     if not isinstance(NUM_LEVEL, int):
-        raise ValueError('Invalid log level "{0}"'.format(NUM_LEVEL))
+        raise ValueError("Invalid log level '{0}'".format(NUM_LEVEL))
     
-    RUN_NUM_LEVEL = getattr(logging, conf.get('General', 'runloglevel').upper(), None)
+    RUN_NUM_LEVEL = getattr(logging, conf.get("General", "runloglevel").upper(), None)
     if not isinstance(RUN_NUM_LEVEL, int):
-        raise ValueError('Invalid log level "{0}"'.format(RUN_NUM_LEVEL))
+        raise ValueError("Invalid log level '{0}'".format(RUN_NUM_LEVEL))
     
     logging.basicConfig(level=logging.CRITICAL, format=fmt, datefmt=dfmt)
     
-    #ch = logging.StreamHandler()
-    #ch.setLevel(num_level)
-    #ch.setFormatter(formatter)
-    #logger.addHandler(ch)
-    #logger.setLevel(num_level)
-    
-    log_modules = [__name__, "pyvnc", "vmworker", "runinstance", "db_calls", "victimfiles", "maintenance"]
+    log_modules = [__name__, "pyvnc", "vmworker", "runinstance", "db_calls", "victimfiles", "maintenance", "yarahandler"]
     for module in log_modules:
         logging.getLogger(module).setLevel(NUM_LEVEL)
         
@@ -186,7 +182,7 @@ def main():
         logger.error("Invalid configuration supplied!")
         exit(1)
     
-    logger.info('Broker starting...')
+    logger.info("Broker starting...")
     
     b.manage()
     

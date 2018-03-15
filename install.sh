@@ -140,6 +140,7 @@ mkdir -v "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/output"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/runmanager"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/runmanager/logs"
+mkdir -v "/usr/local/unsafehex/$SBXNAME/utils"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/yara"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/www"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/api"
@@ -162,6 +163,9 @@ cp -v "$SCRIPTDIR/res/MousePos.exe" "/usr/local/unsafehex/$SBXNAME/suspects/down
 cp -v "$SCRIPTDIR/res/bios.bin" "/usr/local/unsafehex/$SBXNAME/"
 cp -rv "$SCRIPTDIR/src/node/"* "/usr/local/unsafehex/$SBXNAME/www/"
 cp -rv "$SCRIPTDIR/src/api/"* "/usr/local/unsafehex/$SBXNAME/api/"
+cp -rv "$SCRIPTDIR/src/utils/"* "/usr/local/unsafehex/$SBXNAME/utils/"
+chmod +x "/usr/local/unsafehex/$SBXNAME/utils/suricata-clean.sh"
+chmod +x "/usr/local/unsafehex/$SBXNAME/utils/yara-update.sh"
 chmod 775 -R /usr/local/unsafehex
 usermod -a -G "$SBXNAME" "$LABUSER"
 python3 "$SCRIPTDIR/scripts/writerunconf.py" "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
@@ -212,6 +216,8 @@ cp -v etupdate/etupdate /usr/sbin
 crontab -l > tmpcron
 MINUTE=$(shuf -i 0-59 -n 1)
 echo "${MINUTE} * * * * /usr/sbin/etupdate" >> tmpcron
+echo "1 0 * * * /usr/local/unsafehex/$SBXNAME/utils/suricata-clean.sh" >> tmpcron
+echo "1 0 * * MON /usr/local/unsafehex/$SBXNAME/utils/yara-update.sh" >> tmpcron
 crontab tmpcron
 rm tmpcron
 

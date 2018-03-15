@@ -26,7 +26,6 @@ conf.set("General", "runloglevel", "INFO")
 conf.set("General", "basedir", "/usr/local/unsafehex/")
 conf.set("General", "logdir", "/usr/local/unsafehex/{}/runmanager/logs".format(instancename))
 conf.set("General", "yaradir", "/usr/local/unsafehex/{}/yara".format(instancename))
-conf.set("General", "suricata_log", "/var/log/suricata/eve.json")
 conf.set("General", "gateway_ip", gateway)
 conf.set("General", "netmask", netmask)
 

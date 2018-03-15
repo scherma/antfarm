@@ -71,7 +71,7 @@ class VictimFiles:
                 if arrow.get(self.g.statns(registry)["st_mtime_sec"]) > starttime:
                     destdir = os.path.join(dest_root, os.path.dirname(registry).lstrip("/"))
                     os.makedirs(destdir, exist_ok=True)
-                    destfile = os.path.join(dest_root, registry)
+                    destfile = os.path.join(destdir, os.path.basename(registry))
                     self.g.download(registry, destfile)
             except Exception:
                 ex_type, ex, tb = sys.exc_info()
