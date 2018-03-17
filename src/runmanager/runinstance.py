@@ -3,14 +3,14 @@
 # MIT License © https://github.com/scherma
 # contact http_error_418 @ unsafehex.com
 
-import logging, os, configparser, libvirt, json, arrow, pyvnc, shutil, time, victimfiles
+import logging, os, configparser, libvirt, json, arrow, pyvnc, shutil, time, victimfiles, glob
 import tempfile, evtx_dates, db_calls, psycopg2, psycopg2.extras, sys, pcap_parser, yarahandler
 import scapy.all as scapy
 from lxml import etree
 from io import StringIO, BytesIO
 from PIL import Image
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("antfarm.worker")
 
 # Manages connection to VM and issuing of commands
 class RunInstance():
@@ -212,7 +212,59 @@ class RunInstance():
                 f.write(json.dumps(c))
             logger.debug("Stop capture issued, raising exception to terminate thread")
             raise StopCaptureException("Stop Capture flag set")
-    
+        
+    def get_pcap(self):
+        try:
+            folder = "/usr/local/unsafehex/{}/pcaps".format(self.conf.get("General", "instancename"))
+            def getmtime(name):
+                path = os.path.join(folder, name)
+                return os.path.getmtime(path)
+            pcaps = sorted(os.listdir(folder), key=getmtime, reverse=True)
+            
+            to_read = []
+            
+            start = arrow.get(self.starttime)
+            end = arrow.get(self.endtime)
+                        
+            for pcap in pcaps:
+                basename = os.path.basename(pcap)
+                timestamp = basename.split(".")[0].split("_")[2]
+                createtime = arrow.get(timestamp, "YYYYMMDDHHmmss")
+                
+                # insert at the beginning of array; if we need an earlier one, it will be inserted before the current in next loop
+                # if pcap file created before starttime, this is the earliest one we need, therefore break
+                if createtime < start:
+                    to_read.insert(0, pcap)
+                    break
+                else:
+                    to_read.insert(0, pcap)
+            
+            fl = "host {0} and not (host {1} and port 28080)".format(self.victim_params["ip"], self.conf.get("General", "gateway_ip"))
+            for pcap in to_read:
+                pcapfile = os.path.join(folder, pcap)
+                logger.debug("Reading {}".format(pcapfile))
+                packets = scapy.sniff(offline=pcapfile, filter=fl)
+                for packet in packets:
+                    ptime = arrow.get(packet.time)
+                    if ptime >= start and ptime <= end:
+                        scapy.wrpcap(self.pcap_file, packet, append=True)
+                    
+            logger.info("Wrote pcap to file {0}".format(self.pcap_file))
+            
+            c = pcap_parser.conversations(self.pcap_file)
+            sql = """INSERT INTO pcap_summary (uuid, src_ip, src_port, dest_ip, dest_port, protocol) VALUES %s"""
+            values = []
+            for cevent in c:
+                row = (self.uuid, cevent["src"], cevent["srcport"], cevent["dst"], cevent["dstport"], cevent["protocol"])
+                values.append(row)
+            psycopg2.extras.execute_values(self.cursor, sql, values)
+        
+        except Exception:
+            ex_type, ex, tb = sys.exc_info()
+            fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
+            lineno = tb.tb_lineno
+            logger.error("Exception {0} {1} in {2}, line {3} while processing pcap".format(ex_type, ex, fname, lineno))
+        
     def capture(self):
         fl = "host {0} and not (host {1} and port 28080)".format(self.victim_params["ip"], self.conf.get("General", "gateway_ip"))
         logger.debug("Packet capture starting with filter '{0}'".format(fl))
@@ -229,10 +281,12 @@ class RunInstance():
                         t = arrow.get(d["timestamp"])
                         # ensure only event types we can handle safely get looked at
                         if d["event_type"] in ["tls", "http", "dns", "alert"]:
+                            # include everything from selected host
                             if ((d["src_ip"] == self.victim_params["ip"] or d["dest_ip"] == self.victim_params["ip"]) and
-                                 d["src_ip"] != self.conf.get("General", "gateway_ip") and
-                                 d["dest_ip"] != self.conf.get("General", "gateway_ip") and
-                                 t >= startdate and t <= enddate):
+                                # that falls within the run time
+                                (t >= startdate and t <= enddate) and not
+                                # except where the target is the API service
+                                (d["dest_ip"] == self.conf.get("General", "gateway_ip") and d["dest_port"] == 28080)):
                                 if d["event_type"] != "alert" or (d["event_type"] == "alert" and d["alert"]["category"] != "Generic Protocol Command Decode"):
                                     if d["event_type"] not in events:
                                         events[d["event_type"]] = [d]
@@ -297,7 +351,7 @@ class RunInstance():
             raise RuntimeError("Exception {0} {1} in {2}, line {3} while processing job, run not completed. Aborting.".format(ex_type, ex, fname, lineno))
         
     def do_run(self, dom, lv_conn):
-        logger.debug("Started run sequence")
+        logger.info("Started run sequence")
         # prep the file for run
         shutil.copy(self.rawfile, self.downloadfile)
         logger.debug("File copied ready for download")
@@ -312,6 +366,8 @@ class RunInstance():
                     break
                 else:
                     time.sleep(5)
+            
+            logger.info("Suspect was delivered, starting behaviour sequence")
             self.behaviour(dom, lv_conn)
         # except block for debugging purposes - clean this up for production
         except Exception as e:
@@ -329,10 +385,12 @@ class RunInstance():
         dtend = arrow.get(self.endtime)
         try:
             logger.info("Obtaining new files from guest filesystem")
-            vf = victimfiles.VictimFiles(self.victim_params["diskfile"], '/dev/sda2')
+            vf = victimfiles.VictimFiles(self.conf, self.victim_params["diskfile"], '/dev/sda2')
             fsroot = os.path.join(self.rundir, 'filesystem')
-            vf.download_new_files(dtstart, fsroot)
-            vf.download_modified_registries(dtstart, fsroot, self.victim_params["username"])
+            filesdict = vf.download_new_files(dtstart, fsroot)
+            registriesdict = vf.download_modified_registries(dtstart, fsroot, self.victim_params["username"])
+            db_calls.insert_files(filesdict, self.uuid, self.cursor)
+            db_calls.insert_files(registriesdict, self.uuid, self.cursor)
             
         except Exception:
             ex_type, ex, tb = sys.exc_info()
@@ -364,17 +422,29 @@ class RunInstance():
             fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
             lineno = tb.tb_lineno
             logger.error("Exception {0} {1} in {2}, line {3} while processing job, Suricata data not written".format(ex_type, ex, fname, lineno))
+            
+        self.get_pcap()
     
     @property
     def _suricata_logfiles(self):
-        files = []
-        startday = arrow.get(self.starttime).floor("day")
-        endday = arrow.get(self.endtime).floor("day")
-        fileformat = "/var/log/suricata/eve-{}.json"
-        days = arrow.Arrow.interval('hour', startday, endday)
-        for day in days:
-            files.append(fileformat.format(day[0].format('YYYYMMDD')))
-        return files
+        evefiles = sorted(glob.glob("/var/log/suricata/eve-*.json"), key=os.path.getmtime, reverse=True)
+        
+        to_read = []
+        
+        start = arrow.get(self.starttime)
+        end = arrow.get(self.endtime)
+        
+        for evefile in evefiles:
+            evefiletime = arrow.get(evefile.split("-")[1].split(".")[0], "YYYYMMDDHHmmss")
+        
+            if evefiletime < start:
+                to_read.insert(0, evefile)
+                break
+            else:
+                to_read.insert(0, evefile)
+            
+        return to_read
+            
             
             
 def get_screen_image(dom, lv_conn):

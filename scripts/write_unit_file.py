@@ -37,3 +37,26 @@ conf.set('Install', 'WantedBy', 'multi-user.target')
 
 with open('/etc/systemd/system/{}.service'.format(instancename), 'w') as f:
     conf.write(f)
+    
+pcapconf = configparser.ConfigParser()
+pcapconf.optionxform = str
+
+pcapconf.add_section("Unit")
+
+pcapconf.set("Unit", "Description", "{} pcap service".format(instancename))
+pcapconf.set("Unit", "After", "network.target")
+
+pcapconf.add_section("Service")
+
+pcapconf.set("Service", "Type", "simple")
+pcapconf.set('Service', 'User', user)
+pcapconf.set("Service", "ExecStart", "/usr/bin/tshark -n -i vneta -b duration:3600 -b files:24 -w /usr/local/unsafehex/{}/pcaps/ring.pcap".format(instancename))
+
+pcapconf.add_section("Install")
+
+pcapconf.set("Install", "WantedBy", "multi-user.target")
+
+with open("/etc/systemd/system/pcapring.service", "w") as f:
+    conf.write(f)
+    
+

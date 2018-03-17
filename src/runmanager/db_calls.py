@@ -7,7 +7,7 @@
 import psycopg2, psycopg2.extras, json, logging, xmljson, sys, os
 from lxml import etree
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("antfarm.worker")
 
 def insert_dns(evts, uuid, cursor):
     dns_sql = """INSERT INTO suricata_dns (uuid, src_ip, src_port, dest_ip, dest_port, timestamp, dnsdata) VALUES %s ON CONFLICT DO NOTHING"""
@@ -51,7 +51,34 @@ def insert_tls(evts, uuid, cursor):
     psycopg2.extras.execute_values(cursor, tls_sql, values)
     logger.debug("inserted {0} tls events for case {1}".format(len(values), uuid))
     
+def insert_files(filesdict, uuid, cursor):
+    try:
+        files_sql = """INSERT INTO victimfiles (uuid, file_path, os_path, file_stat, yararesult, saved) VALUES %s ON CONFLICT DO NOTHING"""
+        values = []
+        for path, data in filesdict.items():
+            yara_json = {}
+            if "yara" in data:
+                yara_json = build_yara_json(data["yara"])
+            row = (uuid, path, data["os_path"], json.dumps(data["statns"]), json.dumps(yara_json), data["saved"])
+            values.append(row)
+        
+        psycopg2.extras.execute_values(cursor, files_sql, values)
+        logger.debug("Indexed {} files for case {}".format(len(values), uuid))
+    
+    except Exception:
+        ex_type, ex, tb = sys.exc_info()
+        fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
+        lineno = tb.tb_lineno
+        logger.error("Exception {0} {1} in {2}, line {3} parsing filesystem data, events not written to DB".format(ex_type, ex, fname, lineno))
+    
+    
 def yara_detection(yara_matches, sha256, cursor):
+    match_json = build_yara_json(yara_matches)
+    yara_sql = """UPDATE suspects SET yararesult = %s WHERE sha256 = %s"""
+    cursor.execute(yara_sql, (json.dumps(match_json), sha256))
+    logger.debug("Added yara detection to suspect {}".format(sha256))
+    
+def build_yara_json(yara_matches):
     match_json = {}
     for match in yara_matches:
         match_json[match.rule] = {}
@@ -60,9 +87,7 @@ def yara_detection(yara_matches, sha256, cursor):
         match_json[match.rule]["Reference"] = match.meta["reference"] if "reference" in match.meta else "unknown"
         match_json[match.rule]["Date"] = match.meta["date"] if "date" in match.meta else "unknown"
         match_json[match.rule]["tags"] = match.tags
-    
-    yara_sql = """UPDATE suspects SET yararesult = %s WHERE sha256 = %s"""
-    cursor.execute(yara_sql, (json.dumps(match_json), sha256))
+    return match_json
     
 def insert_sysmon(events_list, uuid, cursor):
     schema = "{http://schemas.microsoft.com/win/2004/08/events/event}"

@@ -6,7 +6,7 @@
 import libvirt, logging, time, argparse, configparser, pyvnc, arrow
 from runinstance import get_screen_image
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("antfarm")
 
 class Janitor:
     def __init__(self, config, vmdata):
@@ -47,19 +47,6 @@ class Janitor:
         i.save(path)
         
     def login(self):
-        #screenpath = "/usr/local/unsafehex/antfarm/workers/{}-login.png".format(self.vmdata["uuid"])
-        #logger.info("Login called, awaiting screen {}".format(screenpath))
-        #screen_reached = False
-        #while not screen_reached:
-        #    try:
-        #        cstr = "{0}::{1}".format(self.vmdata["vnc"]["address"], self.vmdata["vnc"]["port"])
-        #        connector = pyvnc.Connector(cstr, self.vmdata["password"], self.vmdata["resolution"])
-        #        connector.client.timeout = 10
-        #        connector.mouseMove(1, 1) # expectScreen includes the cursor icon; must be in the same position as before
-        #        connector.login(screenpath, self.vmdata["password"])
-        #        screen_reached = True
-        #    except TimeoutError:
-        #        time.sleep(10)
         cstr = "{0}::{1}".format(self.vmdata["vnc"]["address"], self.vmdata["vnc"]["port"])
         connector = pyvnc.Connector(cstr, self.vmdata["password"], self.vmdata["resolution"])
         connector.login(self.vmdata["password"])

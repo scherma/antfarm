@@ -46,6 +46,7 @@ def conversations(pcapfile):
 		if d:
 			c.append(d)
 			
+	cap.close()		
 	return c
 
 def main():

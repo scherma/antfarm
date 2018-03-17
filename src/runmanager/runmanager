@@ -3,9 +3,9 @@
 # MIT License © https://github.com/scherma
 # contact http_error_418 @ unsafehex.com
 
-import libvirt, psycopg2, psycopg2.extras, configparser, logging,os, sys, vmworker, threading, argparse, json, time
+import libvirt, psycopg2, psycopg2.extras, configparser, logging, os, sys, vmworker, threading, argparse, json, time
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("antfarm")
 
 fmt = "%(levelname)s %(message)s"
 dfmt ="%Y%m%d %H:%M:%S"
@@ -103,7 +103,7 @@ class Broker():
                             case["reboots"] = int(case["reboots"]);
                             victim = available.pop()
                             logger.info("Allocated case {0} to victim uuid {1}".format(case["uuid"], victim["uuid"]))
-                            w = vmworker.Worker(self.conf, victim, RUN_NUM_LEVEL)
+                            w = vmworker.Worker(self.conf, victim, NUM_LEVEL, RUN_NUM_LEVEL)
                             w._state_update("assigned", (True, case))
                             t = threading.Thread(target=w.process, args=(case,))
                             t.start()
@@ -154,26 +154,24 @@ def main():
     if args.loglevel:
         conf.set("General", "loglevel", args.loglevel)
     if args.runloglevel:
-        conf.set("General", "runloglevel", args.loglevel)
+        conf.set("General", "runloglevel", args.runloglevel)
     if args.logdir:
         conf.set("General", "logdir", args.logdir)
     if args.instancename:
         conf.set("General", "instancename", args.instancename)
     
+    global NUM_LEVEL
     NUM_LEVEL = getattr(logging, conf.get("General", "loglevel").upper(), None)
     if not isinstance(NUM_LEVEL, int):
         raise ValueError("Invalid log level '{0}'".format(NUM_LEVEL))
     
+    global RUN_NUM_LEVEL
     RUN_NUM_LEVEL = getattr(logging, conf.get("General", "runloglevel").upper(), None)
     if not isinstance(RUN_NUM_LEVEL, int):
         raise ValueError("Invalid log level '{0}'".format(RUN_NUM_LEVEL))
     
     logging.basicConfig(level=logging.CRITICAL, format=fmt, datefmt=dfmt)
-    
-    log_modules = [__name__, "pyvnc", "vmworker", "runinstance", "db_calls", "victimfiles", "maintenance", "yarahandler"]
-    for module in log_modules:
-        logging.getLogger(module).setLevel(NUM_LEVEL)
-        
+            
     logger.setLevel(NUM_LEVEL)
             
     try:        

@@ -7,7 +7,7 @@ from vncdotool import client, api
 from random import randrange, randint
 import sys, logging, time
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("antfarm.worker")
 
 class Connector:
     def __init__(self, address, password, resolution):
@@ -64,7 +64,7 @@ class Connector:
         self.client.pause(self.randomTime(3))
 
     def goToIEPage(self, address):
-        logger.debug("Opening IE with page {0}".format(address))
+        logger.info("Opening IE with page {0}".format(address))
         self.iExplore()
         self.typestring(address)
         self.singleKey('enter')
@@ -141,7 +141,7 @@ class Connector:
         logger.debug("Reboot key sequence complete, disconnecting and sleeping 45 seconds...")
         self.disconnect()
         time.sleep(45)
-        logger.debug("Sleep finished, reconnecting and entering password")
+        logger.info("Sleep finished, reconnecting and entering password")
         self.client = api.connect(self.address)
         # position for password box on 1650x1080 screen
         self.clickPos(797, 636)
@@ -162,7 +162,7 @@ class Connector:
     def basic(self):
         self.singleKey("lsuper")
         self.client.pause(self.randomTime(2))
-        logger.debug("Launching Word")
+        logger.info("Launching Word")
         self.typestring("microsoft word")
         self.singleKey("enter")
         self.client.pause(self.randomTime(2))
@@ -223,6 +223,13 @@ class Connector:
         logger.debug("Finding office macro enable sequence...")
         if office_type == 1:
             self.office_2007_enable_macros()
+            
+        # scroll down; some documents won't activate until on later page
+        self.client.pause(2)
+        self.singleKey("pgdn")
+        self.singleKey("pgdn")
+        self.singleKey("pgdn")
+        self.singleKey("pgdn")
             
     def login(self, password):
         self.typestring(password)

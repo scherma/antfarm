@@ -122,6 +122,23 @@ CREATE TABLE workerstate (
 ALTER TABLE workerstate OWNER TO postgres;
 
 --
+-- Name: victimfiles; Type TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE victimfiles (
+	uuid varchar(50),
+	file_path text NOT NULL,
+	os_path text,
+	file_stat jsonb,
+	yararesult jsonb,
+	saved boolean NOT NULL,
+	PRIMARY KEY(uuid, file_path)
+);
+
+ALTER TABLE victimfiles OWNER TO postgres;
+
+
+--
 -- Name: sysmon_evts; Type TABLE; Schema: public; Owner: postgres
 --
 
@@ -253,6 +270,13 @@ ALTER TABLE ONLY cases
 
 
 --
+-- Name: victimfiles_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY victimfiles
+    ADD CONSTRAINT victimfiles_uuid_fkey FOREIGN KEY (uuid) REFERENCES cases(uuid);
+
+--
 -- Name: sysmon_evts_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -328,6 +352,13 @@ REVOKE ALL ON TABLE workerstate FROM PUBLIC;
 REVOKE ALL ON TABLE workerstate FROM postgres;
 GRANT ALL ON TABLE workerstate TO postgres;
 
+--
+-- Name: victimfiles; Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON TABLE victimfiles FROM PUBLIC;
+REVOKE ALL ON TABLE victimfiles FROM postgres;
+GRANT ALL ON TABLE victimfiles TO postgres;
 
 --
 -- Name: sysmon_evts; Type: ACL; Schema: public; Owner: postgres

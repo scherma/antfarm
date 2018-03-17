@@ -109,6 +109,7 @@ su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE workerstate TO $SBXNAME;\"" postgre
 su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE victims TO $SBXNAME;\"" postgres
 su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE suspects TO $SBXNAME;\"" postgres
 su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE cases TO $SBXNAME;\"" postgres
+su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE victimfiles TO $SBXNAME;\"" postgres
 su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE sysmon_evts TO $SBXNAME;\"" postgres
 su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE suricata_dns TO $SBXNAME;\"" postgres
 su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE suricata_http TO $SBXNAME;\"" postgres
@@ -171,6 +172,7 @@ usermod -a -G "$SBXNAME" "$LABUSER"
 python3 "$SCRIPTDIR/scripts/writerunconf.py" "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
 python3 "$SCRIPTDIR/scripts/writewwwconf.py" "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
 python3 "$SCRIPTDIR/scripts/write_unit_file.py" "$SBXNAME" "$LABUSER"
+python3 "$SCRIPTDIR/scripts/write_pcap.py" "$SBXNAME"
 
 echo -e "${GREEN}Installing required node modules...${NC}"
 cd "/usr/local/unsafehex/$SBXNAME/www"
@@ -189,6 +191,7 @@ cd libvirt-4.0.0
 make && make install
 usermod -a -G libvirt-qemu "$LABUSER"
 usermod -a -G kvm "$LABUSER"
+usermod -a -G wireshark "$LABUSER"
 apt-get install -y libvirt-daemon libvirt-clients virt-manager
 cp -v "$SCRIPTDIR/res/libvirtd.service" /etc/systemd/system
 rm -v "/etc/libvirt/libvirtd.conf"
@@ -218,6 +221,7 @@ MINUTE=$(shuf -i 0-59 -n 1)
 echo "${MINUTE} * * * * /usr/sbin/etupdate" >> tmpcron
 echo "1 0 * * * /usr/local/unsafehex/$SBXNAME/utils/suricata-clean.sh" >> tmpcron
 echo "1 0 * * MON /usr/local/unsafehex/$SBXNAME/utils/yara-update.sh" >> tmpcron
+echo "0 0 * * * /usr/local/unsafehex/$SBXNAME/utils/rotate.sh" >> tmpcron
 crontab tmpcron
 rm tmpcron
 

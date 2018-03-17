@@ -5,7 +5,7 @@
 
 import yara, glob, os, logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("antfarm.worker")
 
 def testyara(conf, suspectpath):
     rulesdir = os.path.join(conf.get("General", "basedir"), conf.get("General", "instancename"), "yara")
