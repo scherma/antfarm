@@ -226,8 +226,14 @@ var ofInterest = function(event) {
 	});
 	
 	
-	if (event.httpdata) {
-		var namearr = event.httpdata.hostname.split(".");
+	if (event.httpdata || event.dnsdata) {
+		var namearr = [];
+		if (event.httpdata) {
+			namearr = event.httpdata.hostname.split(".");	
+		} else {
+			namearr = event.dnsdata.rrname.split(".");
+		}
+		
 		namearr.reverse();
 		switch (namearr[0]) {
 			case "uk":

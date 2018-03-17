@@ -104,7 +104,7 @@ function list_files(page=0, where={}, limit=20) {
 }
 
 function sysmon_for_case(uuid) {
-	return pg('sysmon_evts').select('recordid', 'eventid', 'timestamp', 'executionprocess', 'executionthread', 'computer', 'eventdata').where({uuid: uuid});
+	return pg('sysmon_evts').select(pg.raw("recordid, eventid, to_char(timestamp, 'YYYY-MM-DD HH24:MI:SS') as timestamp, executionprocess, executionthread, computer, eventdata")).where({uuid: uuid});
 }
 
 function show_case(uuid) {
