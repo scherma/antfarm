@@ -245,6 +245,11 @@ cp -v "$SCRIPTDIR/res/nginx" "/etc/nginx/sites-enabled/$SBXNAME"
 echo -e "${GREEN}Setting permissions on sandbox file structure...${NC}"
 chown root:"$SBXNAME" -R /usr/local/unsafehex
 
+echo -e "${GREEN}Setting permissions for control of services...${NC}"
+echo "Cmnd_Alias PCAPRING_CMNDS = /bin/systemctl start pcapring, /bin/systemctl stop pcapring, /bin/systemctl restart pcapring" >> /etc/sudoers.d/antfarm
+echo "Cmnd_Alias ANTFARM_CMNDS = /bin/systemctl start $SBXNAME, /bin/systemctl stop $SBXNAME, /bin/systemctl restart $SBXNAME" >> /etc/sudoers.d/antfarm
+echo "%$SBXNAME ALL=(ALL) NOPASSWD: ANTFARM_CMNDS, PCAPRING_CMNDS" >> /etc/sudoers.d/antfarm
+
 cd "$SCRIPTDIR"
 
 echo -e "${GREEN}Starting clam and libvirt services...${NC}"
@@ -262,6 +267,7 @@ service virtlockd stop
 service virtlockd start
 service virtlogd stop
 service virtlogd start
+service pcapring start
 
 echo -e "${GREEN}Configuring tor, virtual network, and host run scripts${NC}"
 {

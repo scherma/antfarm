@@ -203,6 +203,10 @@ class Connector:
         self.singleKey("right")
         self.singleKey("up")
         self.singleKey("enter")
+        time.sleep(30)
+        self.typeString(self.password)
+        self.singleKey("enter")
+        time.sleep(10)
 
     def disconnect(self):
         self.client.disconnect()

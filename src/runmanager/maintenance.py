@@ -3,7 +3,7 @@
 # MIT License © https://github.com/scherma
 # contact http_error_418 @ unsafehex.com
 
-import libvirt, logging, time, argparse, configparser, pyvnc, arrow
+import libvirt, logging, time, argparse, configparser, pyvnc, arrow, subprocess
 from runinstance import get_screen_image
 
 logger = logging.getLogger("antfarm")
@@ -67,6 +67,8 @@ class Janitor:
         logger.info("Entering standard maintenance cycle...")
         self.restart()
         time.sleep(90) # awaiting a screen is unreliable as hell. This SHOULD work instead...
+        # make sure pcapring is turned back on
+        subprocess.call(["sudo", "/bin/systemctl", "start", "pcapring"])
         self.login()
         time.sleep(12 * 60) # some malware looks for system uptime
         self.dom.suspend()

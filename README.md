@@ -2,8 +2,6 @@
 
 Thank you for helping me to test my sandbox. Currently this has only been tested with 64-bit Debian Stretch, and a guest VM OS of Windows 7 SP 1 x86-64; if you want to adapt it to anything else you are welcome to try but I make no guarantees!
 
-At this stage I have not chosen a license. Please do not distribute code that is © myself at this time.
-
 This is super pre-alpha code and is likely to be broken in all sorts of ways I have not yet discovered. I am hoping that your testing can help me make it only moderately broken before opening it up to the rest of the world.
 
 ## CREDITS
@@ -114,7 +112,9 @@ _this section to later be rewritten as part of the install script_
   - `windows6.1-kb3125574-v4-x64_2dafb1d203c8964239af3048b5dd4b1264cd93b9.msu` (May 2016 hotfix rollup)
   - `NDP462-KB3151800-x86-x64-AllOS-ENU.exe` (.NET Framework 4.6.2)
   - `EIE11_EN-US_MCM_WIN764.EXE` (IE 11)
-- Please install sysmon with the config file provided, `Sysmon64.exe -i sysmon.xml`.
+- Please install sysmon with the config file provided.
+  - You have the option of customising the service and driver name, I recommend this.
+  - Default logging does not include the IMPhash, I recommend enabling this along with SHA256 and SHA1
   - Newer versions of Sysmon support renaming the service and driver. This will not impact the operation of the sandbox - feel free to do this.
 - I have included some vintage software to make it a nice and juicy target:
   - Flash Player 20.0.0.286

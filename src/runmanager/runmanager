@@ -3,7 +3,8 @@
 # MIT License © https://github.com/scherma
 # contact http_error_418 @ unsafehex.com
 
-import libvirt, psycopg2, psycopg2.extras, configparser, logging, os, sys, vmworker, threading, argparse, json, time
+import libvirt, psycopg2, psycopg2.extras, configparser, logging, os
+import sys, vmworker, threading, argparse, json, time, subprocess
 
 logger = logging.getLogger("antfarm")
 
@@ -99,6 +100,9 @@ class Broker():
                     logger.info("Found {0} available victims".format(len(available)))
                     for case in cases:
                         if available:
+                            # ensure pcapring service is running
+                            subprocess.call(["sudo", "/bin/systemctl", "start", "pcapring"])
+                            
                             case["hashes"] = {"sha256": case["sha256"], "sha1": case["sha1"], "md5": case["md5"]}
                             case["reboots"] = int(case["reboots"]);
                             victim = available.pop()

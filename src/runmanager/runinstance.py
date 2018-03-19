@@ -3,7 +3,7 @@
 # MIT License © https://github.com/scherma
 # contact http_error_418 @ unsafehex.com
 
-import logging, os, configparser, libvirt, json, arrow, pyvnc, shutil, time, victimfiles, glob
+import logging, os, configparser, libvirt, json, arrow, pyvnc, shutil, time, victimfiles, glob, subprocess
 import tempfile, evtx_dates, db_calls, psycopg2, psycopg2.extras, sys, pcap_parser, yarahandler
 import scapy.all as scapy
 from lxml import etree
@@ -136,8 +136,6 @@ class RunInstance():
         rundir = os.path.join(fdir, self.uuid)
         if not os.path.exists(rundir):
             os.mkdir(rundir)
-            fscopy = os.path.join(rundir, 'filesystem')
-            os.mkdir(fscopy)
         logger.debug("Created run instance directory {0}".format(rundir))
         return rundir
     
@@ -240,6 +238,9 @@ class RunInstance():
                     to_read.insert(0, pcap)
             
             fl = "host {0} and not (host {1} and port 28080)".format(self.victim_params["ip"], self.conf.get("General", "gateway_ip"))
+            logger.debug("Reading pcapring with filter {}".format(fl))
+            logger.debug("Time parameters: {} :: {}".format(start, end))
+            written = 0
             for pcap in to_read:
                 pcapfile = os.path.join(folder, pcap)
                 logger.debug("Reading {}".format(pcapfile))
@@ -248,8 +249,9 @@ class RunInstance():
                     ptime = arrow.get(packet.time)
                     if ptime >= start and ptime <= end:
                         scapy.wrpcap(self.pcap_file, packet, append=True)
+                        written += 1
                     
-            logger.info("Wrote pcap to file {0}".format(self.pcap_file))
+            logger.info("Wrote {} packets to file {}".format(written, self.pcap_file))
             
             c = pcap_parser.conversations(self.pcap_file)
             sql = """INSERT INTO pcap_summary (uuid, src_ip, src_port, dest_ip, dest_port, protocol) VALUES %s"""
