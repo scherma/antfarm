@@ -213,7 +213,7 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 		properties.os = {name: "VM OS", text: suspect.vm_os};
 		properties.uuid = {name: "Run UUID", text: suspect.uuid};
 		properties.params = {name: "Parameters", text: "Reboots: " + suspect.reboots + ", Banking interaction: " + suspect.banking + ", Web interaction: " + suspect.web};
-		
+				
 		var caseid = properties.sha256.text + "/" + properties.uuid.text;
 		
 		var sysmon = [];
@@ -245,7 +245,8 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 			pcaplink: pcaplink,
 			pcapsummary: pcapsummary,
 			runlog: runlog,
-			caseid: caseid
+			caseid: caseid,
+			exifdata: suspect.exifdata
 		};
 		
 		res.render('case', caseobj);

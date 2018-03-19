@@ -53,16 +53,30 @@ $(document).ready(function() {
 });
 </script>
 <div id="details" class="casedetails">
-	<table caseid="{{caseid}}" id="casetable">
-		<tbody>
-			{{#each properties}}
-			<tr>
-				<th align="left">{{this.name}}</th>
-				<td id="detail-{{@key}}" class="{{this.class}}" title="{{this.htmltitle}}">{{this.text}}</td>
-			</tr>
-			{{/each}}
-		</tbody>
-	</table>
+	<div id="casetablecontainer">
+		<table caseid="{{caseid}}" id="casetable">
+			<tbody>
+				{{#each properties}}
+				<tr>
+					<th align="left">{{this.name}}</th>
+					<td id="detail-{{@key}}" class="{{this.class}}" title="{{this.htmltitle}}">{{this.text}}</td>
+				</tr>
+				{{/each}}
+			</tbody>
+		</table>
+	</div>
+	<div id="exiftablecontainer">
+		<table id="exiftable">
+			<tbody>
+				{{#each exifdata}}
+				<tr>
+					<th align="left">{{@key}}</th>
+					<td>{{this}}</td>
+				</tr>
+				{{/each}}
+			</tbody>
+		</table>
+	</div>
 </div>
 <div class="runlog">
 	<button class="logbtn">log</button>

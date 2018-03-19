@@ -70,6 +70,7 @@ CREATE TABLE suspects (
     originalname text,
     magic text,
     avresult text,
+	exifdata jsonb,
 	yararesult jsonb,
     uploadtime timestamp with time zone
 );

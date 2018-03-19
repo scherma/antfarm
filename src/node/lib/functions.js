@@ -268,6 +268,19 @@ var ofInterest = function(event) {
 	return ofinterest;
 };
 
+function exifParse(text) {
+	var lines = text.split("\n");
+	var exifdata = {};
+	lines.forEach((line) => {
+		var match = line.match("([^:]+): (.+)");
+		if (match) {
+			exifdata[match[1].trim()] = match[2];	
+		}
+		
+	});
+	return exifdata;
+}
+
 module.exports = {
 	Hashes: Hashes,
 	Suspect: Suspect,
@@ -275,5 +288,6 @@ module.exports = {
 	deleteFolderRecursive: deleteFolderRecursive,
 	workerDisplayParams: workerDisplayParams,
 	ofInterest: ofInterest,
-	pcapSummaryOfInterest: pcapSummaryOfInterest
+	pcapSummaryOfInterest: pcapSummaryOfInterest,
+	exifParse: exifParse
 };

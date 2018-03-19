@@ -14,10 +14,10 @@ var dbparams = {
 	};
 var pg = require('knex')(dbparams);
 
-function new_suspect(sha256, sha1, md5, originalname, magic, avresult) {
+function new_suspect(sha256, sha1, md5, originalname, magic, avresult, exifdata) {
 	var formatted = moment().format('YYYY-MM-DD HH:mm:ss ZZ');
-	return pg.raw('INSERT INTO suspects (sha256, sha1, md5, originalname, magic, avresult, uploadtime) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (sha256) DO NOTHING;',
-				  [sha256, sha1, md5, originalname, magic, avresult, formatted]);
+	return pg.raw('INSERT INTO suspects (sha256, sha1, md5, originalname, magic, avresult, exifdata, uploadtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (sha256) DO NOTHING;',
+				  [sha256, sha1, md5, originalname, magic, avresult, JSON.stringify(exifdata), formatted]);
 }
 
 function new_case(uuid, unixtime, sha256, fname, reboots, banking, web, runtime) {
@@ -128,6 +128,7 @@ function delete_case(uuid) {
 	return pg.transaction(t => {
 		
 		var delete_dns = pg('suricata_dns').where('uuid', uuid).del().transacting(t);
+		var delete_victimfiles = pg('victimfiles').where('uuid', uuid).del().transacting(t);
 		var delete_http = pg('suricata_http').where('uuid', uuid).del().transacting(t);
 		var delete_alert = pg('suricata_alert').where('uuid', uuid).del().transacting(t);
 		var delete_tls = pg('suricata_tls').where('uuid', uuid).del().transacting(t);
@@ -135,7 +136,7 @@ function delete_case(uuid) {
 		var delete_sysmon = pg('sysmon_evts').where('uuid', uuid).del().transacting(t);
 		var del_case = pg('cases').where('uuid', uuid).del().transacting(t);
 		
-		return Promise.all([delete_dns, delete_http, delete_alert, delete_tls, delete_pcap, delete_sysmon])
+		return Promise.all([delete_dns, delete_http, delete_alert, delete_tls, delete_pcap, delete_sysmon, delete_victimfiles])
 		.then(() => {
 			return del_case;
 		})

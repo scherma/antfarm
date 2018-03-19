@@ -17,6 +17,8 @@ var type = upload.single('suspect');
 var Magic = require('mmmagic').Magic;
 var Promise = require('bluebird');
 const Telnet = require('telnet-client');
+var format = require("string-template");
+var exec = require("child_process").exec;
 
 router.get('/', function(req, res, next) {
 	var p = 0;
@@ -84,16 +86,26 @@ router.post('/new-suspect', type, function(req, res, next) {
 		console.log(err);
 		return '';
 	});
+	var exif = new Promise((resolve, reject) => {
+		exec(format("exiftool {path}", {path: req.file.path}), function(error, stdout, stderr) {
+			if (error) {
+				resolve({});
+			} else {
+				resolve(functions.exifParse(stdout));
+			}
+		});
+	});
 	
-	Promise.all([suspect, filemagic, scan])
+	Promise.all([suspect, filemagic, scan, exif])
 	.then((values) => {
 		var s = values[0];
 		var m = values[1];
 		var sc = values[2];
+		var ex = values[3];
 		
 		sc = sc.replace(new RegExp("^[^:]+: ", ""), "").replace("\n", "");
 		
-		return db.new_suspect(s.sha256, s.sha1, s.md5, req.file.originalname, m, sc)
+		return db.new_suspect(s.sha256, s.sha1, s.md5, req.file.originalname, m, sc, ex)
 		.then(function() {
 			return s;
 		});
