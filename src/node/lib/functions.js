@@ -251,18 +251,21 @@ var ofInterest = function(event) {
 		}
 	} else if (event.tlsdata) {
 		var CNs = [];
-		var attrs = event.tlsdata.subject.split(",");
-		attrs.forEach((attr) => {
-			var a = attr.trim().split("=");
-			if (a[0] == "CN") {
-				CNs.push(a[1]);
-			}
-		});
-		CNs.forEach((CN) => {
-			if (tlsnames.indexOf(CN) >= 0) {
-				ofinterest = false;
-			}
-		});
+		if (event.tlsdata.subject)
+		{
+			var attrs = event.tlsdata.subject.split(",");
+			attrs.forEach((attr) => {
+				var a = attr.trim().split("=");
+				if (a[0] == "CN") {
+					CNs.push(a[1]);
+				}
+			});
+			CNs.forEach((CN) => {
+				if (tlsnames.indexOf(CN) >= 0) {
+					ofinterest = false;
+				}
+			});	
+		}
 	}
 	
 	return ofinterest;

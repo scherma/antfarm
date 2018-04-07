@@ -223,20 +223,13 @@ class RunInstance():
             
             start = arrow.get(self.starttime)
             end = arrow.get(self.endtime)
-                        
-            for pcap in pcaps:
-                basename = os.path.basename(pcap)
-                timestamp = basename.split(".")[0].split("_")[2]
-                createtime = arrow.get(timestamp, "YYYYMMDDHHmmss")
-                
-                # insert at the beginning of array; if we need an earlier one, it will be inserted before the current in next loop
-                # if pcap file created before starttime, this is the earliest one we need, therefore break
-                if createtime < start:
-                    to_read.insert(0, pcap)
-                    break
-                else:
-                    to_read.insert(0, pcap)
             
+            hours_list = arrow.Arrow.range("hour", start, end)
+            
+            for hour in hours_list:
+                pcap_file = "{}.pcap".format(hour.format("HH"))
+                to_read.append(pcap_file)
+                                    
             fl = "host {0} and not (host {1} and port 28080)".format(self.victim_params["ip"], self.conf.get("General", "gateway_ip"))
             logger.debug("Reading pcapring with filter {}".format(fl))
             logger.debug("Time parameters: {} :: {}".format(start, end))

@@ -145,6 +145,7 @@ mkdir -v "/usr/local/unsafehex/$SBXNAME/utils"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/yara"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/www"
 mkdir -v "/usr/local/unsafehex/$SBXNAME/api"
+mkdir -v "/usr/local/unsafehex/$SBXNAME/pcaps"
 mkdir -v /mnt/images
 mkdir -v "/mnt/$SBXNAME"
 chgrp "$SBXNAME" "/mnt/$SBXNAME"
@@ -221,7 +222,7 @@ MINUTE=$(shuf -i 0-59 -n 1)
 echo "${MINUTE} * * * * /usr/sbin/etupdate" >> tmpcron
 echo "1 0 * * * /usr/local/unsafehex/$SBXNAME/utils/suricata-clean.sh" >> tmpcron
 echo "1 0 * * MON /usr/local/unsafehex/$SBXNAME/utils/yara-update.sh" >> tmpcron
-echo "0 0 * * * /usr/local/unsafehex/$SBXNAME/utils/rotate.sh" >> tmpcron
+echo "0 * * * * su $SBXUSER -c '/usr/local/unsafehex/$SBXNAME/utils/dumpcap.sh >> /dev/null 2>&1'" >> tmpcron
 crontab tmpcron
 rm tmpcron
 

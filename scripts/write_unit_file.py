@@ -37,26 +37,43 @@ conf.set('Install', 'WantedBy', 'multi-user.target')
 
 with open('/etc/systemd/system/{}.service'.format(instancename), 'w') as f:
     conf.write(f)
-    
-pcapconf = configparser.ConfigParser()
-pcapconf.optionxform = str
 
-pcapconf.add_section("Unit")
+conf = configparser.ConfigParser()
+conf.optionxform = str
 
-pcapconf.set("Unit", "Description", "{} pcap service".format(instancename))
-pcapconf.set("Unit", "After", "network.target")
+conf.add_section("Unit")
 
-pcapconf.add_section("Service")
+conf.set("Unit", "Description", "{} user interface".format(instancename))
+conf.set("Unit", "After", "nginx.service")
 
-pcapconf.set("Service", "Type", "simple")
-pcapconf.set('Service', 'User', user)
-pcapconf.set("Service", "ExecStart", "/usr/bin/tshark -n -i vneta -b duration:3600 -b files:24 -w /usr/local/unsafehex/{}/pcaps/ring.pcap".format(instancename))
+conf.add_section("Service")
+conf.set("Service", "Type", "simple")
+conf.set("Service", "User", user)
+conf.set("Service", "WorkingDirectory", "/usr/local/unsafehex/{}/www".format(instancename))
+conf.set("Service", "ExecStart", "/usr/local/bin/nodemon bin/www".format(instancename))
 
-pcapconf.add_section("Install")
+conf.add_section("Install")
+conf.set("Install", "WantedBy", "multi-user.target")
 
-pcapconf.set("Install", "WantedBy", "multi-user.target")
-
-with open("/etc/systemd/system/pcapring.service", "w") as f:
+with open("/etc/systemd/system/{}-ui.service".format(instancename), "w") as f:
     conf.write(f)
     
+conf = configparser.ConfigParser()
+conf.optionxform = str
 
+conf.add_section("Unit")
+
+conf.set("Unit", "Description", "{} user interface".format(instancename))
+conf.set("Unit", "After", "nginx.service")
+
+conf.add_section("Service")
+conf.set("Service", "Type", "simple")
+conf.set("Service", "User", user)
+conf.set("Service", "WorkingDirectory", "/usr/local/unsafehex/{}/api".format(instancename))
+conf.set("Service", "ExecStart", "/usr/local/bin/nodemon bin/www".format(instancename))
+
+conf.add_section("Install")
+conf.set("Install", "WantedBy", "multi-user.target")
+
+with open("/etc/systemd/system/{}-api.service".format(instancename), "w") as f:
+    conf.write(f)
