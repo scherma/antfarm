@@ -68,11 +68,11 @@ function list_cases(page=0, desc=true, where={}, limit=20) {
 	}
 	
 	if (where) {
-		return pg('cases').select(pg.raw("to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS submittime, cases.sha256, cases.fname, cases.uuid AS uuid, cases.status, workerstate.position"))
-		.leftJoin('workerstate', 'cases.uuid', 'workerstate.job_uuid')
+		return pg.select(pg.raw("to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS submittime, cases.sha256, cases.fname, cases.uuid AS uuid, cases.status, workerstate.position, alerts.c AS alert_count, dns.c AS dns_count, http.c AS http_count FROM cases LEFT JOIN workerstate ON cases.uuid = workerstate.job_uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_alert GROUP BY uuid) AS alerts ON cases.uuid = alerts.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_dns GROUP BY uuid) AS dns ON cases.uuid = dns.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_http GROUP BY uuid) AS http ON cases.uuid = http.uuid"))
 		.where(where).orderBy('submittime', order).limit(limit).offset(offset);
 	} else {
-		return pg('cases').select(pg.raw("to_char(submittime, 'YYYY-MM-DD HH24:MI:SS'), sha256, fname, uuid, status")).orderBy('submittime', order).limit(limit).offset(offset);
+		return pg.select(pg.raw("to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS submittime, cases.sha256, cases.fname, cases.uuid AS uuid, cases.status, workerstate.position, alert_count.c, dns_count.c, http_count.c FROM cases LEFT JOIN workerstate ON cases.uuid = workerstate.job_uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_alert GROUP BY uuid) AS alert_count ON cases.uuid = alert_count.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_dns GROUP BY uuid) AS dns_count ON cases.uuid = dns_count.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_http GROUP BY uuid) AS http_count ON cases.uuid = http_count.uuid"))
+		.orderBy('submittime', order).limit(limit).offset(offset);
 	}
 }
 
@@ -95,16 +95,20 @@ function list_files(page=0, where={}, limit=20) {
 		if (where.sha256) { parsedwhere["suspects.sha256"] = where.sha256; }
 		if (where.sha1) { parsedwhere["suspects.sha1"] = where.sha1; }
 		if (where.md5) { parsedwhere["suspects.md5"] = where.md5; }
-		return pg('suspects').select('suspects.sha256', 'suspects.sha1', 'suspects.md5', 'suspects.originalname', 'suspects.magic').count('cases.sha256 AS runcount')
+		return pg('suspects').select('suspects.*').count('cases.sha256 AS runcount')
 		.leftJoin('cases', 'suspects.sha256', '=', 'cases.sha256').groupBy('suspects.sha256').where(parsedwhere).orderBy('uploadtime', 'desc').limit(limit).offset(offset);
 	} else {
-		return pg('suspects').select('suspects.sha256', 'suspects.sha1', 'suspects.md5', 'suspects.originalname', 'suspects.magic').count('cases.sha256 AS runcount')
+		return pg('suspects').select('suspects.*').count('cases.sha256 AS runcount')
 		.leftJoin('cases', 'suspects.sha256', '=', 'cases.sha256').groupBy('suspects.sha256').orderBy('uploadtime', 'desc').limit(limit).offset(offset);
 	}
 }
 
 function sysmon_for_case(uuid) {
 	return pg('sysmon_evts').select(pg.raw("recordid, eventid, to_char(timestamp, 'YYYY-MM-DD HH24:MI:SS') as timestamp, executionprocess, executionthread, computer, eventdata")).where({uuid: uuid});
+}
+
+function victimfiles(uuid) {
+	return pg('victimfiles').select('*').where({uuid:uuid});
 }
 
 function show_case(uuid) {
@@ -159,5 +163,6 @@ module.exports = {
 	delete_case: delete_case,
 	sysmon_for_case: sysmon_for_case,
 	suricata_for_case: suricata_for_case,
-	pcap_summary_for_case: pcap_summary_for_case
+	pcap_summary_for_case: pcap_summary_for_case,
+	victimfiles: victimfiles
 	};

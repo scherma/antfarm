@@ -54,7 +54,34 @@ router.get('/', function(req, res, next) {
 		if (page > 0) {
 			prv = '/cases?' + buildQuery(w, p - 1, l, d);
 		}
-		res.render('cases', {cases: dbres, mainmenu: mainmenu, next: nxt, prev: prv});
+		
+		dbres.forEach((row) => {
+			row.labels = [];
+			if (row.alert_count > 0) {
+				var alertlabel = {};
+				alertlabel.labelstyle = "label-danger";
+				alertlabel.labeltext = "alerts";
+				alertlabel.labelcount = row.alert_count;
+				row.labels.push(alertlabel);
+			}
+			if (row.dns_count > 0) {
+				var dnslabel = {};
+				dnslabel.labelstyle = "label-info";
+				dnslabel.labeltext = "dns";
+				dnslabel.labelcount = row.dns_count;
+				row.labels.push(dnslabel);
+			}
+			if (row.http_count > 0) {
+				var httplabel = {};
+				httplabel.labelstyle = "label-warning";
+				httplabel.labeltext = "http";
+				httplabel.labelcount = row.http_count;
+				row.labels.push(httplabel);
+			}
+			
+			console.log(row);
+		});
+		res.render('cases', {cases: dbres, mainmenu: mainmenu, next: nxt, prev: prv, title: options.conf.site.displayName});
 	});
 });
 
@@ -110,22 +137,30 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 			values[0].forEach((dns_row) => {
 				dns_row.timestamp = moment(dns_row.timestamp).toISOString();
 				dns_row.interesting = functions.ofInterest(dns_row);
-				d.dns.push(dns_row);
+				if (dns_row.interesting) {
+					d.dns.push(dns_row);
+				}
 			});
 			values[1].forEach((http_row) => {
 				http_row.timestamp = moment(http_row.timestamp).toISOString();
 				http_row.interesting = functions.ofInterest(http_row);
-				d.http.push(http_row);
+				if (http_row.interesting) {
+					d.http.push(http_row);
+				}
 			});
 			values[2].forEach((alert_row) => {
 				alert_row.timestamp = moment(alert_row.timestamp).toISOString();
 				alert_row.interesting = functions.ofInterest(alert_row);
-				d.alert.push(alert_row);
+				if (alert_row.interesting) {
+					d.alert.push(alert_row);
+				}
 			});
 			values[3].forEach((tls_row) => {
 				tls_row.timestamp = moment(tls_row.timestamp).toISOString();
 				tls_row.interesting = functions.ofInterest(tls_row);
-				d.dns.push(tls_row);
+				if (tls_row.interesting) {
+					d.tls.push(tls_row);
+				}
 			});
 			fulfill(d);
 		});
@@ -160,6 +195,7 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 		if (fs.existsSync(imagepath)) {
 			var pattern = "+([0-9]).png";
 			glob(pattern, {cwd: imagepath}, function(er, files) {
+				var order = 0;
 				files.forEach(file => {
 					var thisimagepath = path.join(imagepublicpath, file);
 					var testthumbpath = path.join(imagepath, file.replace(/\.png$/, "-thumb.png"));
@@ -168,8 +204,11 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 					if (fs.existsSync(testthumbpath)) {
 						thumbpath = publicthumbpath;
 					}
-					var image = {path: thisimagepath, alt: '', thumb: thumbpath};
+					var active = "active";
+					if (order > 0) { active = ""; }
+					var image = {path: thisimagepath, alt: '', thumb: thumbpath, order: order, active: active};
 					images.push(image);
+					order++;
 				});
 				console.log(format("Found {num} images", {num: images.length}));
 				fulfill(images);
@@ -183,7 +222,9 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 	
 	var thiscase = db.show_case(req.params.uuid);
 	
-	Promise.all([eventsP, sysmonP, pcapsummaryP, runlogP, thiscase, screenshots])
+	var victimfiles = db.victimfiles(req.params.uuid);
+	
+	Promise.all([eventsP, sysmonP, pcapsummaryP, runlogP, thiscase, screenshots, victimfiles])
 	.then((values) => {
 		if (values[4].length < 1) {
 			res.status = 404;
@@ -196,6 +237,7 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 		var pcapsummary = values[2];
 		var runlog = values[3];
 		var images = values[5];
+		var victimfiles = values[6];
 		var properties = {};
                 var showmagic = suspect.magic;
                 if (suspect.magic.length > 50) {
@@ -235,7 +277,48 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 		});
 		
 		var pcaplink = '/cases/pcap/' + properties.sha256.text + '/' + properties.uuid.text;
-
+		
+		var fileslist = [];
+		var badfileslist = [];
+		
+		var fid = 0;
+		victimfiles.forEach((row) => {
+			var parsed = functions.ParseVictimFile(row);
+			parsed.id = fid;
+			if (parsed.ctime_sec) {
+				fileslist.push(parsed);	
+			} else {
+				badfileslist.push(parsed);
+			}
+			
+			fid++;
+		});
+		
+		var badges = {};
+		badges.sysmon = sysmon.length;
+		badges.ids = events.alert.length;
+		badges.dns = events.dns.length;
+		badges.http = events.http.length;
+		badges.tls = events.tls.length;
+		badges.files = fileslist.length;
+		
+		fileslist.sort(function(a,b) {
+			if (a.ctime_sec < b.ctime_sec) {
+				return -1;
+			}
+			if (a.ctime_sec == b.ctime_sec && a.ctime_nsec < b.ctime_nsec) {
+				return -1;
+			}
+			if (a.ctime_sec > b.ctime_sec) {
+				return 1;
+			}
+			if (a.ctime_sec == b.ctime_sec && a.ctime_nsec > b.ctime_nsec) {
+				return 1;
+			}
+			
+			return 0;
+		});
+		
 		var caseobj = {
 			mainmenu: mainmenu,
 			properties: properties,
@@ -246,7 +329,10 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 			pcapsummary: pcapsummary,
 			runlog: runlog,
 			caseid: caseid,
-			exifdata: suspect.exifdata
+			exifdata: suspect.exifdata,
+			badges: badges,
+			title: options.conf.site.displayName,
+			files: fileslist
 		};
 		
 		res.render('case', caseobj);
@@ -268,7 +354,7 @@ router.get('/pcap/:sha256/:uuid', function(req,res,next) {
 router.get('/:sha256/delete/:uuid', function(req,res,next) {
 	var cancel = "/cases";
 	var c = {sha256: req.params.sha256, uuid: req.params.uuid};
-	res.render('deletecase', {mainmenu: mainmenu, c: c, cancel: cancel});
+	res.render('deletecase', {mainmenu: mainmenu, c: c, cancel: cancel, title: options.conf.site.displayName});
 });
 
 router.post('/:sha256/delete/:uuid', function(req,res,next) {

@@ -56,7 +56,34 @@ router.get('/', function(req, res, next) {
 		if (page > 0) {
 			prv = '/files?' + buildQuery(w, parseInt(p) - 1, l);
 		}
-		res.render('files', {files: dbres, mainmenu: mainmenu, prev: prv, next: nxt});
+		
+		dbres.forEach((dbr) => {
+			var rxp = /^([\w\s]+\w)/g;
+			var rxpm = dbr.magic.match(rxp);
+			if (rxpm) {
+				console.log(rxpm);
+				dbr.magicShort = rxpm[0];
+			} else {
+				dbr.magicShort = dbr.magic;
+			}
+			
+			if (dbr.avresult != "OK") {
+				dbr.avbadge = dbr.avresult;
+			}
+			
+			dbr.yarabadges = [];
+			if (dbr.yararesult) {
+				dbr.yarabadges = Object.keys(dbr.yararesult);
+			}
+		});
+		
+		res.render('files', {
+			files: dbres,
+			mainmenu: mainmenu,
+			prev: prv,
+			next: nxt,
+			title: options.conf.site.displayName
+		});
 	});
 });
 

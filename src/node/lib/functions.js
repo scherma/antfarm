@@ -277,17 +277,64 @@ function exifParse(text) {
 	lines.forEach((line) => {
 		var match = line.match("([^:]+): (.+)");
 		if (match) {
-			exifdata[match[1].trim()] = match[2];	
+			var name = match[1].trim();
+			var value = match[2];
+			var excludes = [
+				"File Inode Change Date/Time",
+				"File Modification Date/Time",
+				"File Access Date/Time",
+				"File Name",
+				"Directory",
+				"Create Date",
+				"Modify Date",
+				"File Permissions"
+			];
+			
+			// if the data is NOT part of the  excludes, add to the result object
+			if (excludes.indexOf(name) < 0 ) {
+				exifdata[name] = value;		
+			}
 		}
 		
 	});
 	return exifdata;
 }
 
+function ParseVictimFile(row) {
+	var filedata = {};
+	filedata.path = row.os_path;
+	filedata.size = row.file_stat.st_size;
+	filedata.ctime_sec = row.file_stat.st_ctime_sec;
+	filedata.ctime_nsec = row.file_stat.st_ctime_nsec;
+	filedata.humantime = {};
+	if (filedata.ctime_sec) {
+		filedata.humantime.created = moment.unix(filedata.ctime_sec).format("YYYY-MM-DD HH:mm:ss Z");
+	}
+	filedata.humantime.modified = moment.unix(row.file_stat.st_mtime_sec).format("YYYY-MM-DD HH:mm:ss Z");
+	filedata.humantime.accessed = moment.unix(row.file_stat.st_atime_sec).format("YYYY-MM-DD HH:mm:ss Z");
+	if (filedata.size) {
+		if (filedata.size > 1024*1024*1024) {
+			filedata.humansize = Math.round(filedata.size / (1024*1024*1024)) + " GB";
+		} else if (filedata.size > 1024*1024) {
+			filedata.humansize = Math.round(filedata.size / (1024*1024)) + " MB";
+		} else if (filedata.size > 1024) {
+			filedata.humansize = Math.round(filedata.size / 1024) + " KB";
+		} else {
+			filedata.humansize = filedata.size + " B";
+		}
+	}
+	filedata.saved = row.saved;
+	filedata.yararesult = row.yararesult;
+	filedata.path_in_zip = row.file_path;
+	console.log(filedata);
+	return filedata;
+}
+
 module.exports = {
 	Hashes: Hashes,
 	Suspect: Suspect,
 	ParseSysmon: ParseSysmon,
+	ParseVictimFile: ParseVictimFile,
 	deleteFolderRecursive: deleteFolderRecursive,
 	workerDisplayParams: workerDisplayParams,
 	ofInterest: ofInterest,

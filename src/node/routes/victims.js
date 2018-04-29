@@ -6,6 +6,7 @@ var router = express.Router();
 var db = require('../lib/database');
 var mainmenu = require('../lib/mainmenu');
 var functions = require('../lib/functions');
+var options = require('../lib/options');
 
 router.get('/', function(req, res, next) {
 	db.list_workers()
@@ -30,7 +31,7 @@ router.get('/', function(req, res, next) {
 				workers[w].selectopts = optslist;
 			}
 		}
-		res.render('victims', {workers: workers, mainmenu: mainmenu});
+		res.render('victims', {workers: workers, mainmenu: mainmenu, title: options.conf.site.displayName});
 	});
 });
 

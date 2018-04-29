@@ -1,38 +1,72 @@
-<div class="casesblk">
-	<table class="casestbl">
-		<thead>
-			<tr>
-				<th>Submitted at</th>
-				<th>Filename</th>
-				<th>SHA256</th>
-				<th>Status</th>
-				<th>Victim status</th>
-			</tr>
-		</thead>
-		<tbody>
+<div class="container theme-showcase" role="main">
+	<div class="accordion alternate" id="accordion">
 		{{#cases}}
-			<tr>
-				<td>{{this.submittime}}</td>
-				<td>{{this.fname}}</td>
-				<td><div class="longrow monospace">{{this.sha256}}</div></td>
-				<td>{{this.status}}</td>
-				<td>{{this.position}}</td>
-				<td><a href="/cases/view/{{this.sha256}}/{{this.uuid}}"><button>view</button></a></td>
-				<td><a href="/cases/{{this.sha256}}/delete/{{this.uuid}}"><button>delete</button></a></td>
-			</tr>
+		<div class="card">
+			<div class="card-header" id="heading-{{this.uuid}}">
+				<div class="row">
+					<div class="col-sm-6">
+						<div class="row">
+							<div class="col-sm-5 p-8"><p class="inrow monospace"><small>{{this.submittime}}</small></p></div>
+							<div class="col-sm-7">
+								<small>
+									<button class="btn btn-link btn-md collapsed text-truncate" type="button" data-toggle="collapse"
+											data-target="#collapse-{{this.uuid}}" aria-expanded="false" aria-controls="collapse-{{this.uuid}}">
+											{{this.fname}}
+									</button>
+								</small>
+							</div>
+						</div>
+					</div>
+					<div class="col-sm-6 p-8">
+						<div class="row">
+							<div class="col-sm-3">		
+								<p class="inrow">
+									<a href="/cases/view/{{this.sha256}}/{{this.uuid}}"><button class="btn btn-default btn-xs">view</button></a>
+								</p>
+							</div>
+							<div class="col-sm-9">
+								<p class="inrow">
+								{{#labels}}
+									<label class="label {{this.labelstyle}}">{{this.labeltext}} | {{this.labelcount}}</label>
+								{{/labels}}
+								</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div id="collapse-{{this.uuid}}" class="collapse" aria-labelledBy="heading-{{this.uuid}}" data-parent="#accordion" style>
+				<div class="card-body pl-8">
+					<div class="row">
+						<div class="col-sm-6">
+							<p class="inrow monospace"><small>{{this.sha256}}</small></p>
+						</div>
+						<div class="col-sm-6">
+							<p class="inrow">
+								<a href="/cases/{{this.sha256}}/delete/{{this.uuid}}"><button class="btn btn-danger btn-xs">delete</button></a>
+							</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
 		{{/cases}}
+	</div>
+	<table class="table filestable">
+		<tbody>
 			<tr>
 				<td>
 					{{#if prev}}
-					<a href="{{prev}}"><button><<<</button></a>
+					<a href="{{prev}}"><button class="btn btn-primary btn-xs"><<<</button></a>
 					{{/if}}
 				</td>
 				<td>		
 					{{#if next}}
-					<a href="{{next}}"><button>>>></button></a>
+					<a href="{{next}}"><button class="btn btn-primary btn-xs">>>></button></a>
 					{{/if}}
 				</td>
 			</tr>
 		</tbody>
 	</table>
 </div>
+				

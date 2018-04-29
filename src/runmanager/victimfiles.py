@@ -13,7 +13,9 @@ class VictimFiles:
         self.partition = partition
         self.conf = conf
         
-        self.g.set_backend_setting("force_tcg", "1") # required to resolve error "Assertion `ret == cpu->kvm_msr_buf->nmsrs` failed"; caused by running within vmware
+        # required to resolve error "Assertion `ret == cpu->kvm_msr_buf->nmsrs` failed"; caused by running within vmware
+        self.g.set_backend_setting("force_tcg", "1")
+        
         self.g.add_drive_opts(guest_image, readonly=True)
         logger.debug("Launching guestfs...")
         self.g.launch()
@@ -32,7 +34,7 @@ class VictimFiles:
                 files.append(f)
         return files
     
-    def download_new_files(self, starttime, dest_root):
+    def download_new_files(self, starttime, dest_root, from_suspect_tree=[]):
         zf = zipfile.ZipFile(dest_root + ".zip", "a", zipfile.ZIP_DEFLATED)
         logger.info("Enumerating guest filesystem for new entries")
         report = {"files": 0, "errors": 0, "yara": 0}
@@ -51,21 +53,30 @@ class VictimFiles:
                     logger.debug("Writing {} to archive".format(file_in_guestfs))
                 
                     filesdict[file_in_guestfs]["statns"] = self.g.statns(file_in_guestfs)
-                    destfile = os.path.join("/tmp", os.path.basename(file_in_guestfs))
-                    self.g.download(file_in_guestfs, destfile)
-                    zf.write(destfile, arcname=file_in_guestfs)
                     
-                    yararesult = yarahandler.testyara(self.conf, destfile)
-                    if yararesult:
-                        filesdict[file_in_guestfs]["yara"] = yararesult
-                        logger.info("Yara detections! {}".format(yararesult))
-                        report["yara"] += len(yararesult)
-                    
-                    os.remove(destfile)
-                    report["files"] += 1
-                    
-                    # if we've made it here without an exception, file has downloaded. Mark as such in dict
-                    filesdict[file_in_guestfs]["saved"] = True
+                    # don't download the file if it is too large - 20MB is a good starting point
+                    if filesdict[file_in_guestfs]["statns"]["st_size"] <= (20 * 1024 * 1024):
+                        destfile = os.path.join("/tmp", os.path.basename(file_in_guestfs))
+                        self.g.download(file_in_guestfs, destfile)
+                        zf.write(destfile, arcname=file_in_guestfs)
+                        
+                        yararesult = yarahandler.testyara(self.conf, destfile)
+                        if yararesult:
+                            filesdict[file_in_guestfs]["yara"] = yararesult
+                            logger.info("Yara detections! {}".format(yararesult))
+                            report["yara"] += len(yararesult)
+                        
+                        os.remove(destfile)
+                        report["files"] += 1
+                        
+                        # if we've made it here without an exception, file has downloaded. Mark as such in dict
+                        filesdict[file_in_guestfs]["saved"] = True
+                        
+                        from_suspect = False
+                        for f in from_suspect_tree:
+                            if os_path == f["path"]:
+                                from_suspect = True
+                        filesdict[file_in_guestfs]["from_suspect"] = from_suspect
             except Exception:
                 ex_type, ex, tb = sys.exc_info()
                 fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]

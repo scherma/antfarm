@@ -25,46 +25,33 @@ $(document).ready(function() {
 	});
 });
 </script>
-<div class="workers">
-	<table>
-		<thead>
-			<tr>
-				<th>Victim</th>
-				<th>OS</th>
-				<th>Case status</th>
-				<th>Current parameters</th>
-				<th>Runs since last reboot</th>
-				<th>Last reboot time</th>
-				<th>Victim status</th>
-			</tr>
-		</thead>
-		<tbody>
-			{{#each workers}}
-			<tr>
-				<td>{{this.libvirtname}}</td>
-				<td>{{this.os}}</td>
-				<td>{{this.position}}</td>
-				<td>
-					{{#if this.params}}
-					<table>
-						{{#each this.parsedparams}}
-						<tr>
-							<td>{{@key}}</td>
-							<td class="{{this.class}}">{{this.content}}</td>
-						</tr>
-						{{/each}}
-					</table>
-					{{/if}}
-				</td>
-				<td>{{this.runcounter}}</td>
-				<td>{{this.last_reboot}}</td>
-				<td>
-				<select class='vstatus' uuid="{{this.uuid}}">
-					{{{this.selectopts}}}
-				</select>
-				</td>
-			</tr>
-			{{/each}}
-		</tbody>
-	</table>
+<div class="container alternate">
+	{{#workers}}
+	<div class="row">
+		<div class="col-sm-2">{{this.libvirtname}}</div>
+		<div class="col-sm-3">{{this.os}}</div>
+		<div class="col-sm-1">{{this.position}}</div>
+		<div class="col-sm-1">{{this.runcounter}}</div>
+		<div class="col-sm-2">{{this.last_reboot}}</div>
+		<div class="col-sm-3">
+			<select class='vstatus' uuid="{{this.uuid}}">
+				{{{this.selectopts}}}
+			</select>
+		</div>
+	</div>
+	{{#if this.params}}
+	<div class="row">
+		<table>
+			<tbody>
+				{{#each this.parsedparams}}
+				<tr>
+					<td>{{@key}}</td>
+					<td class="{{this.class}}">{{this.content}}</td>
+				</tr>
+				{{/each}}
+			</tbody>
+		</table>
+	</div>
+	{{/if}}
+	{{/workers}}
 </div>
