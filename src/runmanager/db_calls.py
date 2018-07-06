@@ -4,7 +4,7 @@
 # contact http_error_418 @ unsafehex.com
 
 
-import psycopg2, psycopg2.extras, json, logging, xmljson, sys, os
+import psycopg2, psycopg2.extras, json, logging, xmljson, sys, os, arrow, pathlib
 from lxml import etree
 
 logger = logging.getLogger("antfarm.worker")
@@ -53,13 +53,13 @@ def insert_tls(evts, uuid, cursor):
     
 def insert_files(filesdict, uuid, cursor):
     try:
-        files_sql = """INSERT INTO victimfiles (uuid, file_path, os_path, file_stat, yararesult, saved) VALUES %s ON CONFLICT DO NOTHING"""
+        files_sql = """INSERT INTO victimfiles (uuid, file_path, os_path, file_stat, yararesult, saved, avresult, mimetype, sha256) VALUES %s ON CONFLICT DO NOTHING"""
         values = []
         for path, data in filesdict.items():
             yara_json = {}
             if "yara" in data:
                 yara_json = build_yara_json(data["yara"])
-            row = (uuid, path, data["os_path"], json.dumps(data["statns"]), json.dumps(yara_json), data["saved"])
+            row = (uuid, path, data["os_path"], json.dumps(data["statns"]), json.dumps(yara_json), data["saved"], data["avresult"], data["mimetype"], data["sha256"])
             values.append(row)
         
         psycopg2.extras.execute_values(cursor, files_sql, values)
@@ -133,4 +133,16 @@ def insert_sysmon(events_list, uuid, cursor):
         fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
         lineno = tb.tb_lineno
         logger.error("Exception {0} {1} in {2}, line {3} parsing Sysmon data, events not written to DB".format(ex_type, ex, fname, lineno))
+        
+def timestomped_files(uuid, cursor):
+    sql = """SELECT * FROM sysmon_evts WHERE uuid = %s AND eventid = 2"""
+    cursor.execute(sql, (uuid,))
+    data = cursor.fetchall()
+    timestomped = []
+    for row in data:
+        if row["eventdata"]:
+            eventdata = json.loads(row["eventdata"])
+            if arrow.get(eventdata["CreationUtcTime"]) < arrow.get(eventdata["PreviousCreationUtcTime"]):
+                timestomped.append(eventdata["TargetFileName"].replace("\\", "/")[2:])
+    return timestomped
         

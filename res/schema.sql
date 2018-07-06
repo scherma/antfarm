@@ -132,6 +132,9 @@ CREATE TABLE victimfiles (
 	os_path text,
 	file_stat jsonb,
 	yararesult jsonb,
+	mimetype text,
+	avresult text,
+	sha256 varchar(64),
 	saved boolean NOT NULL,
 	PRIMARY KEY(uuid, file_path)
 );

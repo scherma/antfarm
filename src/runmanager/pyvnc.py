@@ -223,6 +223,12 @@ class Connector:
         self.client.pause(2)
         self.singleKey('e')
         self.singleKey('enter')
+
+    def iexplore_allow_blocked_content(self):
+        logger.debug("Enabling blocked content in internet explorer")
+        self.singlekey("tab")
+        self.singlekey("space")
+        self.client.pause(2)
         
     def enable_macros(self, office_type):
         logger.debug("Finding office macro enable sequence...")

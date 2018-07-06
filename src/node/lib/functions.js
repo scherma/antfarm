@@ -11,6 +11,18 @@ var crypto = require('crypto');
 var Promise = require('bluebird');
 var moment = require('moment');
 var Addr = require('netaddr').Addr;
+var db = require('./database');
+var rootdir = path.join('/usr/local/unsafehex', options.conf.site.name);
+var fdir = path.join(rootdir, 'suspects');
+var casesdir = path.join(rootdir, 'output');
+var mainmenu = require('../lib/mainmenu');
+var moment = require('moment');
+var Promise = require('bluebird');
+var glob = require('glob');
+var xml2js = require('xml2js');
+var format = require('string-template');
+var fs = require('fs');
+var db = require('../lib/database');
 
 var Hashes = function(fpath) {
 	return new Promise(function(fulfill, reject){
@@ -79,6 +91,74 @@ var Suspect = function(fname,
 					});
 				});
 			} else { reject(err); }
+		});
+	});
+};
+
+var GetCases = function(req) {
+	return new Promise((fulfill, reject) => {
+		var p = 0;
+		var w = {};
+		var d = true;
+		var l = 20;
+		
+		if (req.query.fname) { w.fname = req.query.fname; }
+		if (req.query.sha256) { w.sha256 = req.query.sha256; }
+		if (req.query.page) { p = parseInt(req.query.page); }
+		if (req.query.desc == "false") { d = false; }
+		if (req.query.limit) { l = parseInt(req.query.limit); }
+		
+		var extra = l + 1;
+		
+		db.list_cases(page=p, desc=d, where=w, limit=extra).then(function(dbres) {
+			var buildQuery = function(w, p, l, d) {
+				var params = Array();
+				if (w.sha256) {	params.push("sha256=" + w.sha256); }
+				if (w.fname) { params.push("fname=" + w.fname); }
+				if (p) { params.push("page=" + p); }
+				if (d === false) { params.push("desc=false"); }
+				if (l) { params.push("limit=" + l); }
+				
+				return params.join("&");
+			};
+			
+			var nxt = '';
+			var prv = '';
+			if (dbres.length > l) {
+				nxt = '/cases?' + buildQuery(w, p + 1, l, d);
+				dbres.pop();
+			}
+			if (page > 0) {
+				prv = '/cases?' + buildQuery(w, p - 1, l, d);
+			}
+			
+			dbres.forEach((row) => {
+				row.labels = [];
+				if (row.alert_count > 0) {
+					var alertlabel = {};
+					alertlabel.labelstyle = "label-danger";
+					alertlabel.labeltext = "alerts";
+					alertlabel.labelcount = row.alert_count;
+					row.labels.push(alertlabel);
+				}
+				if (row.dns_count > 0) {
+					var dnslabel = {};
+					dnslabel.labelstyle = "label-info";
+					dnslabel.labeltext = "dns";
+					dnslabel.labelcount = row.dns_count;
+					row.labels.push(dnslabel);
+				}
+				if (row.http_count > 0) {
+					var httplabel = {};
+					httplabel.labelstyle = "label-warning";
+					httplabel.labeltext = "http";
+					httplabel.labelcount = row.http_count;
+					row.labels.push(httplabel);
+				}
+				
+			});
+			
+			fulfill({cases: dbres, next: nxt, prev: prv, title: options.conf.site.displayName});
 		});
 	});
 };
@@ -154,10 +234,14 @@ var ParseSysmon = (sm_evt) => {
 		}
 	}
 	
+	if ([2].indexOf(e.System.EventID) >= 0) {
+		e.Highlight = e.Data.TargetFilename + ' (' + e.Data.PreviousCreationUtcTime + ' -> ' + e.Data.CreationUtcTime + ')';
+	}
+	
 	return e;
 };
 
-var deleteFolderRecursive = function(path) {
+var DeleteFolderRecursive = function(path) {
   if( fs.existsSync(path) ) {
     fs.readdirSync(path).forEach(function(file,index){
       var curPath = path + "/" + file;
@@ -175,7 +259,7 @@ var deleteFolderRecursive = function(path) {
   }
 };
 
-var workerDisplayParams = function(rawparams) {
+var WorkerDisplayParams = function(rawparams) {
 	var displayparams = {};
 	if (Object.keys(rawparams).length !== 0) {
 		var truefalse = {};
@@ -192,7 +276,7 @@ var workerDisplayParams = function(rawparams) {
 	return displayparams;
 };
 
-var pcapSummaryOfInterest = function(event) {
+var PcapSummaryOfInterest = function(event) {
 	var ofInterest = true;
 	
 	if ([137, 53].indexOf(event.src_port) >= 0 || [137, 53].indexOf(event.dest_port) >= 0) {
@@ -211,7 +295,7 @@ var pcapSummaryOfInterest = function(event) {
 	return ofInterest;
 };
 
-var ofInterest = function(event) {
+var SuricataEventsOfInterest = function(event) {
 	var ofinterest = true;
 	var subnets = options.conf.filters.subnets;
 	var hostnames = options.conf.filters.hostnames;
@@ -271,7 +355,7 @@ var ofInterest = function(event) {
 	return ofinterest;
 };
 
-function exifParse(text) {
+function ExifParse(text) {
 	var lines = text.split("\n");
 	var exifdata = {};
 	lines.forEach((line) => {
@@ -303,6 +387,8 @@ function exifParse(text) {
 function ParseVictimFile(row) {
 	var filedata = {};
 	filedata.path = row.os_path;
+	filedata.sha256 = row.sha256;
+	filedata.mimetype = row.mimetype;
 	filedata.size = row.file_stat.st_size;
 	filedata.ctime_sec = row.file_stat.st_ctime_sec;
 	filedata.ctime_nsec = row.file_stat.st_ctime_nsec;
@@ -326,8 +412,284 @@ function ParseVictimFile(row) {
 	filedata.saved = row.saved;
 	filedata.yararesult = row.yararesult;
 	filedata.path_in_zip = row.file_path;
-	console.log(filedata);
 	return filedata;
+}
+
+function RenderSuricata(events) {
+	if (events.alert) {
+		Object.keys(events.alert).forEach((key) => {
+			if (events.alert[key].payload) {
+				var binary = new Buffer.from(events.alert[key].payload, 'base64');
+				var hextable = [];
+				var asciitable = [];
+				var linectr = 0;
+				var hexline = [];
+				var asciiline = "";
+				for (i=0; i<binary.length; i++) {
+					hexline.push(binary[i].toString(16).padStart(2, '0'));
+					asciiline += String.fromCharCode(binary[i]).replace(/[^\x20-\x7f]/g, ".");
+					linectr ++;
+					if (linectr == 15) {
+						hextable.push(hexline);
+						asciitable.push(asciiline);
+						hexline = [];
+						asciiline = [];
+						linectr = 0;
+					}
+				}
+				
+				// if it doesn't finish exactly on a boundary, push incomplete lines
+				if (linectr < 15) {
+					hextable.push(hexline);
+					asciitable.push(asciiline);
+				}
+				events.alert[key].hextable = hextable;
+				events.alert[key].asciitable = asciitable;
+			}
+		});
+	}
+	
+	return events;
+}
+
+function GetCase(req) {
+	var shortdir = req.params.sha256.substring(0,2);
+	var casepath = path.join(casesdir, shortdir, req.params.sha256, req.params.uuid);
+	var uuidshort = req.params.uuid.substr(0,2);
+	var imagepath = path.join(rootdir, 'www', 'public', 'images', 'cases', uuidshort, req.params.uuid);
+	var imagepublicpath = path.join('/images', 'cases', uuidshort, req.params.uuid);
+	
+	var sysmonP = db.sysmon_for_case(req.params.uuid);
+	
+	var eventsP = new Promise((fulfill, reject) => {
+		db.suricata_for_case(req.params.uuid).then((values) => {
+			var d = {
+				dns: [],
+				http: [],
+				alert: [],
+				tls: []
+			};
+						
+			values[0].forEach((dns_row) => {
+				dns_row.timestamp = moment(dns_row.timestamp).toISOString();
+				dns_row.interesting = SuricataEventsOfInterest(dns_row);
+				if (dns_row.interesting) {
+					d.dns.push(dns_row);
+				}
+			});
+			values[1].forEach((http_row) => {
+				http_row.timestamp = moment(http_row.timestamp).toISOString();
+				http_row.interesting = SuricataEventsOfInterest(http_row);
+				if (http_row.interesting) {
+					d.http.push(http_row);
+				}
+			});
+			values[2].forEach((alert_row) => {
+				alert_row.timestamp = moment(alert_row.timestamp).toISOString();
+				alert_row.interesting = SuricataEventsOfInterest(alert_row);
+				if (alert_row.interesting) {
+					d.alert.push(alert_row);
+				}
+			});
+			values[3].forEach((tls_row) => {
+				tls_row.timestamp = moment(tls_row.timestamp).toISOString();
+				tls_row.interesting = SuricataEventsOfInterest(tls_row);
+				if (tls_row.interesting) {
+					d.tls.push(tls_row);
+				}
+			});
+			fulfill(d);
+		});
+	});
+	
+	var pcapsummaryP = new Promise((fulfill, reject) => {
+		db.pcap_summary_for_case(req.params.uuid).then((rows) => {
+			var result = [];
+			rows.forEach((row) => {
+				if (PcapSummaryOfInterest(row)) {
+					result.push(row);
+				}
+			});
+			
+			fulfill(result);
+		});
+	});
+	
+	var runlogP = new Promise((fulfill, reject) => {
+		fs.readFile(path.join(casepath, 'run.log'), 'utf8', (err, data) => {
+			if (err === null) {
+				fulfill(data);	
+			} else {
+				console.log(format("Unable to provide runlog: {err}", {err: err}));
+				fulfill("");
+			}
+		});
+	});
+	
+	var screenshots = new Promise((fulfill, reject) => {
+		var images = Array();
+		if (fs.existsSync(imagepath)) {
+			var pattern = "+([0-9]).png";
+			glob(pattern, {cwd: imagepath}, function(er, files) {
+				var order = 0;
+				files.forEach(file => {
+					var thisimagepath = path.join(imagepublicpath, file);
+					var testthumbpath = path.join(imagepath, file.replace(/\.png$/, "-thumb.png"));
+					var publicthumbpath = path.join(imagepublicpath, file.replace(/\.png$/, "-thumb.png"));
+					var thumbpath = thisimagepath;
+					if (fs.existsSync(testthumbpath)) {
+						thumbpath = publicthumbpath;
+					}
+					var active = "active";
+					if (order > 0) { active = ""; }
+					var image = {path: thisimagepath, alt: '', thumb: thumbpath, order: order, active: active};
+					images.push(image);
+					order++;
+				});
+				console.log(format("Found {num} images", {num: images.length}));
+				fulfill(images);
+			});
+		} else {
+			console.log("No images");
+			fulfill([]);
+		}
+
+	});
+	
+	var thiscase = db.show_case(req.params.uuid);
+	
+	var victimfiles = db.victimfiles(req.params.uuid);
+	
+	return Promise.all([eventsP, sysmonP, pcapsummaryP, runlogP, thiscase, screenshots, victimfiles])
+	.then((values) => {
+		if (values[4].length < 1) {
+			res.status = 404;
+			res.send("Case not found in DB");
+			throw "Case not found in DB";
+		}
+		var suspect = values[4][0];
+		var events = values[0];
+		var rawsysmon = values[1];
+		var pcapsummary = values[2];
+		var runlog = values[3];
+		var images = values[5];
+		var victimfiles = values[6];
+		var properties = {};
+		var showmagic = suspect.magic;
+		if (suspect.magic.length > 50) {
+			showmagic = suspect.magic.substr(0, 50) + "...";
+		}
+		properties.fname = {name: "File name", text: suspect.fname};
+		properties.avresult = {name: "Clam AV result", text: suspect.avresult};
+		properties.mimetype = {name: "File MIME type", text: showmagic, "class": "mime", htmltitle: suspect.magic};
+		properties.submittime = {name: "Submit time", text: moment(suspect.submittime).toISOString()};
+		properties.starttime = {name: "Run start time", text: moment(suspect.starttime).toISOString()};
+		properties.endtime = {name: "Run end time", text: moment(suspect.endtime).toISOString()};
+		properties.status = {name: "Status", text: suspect.status};
+		properties.sha256 = {name: "SHA256", text: suspect.sha256};
+		properties.sha1 = {name: "SHA1", text: suspect.sha1};
+		properties.os = {name: "VM OS", text: suspect.vm_os};
+		properties.uuid = {name: "Run UUID", text: suspect.uuid};
+		properties.params = {name: "Parameters", text: "Reboots: " + suspect.reboots + ", Banking interaction: " + suspect.banking + ", Web interaction: " + suspect.web};
+				
+		var caseid = properties.sha256.text + "/" + properties.uuid.text;
+		
+		var sysmon = [];
+		
+		rawsysmon.forEach((row) => {
+			var parsed = ParseSysmon(row);
+			sysmon.push(parsed);
+		});
+		
+		sysmon.sort(function(a,b){
+			if (parseInt(a.System.EventRecordID) < parseInt(b.System.EventRecordID)) {
+				return -1;
+			}
+			if (parseInt(a.System.EventRecordID) > parseInt(b.System.EventRecordID)) {
+				return 1;
+			}
+			
+			return 0;
+		});
+		
+		var pcaplink = '/cases/' + properties.sha256.text + '/' + properties.uuid.text + '/pcap';
+		var suspectlink = '/files/' + properties.sha256.text;
+		
+		var fileslist = [];
+		var badfileslist = [];
+		
+		var fid = 0;
+		victimfiles.forEach((row) => {
+			var parsed = ParseVictimFile(row);
+			parsed.id = fid;
+			if (parsed.ctime_sec) {
+				fileslist.push(parsed);	
+			} else {
+				badfileslist.push(parsed);
+			}
+			
+			fid++;
+		});
+		
+		var badges = {};
+		badges.sysmon = sysmon.length;
+		badges.ids = events.alert.length;
+		badges.dns = events.dns.length;
+		badges.http = events.http.length;
+		badges.tls = events.tls.length;
+		badges.files = fileslist.length;
+		
+		fileslist.sort(function(a,b) {
+			if (a.ctime_sec < b.ctime_sec) {
+				return -1;
+			}
+			if (a.ctime_sec == b.ctime_sec && a.ctime_nsec < b.ctime_nsec) {
+				return -1;
+			}
+			if (a.ctime_sec > b.ctime_sec) {
+				return 1;
+			}
+			if (a.ctime_sec == b.ctime_sec && a.ctime_nsec > b.ctime_nsec) {
+				return 1;
+			}
+			
+			return 0;
+		});
+				
+		var caseobj = {
+			properties: properties,
+			screenshots: images,
+			suricata: RenderSuricata(events),
+			sysmon: sysmon,
+			pcaplink: pcaplink,
+			suspectlink: suspectlink,
+			pcapsummary: pcapsummary,
+			runlog: runlog,
+			caseid: caseid,
+			exifdata: suspect.exifdata,
+			badges: badges,
+			title: options.conf.site.displayName,
+			files: fileslist
+		};
+		
+		
+		return caseobj;
+	});
+}
+
+function Runlog(req) {
+	var shortdir = req.params.sha256.substring(0,2);
+	var casepath = path.join(casesdir, shortdir, req.params.sha256, req.params.uuid);
+	return new Promise((fulfill, reject) => {
+		fs.readFile(path.join(casepath, 'run.log'), 'utf8', (err, data) => {
+			if (err === null) {
+				fulfill(data);	
+			} else {
+				console.log(format("Unable to provide pcap summary: {err}", {err: err}));
+				fulfill("");
+			}
+		});
+	});
 }
 
 module.exports = {
@@ -335,9 +697,13 @@ module.exports = {
 	Suspect: Suspect,
 	ParseSysmon: ParseSysmon,
 	ParseVictimFile: ParseVictimFile,
-	deleteFolderRecursive: deleteFolderRecursive,
-	workerDisplayParams: workerDisplayParams,
-	ofInterest: ofInterest,
-	pcapSummaryOfInterest: pcapSummaryOfInterest,
-	exifParse: exifParse
+	DeleteFolderRecursive: DeleteFolderRecursive,
+	WorkerDisplayParams: WorkerDisplayParams,
+	SuricataEventsOfInterest: SuricataEventsOfInterest,
+	PcapSummaryOfInterest: PcapSummaryOfInterest,
+	ExifParse: ExifParse,
+	RenderSuricata: RenderSuricata,
+	GetCases: GetCases,
+	GetCase: GetCase,
+	Runlog: Runlog
 };

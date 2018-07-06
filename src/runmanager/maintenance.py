@@ -9,10 +9,12 @@ from runinstance import get_screen_image
 logger = logging.getLogger("antfarm")
 
 class Janitor:
-    def __init__(self, config, vmdata):
+    def __init__(self, config, vmdata, cursor, dbconn):
         self._conf = config
         self.vmdata = vmdata
         self._lv_conn = libvirt.open("qemu:///system")
+        self._cursor = cursor
+        self._dbconn = dbconn
         self.dom = self._lv_conn.lookupByUUIDString(self.vmdata["uuid"])
         logger.debug("Janitor was called in to work. He needs coffee.")
         
@@ -48,7 +50,7 @@ class Janitor:
         
     def login(self):
         cstr = "{0}::{1}".format(self.vmdata["vnc"]["address"], self.vmdata["vnc"]["port"])
-        connector = pyvnc.Connector(cstr, self.vmdata["password"], self.vmdata["resolution"])
+        connector = pyvnc.Connector(cstr, self.vmdata["password"], (self.vmdata["display_x"], self.vmdata["display_y"]))
         connector.login(self.vmdata["password"])
         logger.info("Logged in... I think")
         
@@ -66,9 +68,14 @@ class Janitor:
     def standard_maintenance(self):
         logger.info("Entering standard maintenance cycle...")
         self.restart()
+        tformat = 'YYYY-MM-DD HH:mm:ss'
+        restarttime = arrow.utcnow().format(tformat)
         time.sleep(90) # awaiting a screen is unreliable as hell. This SHOULD work instead...
         # make sure pcapring is turned back on
-        subprocess.call(["sudo", "/bin/systemctl", "start", "pcapring"])
+        self._cursor.execute("""UPDATE workerstate SET id = %s WHERE uuid = %s""", (self.dom.ID(), self.dom.UUIDString()))
+        self._cursor.execute("""UPDATE victims SET runcounter = 0, last_reboot = %s WHERE uuid = %s""", (restarttime, self.dom.UUIDString()))
+        self._dbconn.commit()
+        subprocess.call(["sudo", "/bin/systemctl", "restart", "suricata"])
         self.login()
         time.sleep(12 * 60) # some malware looks for system uptime
         self.dom.suspend()

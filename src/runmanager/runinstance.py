@@ -4,7 +4,7 @@
 # contact http_error_418 @ unsafehex.com
 
 import logging, os, configparser, libvirt, json, arrow, pyvnc, shutil, time, victimfiles, glob, subprocess
-import tempfile, evtx_dates, db_calls, psycopg2, psycopg2.extras, sys, pcap_parser, yarahandler
+import tempfile, evtx_dates, db_calls, psycopg2, psycopg2.extras, sys, pcap_parser, yarahandler, magic
 import scapy.all as scapy
 from lxml import etree
 from io import StringIO, BytesIO
@@ -374,6 +374,11 @@ class RunInstance():
             #ssh.close()
             os.remove(self.downloadfile)
             logger.debug("Removed download file")
+            
+    def targeted_files_list(self):
+        targeted_files = []
+        targeted_files.extend(db_calls.timestomped_files(self.uuid, self.cursor))
+        return targeted_files
     
     def construct_record(self, victim_params):        
         dtstart = arrow.get(self.starttime)
@@ -381,17 +386,19 @@ class RunInstance():
         try:
             logger.info("Obtaining new files from guest filesystem")
             vf = victimfiles.VictimFiles(self.conf, self.victim_params["diskfile"], '/dev/sda2')
-            fsroot = os.path.join(self.rundir, 'filesystem')
-            filesdict = vf.download_new_files(dtstart, fsroot)
-            registriesdict = vf.download_modified_registries(dtstart, fsroot, self.victim_params["username"])
-            db_calls.insert_files(filesdict, self.uuid, self.cursor)
-            db_calls.insert_files(registriesdict, self.uuid, self.cursor)
+            filesdict = vf.download_new_files(dtstart, self.rundir)
+            registriesdict = vf.download_modified_registries(dtstart, self.rundir, self.victim_params["username"])
+            targetedfilesdict = vf.download_specific_files(self.targeted_files_list(), self.rundir)
+            compileddict = {**filesdict, **registriesdict, **targetedfilesdict}
+            db_calls.insert_files(compileddict, self.uuid, self.cursor)
             
         except Exception:
             ex_type, ex, tb = sys.exc_info()
             fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
             lineno = tb.tb_lineno
             logger.error("Exception {0} {1} in {2}, line {3} while processing filesystem output".format(ex_type, ex, fname, lineno))
+        finally:
+            del(vf)
                    
         try:
             # record suricata events

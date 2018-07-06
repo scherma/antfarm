@@ -265,23 +265,9 @@ class Worker():
                 time.sleep(5)
             
             self.logger.info("Runtime limit reached")
-            
-            #suspect.stop_capture = True
-            
-            # make sure the pcap has actually stopped before suspending vm
-            # pcap thread only exits if packet is received after the stop flag is set
-            # therefore need to force a packet that will be logged by the pcap thread
-            #while t.isAlive():
-            #    time.sleep(2)
-            #    try:
-            #        socket.create_connection((suspect.victim_params["ip"], 389), timeout=1)
-            #    except:
-            #        pass
-                
+                            
             # make a screenshot
-            imgpath = os.path.join(suspect.imgdir, "1.png")
             suspect.screenshot(dom, self._lv_conn)
-            self.logger.debug("Creating screenshot at {0}".format(imgpath))
             
             # pause the vm before mounting filesystem
             dom.suspend()
@@ -323,5 +309,5 @@ class Worker():
             
     def do_maintenance(self):
         self.logger.info("Entering maintenance cycle...")
-        janitor = maintenance.Janitor(self._conf, self._victim_params)
+        janitor = maintenance.Janitor(self._conf, self._victim_params, self._cursor, self._dbconn)
         janitor.standard_maintenance()

@@ -83,7 +83,7 @@ echo -e "${GREEN}Installing python dependencies...${NC}"
 pip3 uninstall yara
 pip3 install --upgrade Pillow
 pip3 install --upgrade twisted
-pip3 install scapy-python3 pytest vncdotool Pillow pika psycopg2 arrow pyshark psutil tabulate ipaddress xmljson yara-python
+pip3 install scapy-python3 pytest vncdotool Pillow pika psycopg2 arrow pyshark psutil tabulate ipaddress xmljson yara-python python-magic
 
 echo -e "${GREEN}Installing Python EVTX Parser by Willi Ballenthin...${NC}"
 pip3 install https://github.com/williballenthin/python-evtx
@@ -249,7 +249,8 @@ chown root:"$SBXNAME" -R /usr/local/unsafehex
 echo -e "${GREEN}Setting permissions for control of services...${NC}"
 echo "Cmnd_Alias PCAPRING_CMNDS = /bin/systemctl start pcapring, /bin/systemctl stop pcapring, /bin/systemctl restart pcapring" >> /etc/sudoers.d/antfarm
 echo "Cmnd_Alias ANTFARM_CMNDS = /bin/systemctl start $SBXNAME, /bin/systemctl stop $SBXNAME, /bin/systemctl restart $SBXNAME" >> /etc/sudoers.d/antfarm
-echo "%$SBXNAME ALL=(ALL) NOPASSWD: ANTFARM_CMNDS, PCAPRING_CMNDS" >> /etc/sudoers.d/antfarm
+echo "Cmnd_Alias SURICATA_CMNDS = /bin/systemctl restart suricata" >> /etc/sudoers.d/antfarm
+echo "%$SBXNAME ALL=(ALL) NOPASSWD: ANTFARM_CMNDS,PCAPRING_CMNDS,SURICATA_CMNDS" >> /etc/sudoers.d/antfarm
 
 cd "$SCRIPTDIR"
 

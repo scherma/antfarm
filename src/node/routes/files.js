@@ -87,6 +87,13 @@ router.get('/', function(req, res, next) {
 	});
 });
 
+router.get('/:sha256', function(req,res,next) {
+	var sd = req.params.sha256.substring(0,2);
+	var fpath = path.join(filespath, sd, req.params.sha256);
+	var fname = req.params.sha256 + ".bin";
+	res.download(fpath, fname);
+});
+
 router.post('/new-suspect', type, function(req, res, next) {
 	var suspect = functions.Hashes(req.file.path);
 	var filemagic = new Promise((resolve, reject) => {

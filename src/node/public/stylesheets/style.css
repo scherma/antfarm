@@ -148,6 +148,25 @@ html,body {
   filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ffd6e5ff', endColorstr='#ffa3c4ff', GradientType=0);
 }
 
+.file-link a {
+  background-image: -webkit-linear-gradient(top,#d6ffd8 0,#f2ffea 100%);
+  background-image: -o-linear-gradient(top,#d6ffd8 0,#f2ffea 100%);
+  background-image: -webkit-gradient(linear,left top,left bottom,from(#d6ffd8),to(#f2ffea));
+  background-image: linear-gradient(to bottom, #d6ffd8 0,#f2ffea 100%);
+  filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ffd6ffd8', endColorstr='#fff2ffea', GradientType=0);
+  webkit-box-shadow: inset 0 3px 9px rgba(0,0,0,.075);
+  box-shadow: inset 0 3px 9px rgba(0,0,0,.075);
+}
+
+.file-link a:hover {
+  color: #1c72ff;
+  background-image: -webkit-linear-gradient(top,#d6ffd8 0,#f2ffea 100%);
+  background-image: -o-linear-gradient(top,#d6ffd8 0,#f2ffea 100%);
+  background-image: -webkit-gradient(linear,left top,left bottom,from(#d6ffd8),to(#f2ffea));
+  background-image: linear-gradient(to bottom, #d6ffd8 0,#f2ffea 100%);
+  filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ffd6ffd8', endColorstr='#fff2ffea', GradientType=0);
+}
+
 .pane-container {
   display: block;
   width: 100%;
@@ -166,6 +185,42 @@ html,body {
   width: 100%;
 }
 
+.hexdata-outer {
+  display: flex;
+  margin: auto;
+  min-width: 440px;
+  clear: both;
+}
+
+.hextable {
+  display: inline-block;
+  float: left;
+  min-width: 290px;
+}
+  
+.hexrow {
+  clear: both;
+  display: flex;
+  margin: 0px 15px 0px 15px;
+}
+
+.hexitem {
+  display: inline-block;
+  padding: 0px 3px 0px 3px;
+  float: left;
+}
+
+.asciitable {
+  display: block;
+  float: left;
+  width: 128px;
+}
+
+.asciiline {
+  float: left;
+  margin: 0px 15px 0px 15px;
+}
+
 @media (min-width: 1024px) {
   .case-container {
     height: calc(100% - 71px);
@@ -175,7 +230,7 @@ html,body {
   .meta-pane {
     flex-direction: column;
     height: calc(100%);
-    width: 600px;
+    width: 60%;
     float: left;
     overflow-y: scroll;
   }
@@ -188,7 +243,7 @@ html,body {
   .pane-container {
     display: flex;
     flex-direction: column;
-    width: calc(100% - 600px);
+    width: 40%;
     height: 100%;
   }
   
