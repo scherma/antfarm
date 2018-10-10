@@ -18,6 +18,12 @@ def insert_dns(evts, uuid, cursor):
 
     psycopg2.extras.execute_values(cursor, dns_sql, values)
     logger.debug("inserted {0} dns events for case {1}".format(len(values), uuid))
+    
+def get_case_status(uuid, cursor):
+    sql = """SELECT status FROM cases WHERE uuid=%s"""
+    cursor.execute(sql, (uuid,))
+    rows = cursor.fetchall()
+    return rows[0]["status"]
 
 def insert_http(evts, uuid, cursor):
     http_sql = """INSERT INTO suricata_http (uuid, src_ip, src_port, dest_ip, dest_port, timestamp, httpdata) VALUES %s ON CONFLICT DO NOTHING"""
@@ -140,9 +146,16 @@ def timestomped_files(uuid, cursor):
     data = cursor.fetchall()
     timestomped = []
     for row in data:
-        if row["eventdata"]:
-            eventdata = json.loads(row["eventdata"])
-            if arrow.get(eventdata["CreationUtcTime"]) < arrow.get(eventdata["PreviousCreationUtcTime"]):
-                timestomped.append(eventdata["TargetFileName"].replace("\\", "/")[2:])
+        try:
+            if isinstance(row["eventdata"], dict) and "CreationUtcTime" in row:
+                if arrow.get(row["CreationUtcTime"]) < arrow.get(row["PreviousCreationUtcTime"]):
+                    timestomped.append(eventdata["TargetFileName"].replace("\\", "/")[2:])
+        except Exception:
+            ex_type, ex, tb = sys.exc_info()
+            fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
+            lineno = tb.tb_lineno
+            logger.error("Exception {0} {1} in {2}, line {3} parsing timestomping data; skipping timestomp test".format(ex_type, ex, fname, lineno))
+            logger.debug("Row data: {}".format(row))
+            
     return timestomped
         

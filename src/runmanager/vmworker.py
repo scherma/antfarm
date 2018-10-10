@@ -4,7 +4,7 @@
 # contact http_error_418 @ unsafehex.com
 
 import logging, libvirt, psycopg2, psycopg2.extras, os, psutil, arrow, socket, json, sys
-import runinstance, threading, time, pcap_parser, maintenance
+import runinstance, threading, time, pcap_parser, maintenance, db_calls
 from lxml import etree
 import configparser
 from io import StringIO, BytesIO
@@ -264,7 +264,16 @@ class Worker():
             while arrow.utcnow() < end:
                 time.sleep(5)
             
-            self.logger.info("Runtime limit reached")
+            self.logger.info("Runtime limit reached, holding for agent confirmation...")
+            
+            checks = 6
+            while db_calls.get_case_status(suspect.uuid, self._cursor) != "agent done":
+                if checks > 0:
+                    time.sleep(5)
+                    checks -= 1
+                else:
+                    logger.warning("Agent failed to post commpletion in within time limit")
+                    break
                             
             # make a screenshot
             suspect.screenshot(dom, self._lv_conn)

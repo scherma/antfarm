@@ -23,6 +23,8 @@ var xml2js = require('xml2js');
 var format = require('string-template');
 var fs = require('fs');
 var db = require('../lib/database');
+var unzip = require('unzip');
+const Telnet = require('telnet-client');
 
 var Hashes = function(fpath) {
 	return new Promise(function(fulfill, reject){
@@ -84,7 +86,18 @@ var Suspect = function(fname,
 					s.hashes = res;
 					fs.stat(fpdir, function(err, stat){
 						if (err === null) {
-							fulfill(s);
+
+							db.new_case(s.uuid,
+								s.submittime,
+								s.hashes.sha256,
+								s.fname,
+								s.reboots,
+								s.banking,
+								s.web,
+								s.runtime)
+							.then((c) => {
+								fulfill(s);
+							});
 						} else {
 							reject(err);
 						}
@@ -155,7 +168,13 @@ var GetCases = function(req) {
 					httplabel.labelcount = row.http_count;
 					row.labels.push(httplabel);
 				}
-				
+				if (row.files_count > 0) {
+					var fileslabel = {};
+					fileslabel.labelstyle = "label-default";
+					fileslabel.labeltext = "files";
+					fileslabel.labelcount = row.files_count;
+					row.labels.push(fileslabel);
+				}
 			});
 			
 			fulfill({cases: dbres, next: nxt, prev: prv, title: options.conf.site.displayName});
@@ -207,12 +226,35 @@ var ParseSysmon = (sm_evt) => {
 		delete e.Data.Hashes;
 	}
 	
+	if ([1].indexOf(e.System.EventID) >= 0) {
+		e.Highlight = e.Data.CommandLine;
+	}
+	
+	if ([2].indexOf(e.System.EventID) >= 0) {
+		e.Highlight = e.Data.TargetFilename + ' (' + e.Data.PreviousCreationUtcTime + ' → ' + e.Data.CreationUtcTime + ')';
+	}
+	
+	if ([3].indexOf(e.System.EventID) >= 0) {
+		e.Highlight = e.Data.Image + ' → ' + e.Data.DestinationIp + ':' + e.Data.DestinationPort;
+		if (e.Data.DestinationHostname) {
+			e.Highlight = e.Highlight + ' "' + e.Data.DestinationHostname + '"';
+		}
+	}
+	
 	if ([5].indexOf(e.System.EventID) >= 0) {
 		e.Highlight = e.Data.Image;
 	}
 	
-	if ([1].indexOf(e.System.EventID) >= 0) {
-		e.Highlight = e.Data.CommandLine;
+	if ([7].indexOf(e.System.EventID) >= 0) {
+		e.Highlight = format('"{img}" loaded "{imgld}"', {img: e.Data.Image, imgld: e.Data.ImageLoaded});
+	}
+	
+	if ([8].indexOf(e.System.EventID) >= 0) {
+		e.Highlight = e.Data.SourceImage + ' → ' + e.Data.TargetImage;
+	}
+	
+	if ([10].indexOf(e.System.EventID) >= 0) {
+		e.Highlight = format('"{srcimg}" accessed "{tgtimg}"', {srcimg: e.Data.SourceImage, tgtimg: e.Data.TargetImage});
 	}
 	
 	if ([11].indexOf(e.System.EventID) >= 0) {
@@ -223,20 +265,11 @@ var ParseSysmon = (sm_evt) => {
 		e.Highlight = e.Data.TargetObject;
 	}
 	
-	if ([8].indexOf(e.System.EventID) >= 0) {
-		e.Highlight = e.Data.SourceImage + ' -> ' + e.Data.TargetImage;
+	if ([15].indexOf(e.System.EventID) >= 0) {
+		e.Highlight = e.Data.Image + ' → ' + e.Data.TargetFilename;
 	}
 	
-	if ([3].indexOf(e.System.EventID) >= 0) {
-		e.Highlight = e.Data.Image + ' -> ' + e.Data.DestinationIp + ':' + e.Data.DestinationPort;
-		if (e.Data.DestinationHostname) {
-			e.Highlight = e.Highlight + ' "' + e.Data.DestinationHostname + '"';
-		}
-	}
 	
-	if ([2].indexOf(e.System.EventID) >= 0) {
-		e.Highlight = e.Data.TargetFilename + ' (' + e.Data.PreviousCreationUtcTime + ' -> ' + e.Data.CreationUtcTime + ')';
-	}
 	
 	return e;
 };
@@ -388,6 +421,7 @@ function ParseVictimFile(row) {
 	var filedata = {};
 	filedata.path = row.os_path;
 	filedata.sha256 = row.sha256;
+	filedata.uuid = row.uuid;
 	filedata.mimetype = row.mimetype;
 	filedata.size = row.file_stat.st_size;
 	filedata.ctime_sec = row.file_stat.st_ctime_sec;
@@ -410,8 +444,14 @@ function ParseVictimFile(row) {
 		}
 	}
 	filedata.saved = row.saved;
+	if (filedata.saved) {
+		filedata.download = row.file_path;
+	}
 	filedata.yararesult = row.yararesult;
 	filedata.path_in_zip = row.file_path;
+	if (row.avresult != 'OK') {
+		filedata.avresult = row.avresult;
+	}
 	return filedata;
 }
 
@@ -622,6 +662,7 @@ function GetCase(req) {
 		victimfiles.forEach((row) => {
 			var parsed = ParseVictimFile(row);
 			parsed.id = fid;
+			parsed.casesha256 = properties.sha256;
 			if (parsed.ctime_sec) {
 				fileslist.push(parsed);	
 			} else {
@@ -692,6 +733,62 @@ function Runlog(req) {
 	});
 }
 
+function ClamScan(suspectPath) {
+	var params = {
+		host: '127.0.0.1',
+		port: options.conf.clamav.port,
+		negotiationMandatory: false,
+		timeout: 1000
+	};
+	var connection = new Telnet();
+	var cmd = 'SCAN ' + suspectPath;
+	var scan = connection.connect(params)
+	.then(function(){
+		return connection.send(cmd);
+	}, function(err) {
+		console.log(err);
+		return '';
+	});
+	
+	return scan;
+}
+
+function ClamUpdate(sha256) {
+	var sd = sha256.substring(0,2);
+	var fpath = path.join(fdir, sd, sha256);
+	ClamScan(fpath).then((clamresult) => {
+		clamresult = clamresult.replace(new RegExp("^[^:]+: ", ""), "").replace("\n", "");
+		db.update_clam(sha256, clamresult);
+	});
+}
+
+function ExtractSavedFile(casesha256, uuid, filesha256, fpath) {
+	return new Promise((fulfill, reject) => {
+		var sd = casesha256.substring(0,2);
+		var zippath = path.join(casesdir, sd, casesha256, uuid, 'filesystem.zip');
+		var details = {};
+		fs.createReadStream(zippath)
+		.pipe(unzip.Parse())
+		.on('entry', function(entry) {
+			var fileName = entry.path;
+			if ("/" + fileName === fpath) {
+				var outpath = path.join('/tmp', filesha256);
+				entry.pipe(fs.createWriteStream(outpath));
+				entry.on('end', function() {
+					details.path = outpath;
+					details.name = format("{bn}.{sha256}.bin" , { bn: path.basename(fpath), sha256: filesha256});
+					fulfill(details);
+				});
+			} else {
+				entry.autodrain();
+			}
+		})
+		.on('end', function() {
+			reject("File not found");
+		});
+	});
+}
+
 module.exports = {
 	Hashes: Hashes,
 	Suspect: Suspect,
@@ -705,5 +802,8 @@ module.exports = {
 	RenderSuricata: RenderSuricata,
 	GetCases: GetCases,
 	GetCase: GetCase,
-	Runlog: Runlog
+	Runlog: Runlog,
+	ClamScan: ClamScan,
+	ClamUpdate: ClamUpdate,
+	ExtractSavedFile: ExtractSavedFile
 };

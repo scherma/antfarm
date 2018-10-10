@@ -16,7 +16,6 @@ var upload = multer({dest: filespath});
 var type = upload.single('suspect');
 var Magic = require('mmmagic').Magic;
 var Promise = require('bluebird');
-const Telnet = require('telnet-client');
 var format = require("string-template");
 var exec = require("child_process").exec;
 
@@ -61,7 +60,6 @@ router.get('/', function(req, res, next) {
 			var rxp = /^([\w\s]+\w)/g;
 			var rxpm = dbr.magic.match(rxp);
 			if (rxpm) {
-				console.log(rxpm);
 				dbr.magicShort = rxpm[0];
 			} else {
 				dbr.magicShort = dbr.magic;
@@ -104,42 +102,40 @@ router.post('/new-suspect', type, function(req, res, next) {
 			}
 			resolve(result);
 		});		
-	});
-	var params = {
-		host: '127.0.0.1',
-		port: options.conf.clamav.port,
-		negotiationMandatory: false,
-		timeout: 1000
-		};
-	var connection = new Telnet();
-	var cmd = 'SCAN ' + req.file.path;
-	var scan = connection.connect(params)
-	.then(function(){
-		return connection.send(cmd);
-	}, function(err) {
-		console.log(err);
-		return '';
-	});
+	});	
+	var scan = functions.ClamScan(req.file.path);
 	var exif = new Promise((resolve, reject) => {
 		exec(format("exiftool {path}", {path: req.file.path}), function(error, stdout, stderr) {
 			if (error) {
 				resolve({});
 			} else {
-				resolve(functions.exifParse(stdout));
+				resolve(functions.ExifParse(stdout));
 			}
 		});
 	});
 	
-	Promise.all([suspect, filemagic, scan, exif])
+	var yaradata = new Promise((resolve,reject) => {
+		exec(format("python3 {yaratester} {filepath}", {yaratester: rootdir + "/runmanager/yarahandler.py", filepath: req.file.path }), function(err, stdout, stderr) {
+			if (err) {
+				console.log(err);
+				resolve({});
+			} else {
+				resolve(JSON.parse(stdout));
+			}
+		});
+	});
+	
+	Promise.all([suspect, filemagic, scan, exif, yaradata])
 	.then((values) => {
 		var s = values[0];
 		var m = values[1];
 		var sc = values[2];
 		var ex = values[3];
+		var yd = values[4];
 		
 		sc = sc.replace(new RegExp("^[^:]+: ", ""), "").replace("\n", "");
 		
-		return db.new_suspect(s.sha256, s.sha1, s.md5, req.file.originalname, m, sc, ex)
+		return db.new_suspect(s.sha256, s.sha1, s.md5, req.file.originalname, m, sc, ex, yd)
 		.then(function() {
 			return s;
 		});

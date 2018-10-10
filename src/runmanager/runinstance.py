@@ -267,8 +267,9 @@ class RunInstance():
             
     def events_to_store(self, searchfiles, startdate, enddate):
         events = {}
-        evctr = 0
+        logger.debug("Searching suricata log files: {}".format(searchfiles))
         for searchfile in searchfiles:
+            evctr = 0
             if os.path.exists(searchfile):
                 with open(searchfile) as f:
                     for line in f:
@@ -288,9 +289,9 @@ class RunInstance():
                                     else:
                                         events[d["event_type"]].append(d)
                                     evctr += 1
-            logger.debug("Identified {0} events to include from {1}".format(evctr, searchfile))
+            logger.info("Identified {0} events to include from {1}".format(evctr, searchfile))
                         
-            return events
+        return events
     
     def behaviour(self, dom, lv_conn):
         # give 15 seconds for execution to take place before starting behaviour

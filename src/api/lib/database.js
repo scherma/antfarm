@@ -75,12 +75,12 @@ function registerVictimService(guid,
 		}).where({libvirtname: vmname});
 }
 
-function findCaseForVM(guid) {
+function findCaseForVM(guid, state) {
 	return pg.select('cases.*', 'victims.username')
 	.from('cases')
 	.innerJoin('workerstate', 'cases.uuid', 'workerstate.job_uuid')
 	.innerJoin('victims', 'workerstate.uuid', 'victims.uuid')
-	.where({'victims.guid': guid}).andWhereNot('workerstate.position', 'idle');
+	.where({'victims.guid': guid}).andWhere({'cases.status': state}).andWhereNot('workerstate.position', 'idle');
 }
 
 function sysmonInsert(rows) {
@@ -93,11 +93,28 @@ function markCaseObtained(uuid) {
 	.update({"status": "obtained"});
 }
 
+function markCaseAgentDone(guid) {
+	return pg.select('cases.*')
+	.from('cases')
+	.innerJoin('workerstate', 'cases.uuid', 'workerstate.job_uuid')
+	.innerJoin('victims', 'workerstate.uuid', 'victims.uuid')
+	.where({'victims.guid': guid})
+	.then((rows) => {
+		pg('cases')
+		.where({uuid: rows[0].uuid})
+		.update({status: 'agent done'})
+		.then(() => {
+			console.log('updated ' + rows[0].uuid + ' to status "agent done"');
+		});
+	});
+}
+
 module.exports = {
 	isServiceRegistered: isServiceRegistered,
 	vmCanRegister: vmCanRegister,
 	registerVictimService: registerVictimService,
 	findCaseForVM: findCaseForVM,
 	markCaseObtained: markCaseObtained,
-	sysmonInsert: sysmonInsert
+	sysmonInsert: sysmonInsert,
+	markCaseAgentDone: markCaseAgentDone
 };

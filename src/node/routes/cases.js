@@ -7,6 +7,12 @@ var options = require('../lib/options');
 var functions = require('../lib/functions');
 var mainmenu = require('../lib/mainmenu');
 const path = require('path');
+var rootdir = path.join('/usr/local/unsafehex', options.conf.site.name);
+var casesdir = path.join(rootdir, 'output');
+var fdir = path.join(rootdir, 'suspects');
+var format = require('string-template');
+var db = require('../lib/database.js');
+var fs = require('fs');
 
 
 router.get('/', function(req, res, next) {
@@ -19,20 +25,7 @@ router.get('/', function(req, res, next) {
 router.post('/start', function(req, res, next) {
 	functions.Suspect(req.body.filename, req.body.sha256, fdir, req.body.interactive, req.body.banking, req.body.web, parseInt(req.body.reboots), parseInt(req.body.runtime))
 	.then(function(suspect) {
-		var s = db.new_case(suspect.uuid,
-							suspect.submittime,
-							suspect.hashes.sha256,
-							suspect.fname,
-							suspect.reboots,
-							suspect.banking,
-							suspect.web,
-							suspect.runtime)
-		.then(function() {
-			return suspect;
-		});
-		return s;
-	})
-	.then(function(suspect) {
+		functions.ClamUpdate(req.body.sha256);
 		res.redirect(format('/cases/view/{sha256}/{uuid}', {sha256: req.body.sha256, uuid: suspect.uuid}));
 	})
 	.catch(function(err) {
@@ -101,6 +94,25 @@ router.get('/runlog/:sha256/:uuid', function(req, res, next){
 	functions.Runlog(req).then((result) => {
 		res.status(200);
 		res.send(result);
+	});
+});
+
+router.post('/:sha256/:uuid/file', function(req, res, next) {
+	functions.ExtractSavedFile(req.params.sha256, req.params.uuid, req.body.filesha256, req.body.path)
+	.then((filedata) => {
+		res.download(filedata.path, filedata.name, function(err) {
+			if (err) {
+				throw err;
+			} else {
+				fs.unlink(filedata.path, function(err) {
+					if (err) {
+						console.error(err.toString());
+					} else {
+						console.log('Temp file ' + filedata.path + ' deleted');
+					}
+				});
+			}
+		});
 	});
 });
 

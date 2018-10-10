@@ -40,7 +40,7 @@ router.post('/register', function(req, res, next) {
 });
 
 router.get('/case/:guid', function(req, res, next) {
-  db.findCaseForVM(req.params.guid)
+  db.findCaseForVM(req.params.guid, 'running')
   .then((rows) => {
     if (rows.length > 0) {
       var options = {};
@@ -69,7 +69,7 @@ router.get('/case/:guid', function(req, res, next) {
 });
 
 router.post('/case/:guid/data', function(req, res, next) {
-	db.findCaseForVM(req.params.guid)
+	db.findCaseForVM(req.params.guid, 'obtained')
   .then((rows) => {
     if (rows.length > 0) {
 			insertRows = [];
@@ -80,6 +80,14 @@ router.post('/case/:guid/data', function(req, res, next) {
 						eventdata.Hashes = {};
 						result.Event.EventData[0].Data.forEach((data) => {
 							if (data.$.Name == "Hashes") {
+								// process create includes hashes in data object "Hashes"
+								var eachHash = data._.split(",");
+								eachHash.forEach((hashtype) => {
+									var components = hashtype.split("=");
+									eventdata.Hashes[components[0]] = components[1];
+								});
+							} else if (data.$.Name == "Hash") {
+								// alternate data stream includes hashes in data object "Hash"
 								var eachHash = data._.split(",");
 								eachHash.forEach((hashtype) => {
 									var components = hashtype.split("=");
@@ -118,6 +126,19 @@ router.post('/case/:guid/data', function(req, res, next) {
 			res.sendStatus(404);
 		}
   });
+});
+
+router.get('/case/:guid/completed', function(req, res, next) {
+	try {
+		db.markCaseAgentDone(req.params.guid)
+		.then(() => {
+			res.sendStatus(200);
+		});	
+	} catch(err) {
+		console.log(err);
+		res.sendStatus(500);
+	}
+	
 });
 
 router.get('/files/:sha256', function(req, res, next) {

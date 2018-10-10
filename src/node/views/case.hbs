@@ -115,9 +115,8 @@ $(document).ready(function() {
 														</div>
 														<div class="asciitable">
 															<div class="asciitable monospace">
-															{{#each this.asciitable}}
-																<div class="asciiline">{{this}}</div>
-															{{/each}}
+                                                                                                                        <pre class="asciiline asciitable monospace">{{#each this.asciitable}}{{this}}
+{{/each}}</pre>
 															</div>
 														</div>
 													</div>
@@ -229,48 +228,55 @@ $(document).ready(function() {
 							<div class="card-body">
 								<div class="tab-content">
 									<div class="tab-pane fade active in" id="sysmon" role="tabpanel" aria-labelledby="sysmon-tab">
-										{{#sysmon}}
-										<div class="list-group-item">
-											<div data-toggle="collapse" href="#sysmon-{{this.System.EventRecordID}}"
-											   role="button" aria-expanded="false" aria-controls="sysmon-{{this.System.EventRecordID}}">
-												<div class="row metapane-txt-lg">
-													<div class="col-sm-4">
-														<p class="list-group-item-text"><strong>{{this.System.EventName}}</strong></p>
-														<p class="list-group-item-text">{{this.System.SystemTime}}</p>
-													</div>
-													<div class="col-sm-8">
-														<p class="list-group-item-text text-break">{{this.Highlight}}</p>
-													</div>
-												</div>		
-											</div>
-											<div class="collapse multi-collapse metapane-txt" id="sysmon-{{this.System.EventRecordID}}">
-												<div class="metapane-listitem-inner">
-													{{#each this.System}}
-													<div class="row">
-														<div class="col-sm-3">
-															<strong>{{@key}}</strong>
+										<div id="accordion">
+											{{#sysmon}}
+											<div class="list-group-item card">
+												<!--<div data-toggle="collapse" href="#sysmon-{{this.System.EventRecordID}}"
+												   role="button" aria-expanded="false" aria-controls="sysmon-{{this.System.EventRecordID}}">-->
+												<div class="card-header" id="heading-sysmon-{{this.System.EventRecordID}}">
+													<div class="row metapane-txt-lg" role="button" data-toggle="collapse"
+													     data-target="#collapse-sysmon-{{this.System.EventRecordID}}"
+													     aria-controls="collapse-sysmon-{{this.System.EventRecordID}}">
+														<div class="col-sm-4">
+															<p class="list-group-item-text"><strong>{{this.System.EventName}}</strong></p>
+															<p class="list-group-item-text">{{this.System.SystemTime}}</p>
 														</div>
-														<div class="col-sm-9">
-															{{this}}
+														<div class="col-sm-8">
+															<p class="list-group-item-text text-break">{{this.Highlight}}</p>
 														</div>
-													</div>
-													{{/each}}
+													</div>		
 												</div>
-												<div class="metapane-listitem-inner">
-													{{#each this.Data}}
-													<div class="row">
-														<div class="col-sm-3">
-															<strong>{{@key}}</strong>
+												<!--<div class="collapse multi-collapse metapane-txt" id="sysmon-{{this.System.EventRecordID}}">-->
+												<div id="collapse-sysmon-{{this.System.EventRecordID}}" class="collapse metapane-txt"
+												    aria-labelledby="heading-sysmon-{{this.System.EventRecordID}}" data-parent="#accordion">
+													<div class="metapane-listitem-inner">
+														{{#each this.System}}
+														<div class="row">
+															<div class="col-sm-3">
+																<strong>{{@key}}</strong>
+															</div>
+															<div class="col-sm-9">
+																{{this}}
+															</div>
 														</div>
-														<div class="col-sm-9">
-															<span class="text-break">{{this}}</span>
-														</div>
+														{{/each}}
 													</div>
-													{{/each}}
+													<div class="metapane-listitem-inner">
+														{{#each this.Data}}
+														<div class="row">
+															<div class="col-sm-3">
+																<strong>{{@key}}</strong>
+															</div>
+															<div class="col-sm-9">
+																<span class="text-break">{{this}}</span>
+															</div>
+														</div>
+														{{/each}}
+													</div>
 												</div>
 											</div>
+											{{/sysmon}}
 										</div>
-										{{/sysmon}}
 									</div>
 									<div class="tab-pane fade" id="files" role="tabpanel" aria-labelledby="files-tab">
 										{{#files}}
@@ -281,6 +287,13 @@ $(document).ready(function() {
 													<div class="col-sm-3">{{this.humantime.modified}}</div>
 													<div class="col-sm-9 text-break">{{this.path}}</div>
 												</div>
+												{{#if this.avresult}}
+												<div class="row">
+													<div class="col-sm-12">
+														<span class="label label-danger">{{this.avresult}}</span>
+													</div>
+												</div>
+												{{/if}}
 												
 												<div class="row">
 													<div class="col-sm-12">
@@ -295,7 +308,7 @@ $(document).ready(function() {
 													{{#if this.sha256}}
 													<div class="row">
 														<div class="col-sm-3"><strong>SHA256</strong></div>
-														<div class="col-sm-9">{{this.sha256}}</div>
+														<div class="col-sm-9">{{this.sha256}} <a href="https://www.virustotal.com/#/file/{{this.sha256}}" target="_blank">👁 VT</a></div>
 													</div>
 													{{/if}}
 													<div class="row">
@@ -316,7 +329,16 @@ $(document).ready(function() {
 														<div class="col-sm-9">{{this.mimetype}}</div>
 													</div>
 													{{/if}}
-													
+													{{#if this.download}}
+													<div class="row">
+														<form action="/cases/{{this.casesha256.text}}/{{this.uuid}}/file" method="post" enctype="application/json">
+															<label for="{{this.sha256}}-submit" class="btn btn-link btn-sm">Download</label>
+															<input type="hidden" name="path" value="{{this.download}}">
+															<input type="hidden" name="filesha256" value="{{this.sha256}}">
+															<input type="submit" id="{{this.sha256}}-submit" value="Download" class="hidden">
+														</form>
+													</div>
+													{{/if}}
 												</div>
 											</div>
 										</div>

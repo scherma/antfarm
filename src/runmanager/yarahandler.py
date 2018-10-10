@@ -3,7 +3,7 @@
 # MIT License © https://github.com/scherma
 # contact http_error_418 @ unsafehex.com
 
-import yara, glob, os, logging
+import yara, glob, os, logging, sys, configparser, json, db_calls
 
 logger = logging.getLogger("antfarm.worker")
 
@@ -26,3 +26,16 @@ def testyara(conf, suspectpath):
     matches = rules.match(suspectpath)
 
     return matches
+
+def main():
+    conf = configparser.ConfigParser()
+    
+    conf.readfp(open("../runmanager/runmanager.conf"))
+    
+    matches = testyara(conf, sys.argv[1])
+    
+    print(json.dumps(db_calls.build_yara_json(matches)))
+    
+
+if __name__ == "__main__":
+    main()

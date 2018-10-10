@@ -13,11 +13,14 @@ var dbparams = {
 		host:"localhost"}
 	};
 var pg = require('knex')(dbparams);
+var format = require('string-template');
 
-function new_suspect(sha256, sha1, md5, originalname, magic, avresult, exifdata) {
+function new_suspect(sha256, sha1, md5, originalname, magic, avresult, exifdata, yararesult) {
 	var formatted = moment().format('YYYY-MM-DD HH:mm:ss ZZ');
-	return pg.raw('INSERT INTO suspects (sha256, sha1, md5, originalname, magic, avresult, exifdata, uploadtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (sha256) DO NOTHING;',
-				  [sha256, sha1, md5, originalname, magic, avresult, JSON.stringify(exifdata), formatted]);
+	return pg.raw(
+		'INSERT INTO suspects (sha256, sha1, md5, originalname, magic, avresult, exifdata, yararesult, uploadtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (sha256) DO NOTHING;',
+		[sha256, sha1, md5, originalname, magic, avresult, JSON.stringify(exifdata), JSON.stringify(yararesult), formatted]
+	);
 }
 
 function new_case(uuid, unixtime, sha256, fname, reboots, banking, web, runtime) {
@@ -66,12 +69,13 @@ function list_cases(page=0, desc=true, where={}, limit=20) {
 	if (page > 0) {
 		offset = (limit - 1) * page;
 	}
+	var pgr = "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS submittime, cases.sha256, cases.fname, cases.uuid AS uuid, cases.status, workerstate.position, alerts.c AS alert_count, dns.c AS dns_count, http.c AS http_count, files.c as files_count FROM cases LEFT JOIN workerstate ON cases.uuid = workerstate.job_uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_alert GROUP BY uuid) AS alerts ON cases.uuid = alerts.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_dns GROUP BY uuid) AS dns ON cases.uuid = dns.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_http GROUP BY uuid) AS http ON cases.uuid = http.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM victimfiles GROUP BY uuid) AS files ON cases.uuid = files.uuid";
 	
 	if (where) {
-		return pg.select(pg.raw("to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS submittime, cases.sha256, cases.fname, cases.uuid AS uuid, cases.status, workerstate.position, alerts.c AS alert_count, dns.c AS dns_count, http.c AS http_count FROM cases LEFT JOIN workerstate ON cases.uuid = workerstate.job_uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_alert GROUP BY uuid) AS alerts ON cases.uuid = alerts.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_dns GROUP BY uuid) AS dns ON cases.uuid = dns.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_http GROUP BY uuid) AS http ON cases.uuid = http.uuid"))
+		return pg.select(pg.raw(pgr))
 		.where(where).orderBy('submittime', order).limit(limit).offset(offset);
 	} else {
-		return pg.select(pg.raw("to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS submittime, cases.sha256, cases.fname, cases.uuid AS uuid, cases.status, workerstate.position, alert_count.c, dns_count.c, http_count.c FROM cases LEFT JOIN workerstate ON cases.uuid = workerstate.job_uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_alert GROUP BY uuid) AS alert_count ON cases.uuid = alert_count.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_dns GROUP BY uuid) AS dns_count ON cases.uuid = dns_count.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_http GROUP BY uuid) AS http_count ON cases.uuid = http_count.uuid"))
+		return pg.select(pg.raw(pgr))
 		.orderBy('submittime', order).limit(limit).offset(offset);
 	}
 }
@@ -152,6 +156,18 @@ function delete_case(uuid) {
 	});
 }
 
+function update_clam(sha256, clamresult) {
+	pg('suspects').where({sha256: sha256})
+	.then((res) => {
+		if (res.avresult != clamresult && clamresult !== '') {
+			pg('suspects').update({avresult: clamresult}).where({sha256: sha256})
+			.then(() => {
+				console.log(format("Updated avresult for {sha256} from '{avr}' to '{clm}'", {sha256: sha256, avr: res.avresult, clm: clamresult}));
+			});
+		}
+	});
+}
+
 module.exports = {
 	list_cases: list_cases,
 	new_case: new_case,
@@ -164,5 +180,6 @@ module.exports = {
 	sysmon_for_case: sysmon_for_case,
 	suricata_for_case: suricata_for_case,
 	pcap_summary_for_case: pcap_summary_for_case,
-	victimfiles: victimfiles
-	};
+	victimfiles: victimfiles,
+	update_clam: update_clam
+};
