@@ -16,7 +16,6 @@ var rootdir = path.join('/usr/local/unsafehex', options.conf.site.name);
 var fdir = path.join(rootdir, 'suspects');
 var casesdir = path.join(rootdir, 'output');
 var mainmenu = require('../lib/mainmenu');
-var moment = require('moment');
 var Promise = require('bluebird');
 var glob = require('glob');
 var xml2js = require('xml2js');
@@ -420,6 +419,7 @@ function ExifParse(text) {
 function ParseVictimFile(row) {
 	var filedata = {};
 	filedata.path = row.os_path;
+	filedata.basename = path.win32.basename(row.os_path);
 	filedata.sha256 = row.sha256;
 	filedata.uuid = row.uuid;
 	filedata.mimetype = row.mimetype;
@@ -696,25 +696,107 @@ function GetCase(req) {
 			
 			return 0;
 		});
-				
-		var caseobj = {
-			properties: properties,
-			screenshots: images,
-			suricata: RenderSuricata(events),
-			sysmon: sysmon,
-			pcaplink: pcaplink,
-			suspectlink: suspectlink,
-			pcapsummary: pcapsummary,
-			runlog: runlog,
-			caseid: caseid,
-			exifdata: suspect.exifdata,
-			badges: badges,
-			title: options.conf.site.displayName,
-			files: fileslist
-		};
 		
 		
-		return caseobj;
+		var suricata_evts = RenderSuricata(events);
+		return OverviewItems(suricata_evts.alert, suricata_evts.dns, suricata_evts.http, suricata_evts.tls, sysmon, fileslist)
+		.then((overview) => {
+			var caseobj = {
+				properties: properties,
+				screenshots: images,
+				overview: overview,
+				suricata: suricata_evts,
+				sysmon: sysmon,
+				pcaplink: pcaplink,
+				suspectlink: suspectlink,
+				pcapsummary: pcapsummary,
+				runlog: runlog,
+				caseid: caseid,
+				exifdata: suspect.exifdata,
+				badges: badges,
+				title: options.conf.site.displayName,
+				files: fileslist
+			};
+			
+			return caseobj;	
+		});
+		
+	});
+}
+
+function OverviewItems(ids, dns, http, tls, sysmon, files) {
+	return new Promise((fulfill, reject) => {
+		var items = [];
+		ids.forEach((i) => {
+			var item = {};
+			item.timestamp = moment(i.timestamp).format();
+			item.type = 'ids';
+			item.title = 'IDS alert';
+			item.info = format('{signature} ({srcip}:{srcport} → {dstip}:{dstport})', {signature: i.alert.signature, srcip: i.src_ip, srcport: i.src_port, dstip: i.dest_ip, dstport: i.dest_port});
+			items.push(item);
+		});
+		dns.forEach((d) => {
+			var item = {};
+			item.timestamp = moment(d.timestamp).format();
+			item.type = 'netconn';
+			item.title = 'DNS query';
+			item.info = format('{type} {rrtype} {rrname}', {type: d.dnsdata.type, rrtype: d.dnsdata.rrtype, rrname: d.dnsdata.rrname});
+			items.push(item);
+		});
+		http.forEach((h) => {
+			var item = {};
+			item.timestamp = moment(h.timestamp).format();
+			item.type = 'netconn';
+			item.title = 'HTTP request';
+			item.info = format('({hostname}) {method} {url}', {hostname: h.httpdata.hostname, method: h.httpdata.http_method, url: h.httpdata.url});
+			items.push(item);
+		});
+		tls.forEach((t) => {
+			var item = {};
+			item.timestamp = moment(t.timestamp).format();
+			item.type = 'netconn';
+			item.title = 'TLS connection';
+			item.info = t.tlsdata.sni;
+			items.push(item);
+		});
+		sysmon.forEach((s) => {
+			var item = {};
+			item.timestamp = moment(s.System.SystemTime, 'YYYY-MM-DD hh:mm:ss').format();
+			item.type = 'misc';
+			if ([1, 5].indexOf(s.System.EventID) >= 0) {
+				item.type = 'process';
+			} else if (s.System.EventID == 11) {
+				item.type = 'file';
+			} else if (s.System.EventID == 3) {
+				item.type = 'netconn';
+			}
+			item.title = s.System.EventName;
+			item.info = s.Highlight;
+			items.push(item);
+		});
+		files.forEach((f) => {
+			var item = {};
+			item.timestamp = moment(f.humantime.modified, 'YYYY-MM-DD hh:mm:ss').format();
+			item.type = 'file';
+			item.title = 'File modified';
+			item.info = f.basename;
+			items.push(item);
+		});
+		
+		items.sort(function(a,b) {
+			var m1 = moment(a.timestamp);
+			var m2 = moment(b.timestamp);
+			if (m1 < m2) {
+				return -1;
+			}
+			if (m1 > m2) {
+				return 1;
+			}
+			
+			return 0;
+		});
+		
+		fulfill(items);
 	});
 }
 

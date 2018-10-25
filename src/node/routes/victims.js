@@ -17,7 +17,7 @@ router.get('/', function(req, res, next) {
 					workers[w].position = "offline";
 				}
 				if (workers[w].params) {
-					workers[w].parsedparams = functions.workerDisplayParams(JSON.parse(workers[w].params));
+					workers[w].parsedparams = functions.WorkerDisplayParams(JSON.parse(workers[w].params));
 				}
 				var workerStateOpts = ["pre-prod", "production", "maintenance"];
 				var optslist = '';

@@ -70,6 +70,7 @@ conf = {
 
 apiconf = {
     "database": {
+        "name": instancename,
         "username": instancename,
         "password": dbpass
     },

@@ -305,7 +305,7 @@ class RunInstance():
             
             ext = self.fname.split(".")[-1]
             
-            macrotypes = ["doc", "xls", "ppt", "dot", "xlm", "docm", "dotm", "docb", "xlsm", "xltm", "pptm"]
+            macrotypes = ["doc", "xls", "ppt", "dot", "xlm", "docm", "dotm", "docb", "xlsm", "xltm", "pptm", "rtf"]
             
             self.screenshot(dom, lv_conn)
             if ext in macrotypes:
@@ -399,7 +399,10 @@ class RunInstance():
             lineno = tb.tb_lineno
             logger.error("Exception {0} {1} in {2}, line {3} while processing filesystem output".format(ex_type, ex, fname, lineno))
         finally:
-            del(vf)
+            try:
+                del(vf)
+            except Exception:
+                pass
                    
         try:
             # record suricata events

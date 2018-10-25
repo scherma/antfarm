@@ -99,10 +99,7 @@ class Broker():
                     available = self._list_available_victims()
                     logger.info("Found {0} available victims".format(len(available)))
                     for case in cases:
-                        if available:
-                            # ensure pcapring service is running
-                            subprocess.call(["sudo", "/bin/systemctl", "start", "pcapring"])
-                            
+                        if available:                            
                             case["hashes"] = {"sha256": case["sha256"], "sha1": case["sha1"], "md5": case["md5"]}
                             case["reboots"] = int(case["reboots"]);
                             victim = available.pop()

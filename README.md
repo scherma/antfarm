@@ -5,11 +5,11 @@ Thank you for helping me to test my sandbox. Currently this has only been tested
 This is super pre-alpha code and is likely to be broken in all sorts of ways I have not yet discovered. I am hoping that your testing can help me make it only moderately broken before opening it up to the rest of the world.
 
 ## CREDITS
-Much of this process was only possible with the help of Sean Whalen's Cuckoo sandbox guide. 
-
-I have borrowed heavily from it and these instructions will refer to it in a number of cases rather than reproduce the content here.
+Much of this process was only possible with the help of Sean Whalen's Cuckoo sandbox guide. I have borrowed heavily from it and these instructions will refer to it in a number of cases rather than reproduce the content here.
 
 Please find it at https://infosecspeakeasy.org/t/howto-build-a-cuckoo-sandbox/27/1
+
+Andriy Brukhovetskyy aka D00m3dR4v3n has created an excellent guide to anti-evasion configuration which I have used significant portions from: https://www.doomedraven.com/2016/05/kvm.html
 
 SwiftOnSecurity's Decent Security advice for updating Windows and Sysmon config were also pretty handy.
 
@@ -50,7 +50,7 @@ To install, perform the steps below:
 __BEFORE__ installing the OS:
 - Edit your VM XML (virsh edit vmname) and do the following
   - In the main `<domain>` section add a new element 'sysinfo', and create entries with fake BIOS data; I have given an example below. The uuid value __must__ match the content of the main `<uuid>` tag at the top of your VM XML.
-`<sysinfo type='smbios'>
+```<sysinfo type='smbios'>
   <bios>
     <entry name='vendor'>Phoenix</entry>
     <entry name='version'>1707</entry>
@@ -67,11 +67,11 @@ __BEFORE__ installing the OS:
   <baseBoard>
     <entry name='version'>ALASKA-1072009</entry>
   </baseBoard>
-</sysinfo>`
+</sysinfo>```
   - Within `<features>`, add
-`<kvm>
+```<kvm>
   <hidden state='on'/>
-</kvm>`
+</kvm>```
   - Within `<cpu>`, specify `<feature policy='disable' name='hypervisor'/>`
   - In `<clock>`, change `<timer name='rtc' tickpolicy='catchup'/>` to `<timer name='rtc' track='wall'/>`
   - Add the following elements to `<os>`: 

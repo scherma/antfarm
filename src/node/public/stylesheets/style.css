@@ -228,6 +228,25 @@ html,body {
   font-size: 1em;
 }
 
+.overview-ids {
+  background-color: #ff8c8c;
+}
+
+.overview-netconn {
+  background-color: #eaeaea;
+}
+
+.overview-file {
+  background-color: #eeffe0;
+}
+
+.overview-process {
+  background-color: #e0ecff;
+}
+
+.overview-misc {
+}
+
 @media (min-width: 1024px) {
   .case-container {
     height: calc(100% - 71px);
