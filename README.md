@@ -67,11 +67,13 @@ __BEFORE__ installing the OS:
   <baseBoard>
     <entry name='version'>ALASKA-1072009</entry>
   </baseBoard>
-</sysinfo>```
+</sysinfo>
+```
   - Within `<features>`, add
 ```<kvm>
   <hidden state='on'/>
-</kvm>```
+</kvm>
+```
   - Within `<cpu>`, specify `<feature policy='disable' name='hypervisor'/>`
   - In `<clock>`, change `<timer name='rtc' tickpolicy='catchup'/>` to `<timer name='rtc' track='wall'/>`
   - Add the following elements to `<os>`: 
