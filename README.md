@@ -50,7 +50,8 @@ To install, perform the steps below:
 __BEFORE__ installing the OS:
 - Edit your VM XML (virsh edit vmname) and do the following
   - In the main `<domain>` section add a new element 'sysinfo', and create entries with fake BIOS data; I have given an example below. The uuid value __must__ match the content of the main `<uuid>` tag at the top of your VM XML.
-```<sysinfo type='smbios'>
+```
+<sysinfo type='smbios'>
   <bios>
     <entry name='vendor'>Phoenix</entry>
     <entry name='version'>1707</entry>
@@ -70,7 +71,8 @@ __BEFORE__ installing the OS:
 </sysinfo>
 ```
   - Within `<features>`, add
-```<kvm>
+```
+<kvm>
   <hidden state='on'/>
 </kvm>
 ```
