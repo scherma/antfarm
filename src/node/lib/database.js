@@ -23,7 +23,7 @@ function new_suspect(sha256, sha1, md5, originalname, magic, avresult, exifdata,
 	);
 }
 
-function new_case(uuid, unixtime, sha256, fname, reboots, banking, web, runtime) {
+function new_case(uuid, unixtime, sha256, fname, reboots, banking, web, runtime, priority) {
 	var formatted = moment.unix(unixtime).format('YYYY-MM-DD HH:mm:ss');
 	
 	var components = fname.split(".");
@@ -55,7 +55,8 @@ function new_case(uuid, unixtime, sha256, fname, reboots, banking, web, runtime)
 		reboots: reboots,
 		banking: banking,
 		web: web,
-		runtime: runtime})
+		runtime: runtime,
+		priority: priority})
 	.into('cases');
 }
 
@@ -168,6 +169,12 @@ function update_clam(sha256, clamresult) {
 	});
 }
 
+function suspectProperties(sha256) {
+	return pg('suspects').select('suspects.*').count('cases.sha256 AS runcount')
+	.leftJoin('cases', 'suspects.sha256', '=', 'cases.sha256')
+	.where({'cases.sha256': sha256}).groupBy('suspects.sha256');
+}
+
 module.exports = {
 	list_cases: list_cases,
 	new_case: new_case,
@@ -181,5 +188,6 @@ module.exports = {
 	suricata_for_case: suricata_for_case,
 	pcap_summary_for_case: pcap_summary_for_case,
 	victimfiles: victimfiles,
-	update_clam: update_clam
+	update_clam: update_clam,
+	suspectProperties: suspectProperties
 };

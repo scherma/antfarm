@@ -53,7 +53,8 @@ var Suspect = function(fname,
 					   banking=false,
 					   web=false,
 					   reboots=0,
-					   runtime=120
+					   runtime=120,
+					   priority=0
 					   ) {
 	return new Promise(function(fulfill, reject){
 		// validation
@@ -81,6 +82,7 @@ var Suspect = function(fname,
 				s.runtime = runtime;
 				s.ttl = runtime + 60; // allow 1 minute extra for victim prep
 				s.web = web;
+				s.priority = priority;
 				Hashes(finalpath).done(function(res){
 					s.hashes = res;
 					fs.stat(fpdir, function(err, stat){

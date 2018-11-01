@@ -165,4 +165,15 @@ router.post('/new-suspect', type, function(req, res, next) {
 	});
 });
 
+router.get("/properties/:sha256", function(req, res, next) {
+	db.suspectProperties(req.params.sha256)
+	.then((properties) => {
+		if (properties) {
+			res.send(properties[0]);
+		} else {
+			res.sendStatus(404);
+		}
+	});
+});
+
 module.exports = router;

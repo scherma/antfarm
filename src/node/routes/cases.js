@@ -23,14 +23,23 @@ router.get('/', function(req, res, next) {
 });
 
 router.post('/start', function(req, res, next) {
-	functions.Suspect(req.body.filename, req.body.sha256, fdir, req.body.interactive, req.body.banking, req.body.web, parseInt(req.body.reboots), parseInt(req.body.runtime))
+	functions.Suspect(
+		req.body.filename,
+		req.body.sha256,
+		fdir,
+		req.body.interactive,
+		req.body.banking,
+		req.body.web,
+		parseInt(req.body.reboots),
+		parseInt(req.body.runtime),
+		parseInt(req.body.priority))
 	.then(function(suspect) {
 		functions.ClamUpdate(req.body.sha256);
 		res.redirect(format('/cases/view/{sha256}/{uuid}', {sha256: req.body.sha256, uuid: suspect.uuid}));
 	})
 	.catch(function(err) {
 		console.log(err);
-		res.redirect('/cases?error=true');
+		res.sendStatus(400);
 	});
 	
 });
