@@ -170,9 +170,9 @@ function update_clam(sha256, clamresult) {
 }
 
 function suspectProperties(sha256) {
-	return pg('suspects').select('suspects.*').count('cases.sha256 AS runcount')
+	return pg('suspects').select('suspects.*', 'cases.uuid')
 	.leftJoin('cases', 'suspects.sha256', '=', 'cases.sha256')
-	.where({'cases.sha256': sha256}).groupBy('suspects.sha256');
+	.where({'cases.sha256': sha256});
 }
 
 module.exports = {

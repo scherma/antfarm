@@ -873,6 +873,26 @@ function ExtractSavedFile(casesha256, uuid, filesha256, fpath) {
 	});
 }
 
+function SuspectProperties(sha256) {
+	let properties = {};
+	return new Promise((fulfill, reject) => {
+		db.suspectProperties(sha256)
+		.then((res) => {
+			if (res.length > 0) {
+				properties = res[0];
+				properties.caseUUIDs = [];
+				res.forEach((row) => {
+					properties.caseUUIDs.push(row.uuid);
+				});
+				delete properties.uuid;
+				fulfill(properties);
+			} else {
+				fulfill();
+			}
+		});
+	});
+}
+
 module.exports = {
 	Hashes: Hashes,
 	Suspect: Suspect,
@@ -889,5 +909,6 @@ module.exports = {
 	Runlog: Runlog,
 	ClamScan: ClamScan,
 	ClamUpdate: ClamUpdate,
-	ExtractSavedFile: ExtractSavedFile
+	ExtractSavedFile: ExtractSavedFile,
+	SuspectProperties: SuspectProperties
 };
