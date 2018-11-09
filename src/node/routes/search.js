@@ -18,7 +18,7 @@ router.post('/', function(req, res, next) {
 	if (req.body.searchterm) {
 		functions.SearchRawTerm(req.body.searchterm)
 		.then((hits) => {
-			console.log(hits.cases);
+			hits = functions.SortHits(hits);
 			res.render('searchresults', {
 				mainmenu: mainmenu,
 				results: hits

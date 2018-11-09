@@ -1,5 +1,17 @@
 <div class="container theme-showcase" role="main">
-	{{#each results.cases}}
+	<p><strong>Suspects ({{results.suspects.length}})</strong></p>
+	{{#results.suspects}}
+		<div class="card">
+			<div class="card-header" id="heading-{{this.sha256}}">
+				<div class="row">
+					<div class="col-sm-6"><p class="inrow"><small>{{this.originalname}}</small></p></div>
+					<div class="col-sm-1"><p class="inrow"><a href="/cases?sha256={{this.sha256}}"><button class="btn btn-default btn-xs">cases</button></a></div>
+				</div>
+			</div>
+		</div>
+	{{/results.suspects}}
+	<p><strong>Cases ({{results.cases.length}})</strong></p>
+	{{#results.cases}}
 		<div class="card">
 			<div class="card-header" id="heading-{{this.uuid}}">
 				<div class="row">
@@ -11,5 +23,5 @@
 				</div>
 			</div>
 		</div>
-	{{/each}}
+	{{/results.cases}}
 </div>

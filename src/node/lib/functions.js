@@ -339,7 +339,6 @@ var SuricataEventsOfInterest = function(event) {
 		var s = Addr(subnet);
 		if (s.contains(Addr(event.src_ip)) || s.contains(Addr(event.dest_ip))) {
 			ofinterest = false;
-			console.log("subnet");
 		}
 	});
 	
@@ -916,12 +915,11 @@ function SearchRawTerm(searchterm) {
 		cases: {},
 		suspects: {}
 	};
-	
 	switch(FindStringType(searchterm)) {
 		case "ipv4":
-			db.search_on_ip(searchterm).then((values) => {
+			return db.search_on_ip(searchterm).then((values) => {
 				values.forEach((val) => {
-					val.forEach((row) => {
+					val.rows.forEach((row) => {
 						if (row.uuid in hits.cases) {
 							hits.cases[row.uuid].count += 1;
 						} else {
@@ -936,12 +934,12 @@ function SearchRawTerm(searchterm) {
 			});
 			break;
 		case "sha256":
-			db.search_on_sha256(searchterm).then((values) => {
+			return db.search_on_sha256(searchterm).then((values) => {
 				values[0].forEach((suspect) => {
 					hits.suspects[suspect.sha256] = suspect;
 					hits.suspects[suspect.sha256].sml = 1;
 				});
-				values[1].forEach((sysmon) => {
+				values[1].rows.forEach((sysmon) => {
 					if (sysmon.uuid in hits.cases) {
 						hits.cases[sysmon.uuid].count += 1;
 					} else {
@@ -954,12 +952,12 @@ function SearchRawTerm(searchterm) {
 			});
 			break;
 		case "sha1":
-			db.search_on_sha1(searchterm).then((values) => {
+			return db.search_on_sha1(searchterm).then((values) => {
 				values[0].forEach((suspect) => {
 					hits.suspects[suspect.sha256] = suspect;
 					hits.suspects[suspect.sha256].sml = 1;
 				});
-				values[1].forEach((sysmon) => {
+				values[1].rows.forEach((sysmon) => {
 					if (sysmon.uuid in hits.cases) {
 						hits.cases[sysmon.uuid].count += 1;
 					} else {
@@ -972,12 +970,12 @@ function SearchRawTerm(searchterm) {
 			});
 			break;
 		case "hash32":
-			db.search_on_sha1(searchterm).then((values) => {
+			return db.search_on_sha1(searchterm).then((values) => {
 				values[0].forEach((suspect) => {
 					hits.suspects[suspect.sha256] = suspect;
 					hits.suspects[suspect.sha256].sml = 1;
 				});
-				values[1].forEach((sysmon) => {
+				values[1].rows.forEach((sysmon) => {
 					if (sysmon.uuid in hits.cases) {
 						hits.cases[sysmon.uuid].count += 1;
 					} else {
@@ -1020,6 +1018,38 @@ function FindStringType(thestring) {
 	return "string";
 }
 
+function SortHits(hits) {
+	var finalhits = {
+		cases: [],
+		suspects: []
+	}
+
+	Object.keys(hits.cases).forEach((uuid) => {
+		finalhits.cases.push(hits.cases[uuid]);
+	});
+	Object.keys(hits.suspects).forEach((sha256) => {
+		finalhits.suspects.push(hits.suspects[sha256]);
+	});
+
+	finalhits.cases.sort(function(a,b){
+		if (a.sml < b.sml){
+			return 1;
+		} else if (a.sml > b.sml){
+			return -1;
+		} else {
+			if (moment(a.submittime) < moment(b.submittime)) {
+				return 1;
+			} else if (moment(a.submittime) > moment(b.submittime)) {
+				return -1;
+			}
+
+			return 0;
+		}
+	});
+
+	return finalhits;
+}
+
 module.exports = {
 	Hashes: Hashes,
 	Suspect: Suspect,
@@ -1038,5 +1068,6 @@ module.exports = {
 	ClamUpdate: ClamUpdate,
 	ExtractSavedFile: ExtractSavedFile,
 	SuspectProperties: SuspectProperties,
-	SearchRawTerm: SearchRawTerm
+	SearchRawTerm: SearchRawTerm,
+	SortHits: SortHits
 };

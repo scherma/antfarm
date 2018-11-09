@@ -187,36 +187,29 @@ module.exports = {
 	},
 	
 	search_on_ip: function(ipaddr) {
-		var dns_ip = pg("cases").select("cases.*", "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime").leftJoin("suricata_dns", "cases.uuid", "=", "suricata_dns.uuid")
-			.where({"suricata_dns.dnsdata#>'{rdata}'": ipaddr});
-		var http_ip = pg("cases").select("cases.*", "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime").leftJoin("suricata_http", "cases.uuid", "=", "suricata_http.uuid")
-			.where({"suricata_http.dest_ip": ipaddr}).orWhere({"suricata_http.httpdata#>'{hostname}'": ipaddr});
-		var tls_ip = pg("cases").select("cases.*", "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime").leftJoin("suricata_tls", "cases.uuid", "=", "suricata_tls.uuid")
-			.where({"suricata_tls.dest_ip": ipaddr});
-		var alert_ip = pg("cases").select("cases.*", "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime").leftJoin("suricata_alert", "cases.uuid", "=", "suricata_alert.uuid")
-			.where({"suricata_alert.dest_ip": ipaddr}).orWhere({"suricata_alert.src_ip": ipaddr});
+		var dns_ip = pg.raw("SELECT cases.*", "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN suricata_dns ON cases.uuid = suricata_dns.uuid WHERE suricata_dns.dnsdata#>'{rdata}' = ? ", [ipaddr]);
+		var http_ip = pg.raw("SELECT cases.*", "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN suricata_http ON cases.uuid = suricata_http.uuid WHERE suricata_http.dest_ip = ? OR suricata_http.httpdata#>'{hostname}' = ? ", [ipaddr, ipaddr]);
+		var tls_ip = pg.raw("SELECT cases.*", "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN suricata_tls ON cases.uuid = suricata_tls.uuid WHERE suricata_tls.dest_ip = ? ", [ipaddr]);
+		var alert_ip = pg.raw("SELECT cases.*", "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN suricata_alert ON cases.uuid = suricata_alert.uuid WHERE suricata_alert.dest_ip = ? OR suricata_alert.src_ip = ? ", [ipaddr]);
 			
 		return Promise.all([dns_ip, http_ip, tls_ip, alert_ip]);
 	},
 	
 	search_on_md5: function(hash32) {
 		var suspects = pg("suspects").select("*").where({md5: hash32});
-		var sysmon = pg("cases").select("cases.*", "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime").leftJoin("sysmon_evts", "cases.uuid", "=", "sysmon_evts.uuid")
-			.where({"sysmon_evts.eventdata#>>'{Hashes,MD5}'": hash32}).orWhere({"sysmon_evts.eventdata#>>'{Hashes,IMPHASH}'": hash32}).groupBy("cases.uuid");
+		var sysmon = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN sysmon_evts ON cases.uuid = sysmon_evts.uuid WHERE sysmon_evts.eventdata#>>'{Hashes,MD5}' = ? OR sysmon_evts.eventdata#>>'{Hashes,IMPHASH}' = ? GROUP BY cases.uuid", [hash32, hash32]);
 		return Promise.all([suspects, sysmon]);
 	},
 	
 	search_on_sha1: function(sha1hash) {
 		var suspects = pg("suspects").select("*").where({sha1: sha1hash});
-		var sysmon = pg("cases").select("cases.*", "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime").leftJoin("sysmon_evts", "cases.uuid", "=", "sysmon_evts.uuid")
-			.where({"sysmon_evts.eventdata#>>'{Hashes,SHA1}'": sha1hash}).groupBy("cases.uuid");
+		var sysmon = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN sysmon_evts ON cases.uuid = sysmon_evts.uuid WHERE sysmon_evts.eventdata#>>'{Hashes,SHA1}' = ? GROUP BY cases.uuid", [sha1hash]);
 		return Promise.all([suspects, sysmon]);
 	},
 	
 	search_on_sha256: function(sha256hash) {
 		var suspects = pg("suspects").select("*").where({sha256: sha256hash});
-		var sysmon = pg("cases").select("cases.*", "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime").leftJoin("sysmon_evts", "cases.uuid", "=", "sysmon_evts.uuid")
-			.where({"sysmon_evts.eventdata#>>'{Hashes,SHA256}'": sha256hash}).groupBy("cases.uuid");
+		var sysmon = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN sysmon_evts ON cases.uuid = sysmon_evts.uuid WHERE sysmon_evts.eventdata#>>'{Hashes,SHA256}' = ? GROUP BY cases.uuid", [sha256hash]);
 		return Promise.all([suspects, sysmon]);
 	}
 };
