@@ -1,0 +1,15 @@
+<div class="container theme-showcase" role="main">
+	{{#each results.cases}}
+		<div class="card">
+			<div class="card-header" id="heading-{{this.uuid}}">
+				<div class="row">
+					<div class="col-sm-2"><p class="inrow monospace"><small>{{casetime}}</small></p></div>
+					<div class="col-sm-5"><p class="inrow monospace"><small>{{this.fname}}</small></p></div>
+					<div class="col-sm-2"><p class="inrow monospace"><small>Similarity: {{this.sml}}</small></p></div>
+					<div class="col-sm-2"><p class="inrow monospace"><small>Hits: {{this.count}}</small></p></div>
+					<div class="col-sm-1"><p class="inrow"><a href="/cases/view/{{this.sha256}}/{{this.uuid}}"><button class="btn btn-default btn-xs">view</button></a></p></div>
+				</div>
+			</div>
+		</div>
+	{{/each}}
+</div>

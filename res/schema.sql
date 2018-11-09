@@ -136,6 +136,8 @@ CREATE TABLE victimfiles (
 	avresult text,
 	sha256 varchar(64),
 	saved boolean NOT NULL,
+	is_artifact boolean DEFAULT FALSE,
+	alltext text,
 	PRIMARY KEY(uuid, file_path)
 );
 
@@ -155,7 +157,9 @@ CREATE TABLE sysmon_evts (
 	executionThread int,
 	computer text,
 	eventData jsonb,
-	evt_xml xml
+	evt_xml xml,
+	alltext text,
+	is_artifact boolean DEFAULT FALSE
 );
 
 ALTER TABLE sysmon_evts OWNER TO postgres;
@@ -168,7 +172,9 @@ CREATE TABLE suricata_dns (
 	dest_ip inet,
 	dest_port int,
 	"timestamp" timestamp with time zone,
-	dnsdata jsonb
+	dnsdata jsonb,
+	alltext text,
+	is_artifact boolean DEFAULT FALSE
 );
 
 ALTER TABLE suricata_dns OWNER TO postgres;
@@ -181,7 +187,9 @@ CREATE TABLE suricata_http (
 	dest_ip inet,
 	dest_port int,
 	"timestamp" timestamp with time zone,
-	httpdata jsonb
+	httpdata jsonb,
+	alltext text,
+	is_artifact boolean DEFAULT FALSE
 );
 
 ALTER TABLE suricata_http OWNER TO postgres;
@@ -195,7 +203,9 @@ CREATE TABLE suricata_alert (
 	dest_port int,
 	"timestamp" timestamp with time zone,
 	alert jsonb,
-	payload text
+	payload text,
+	alltext text,
+	is_artifact boolean DEFAULT FALSE
 );
 
 ALTER TABLE suricata_alert OWNER TO postgres;
@@ -208,7 +218,9 @@ CREATE TABLE suricata_tls (
 	dest_ip inet,
 	dest_port int,
 	"timestamp" timestamp with time zone,
-	tlsdata jsonb
+	tlsdata jsonb,
+	alltext text,
+	is_artifact boolean DEFAULT FALSE
 );
 
 ALTER TABLE suricata_tls OWNER TO postgres;
@@ -310,6 +322,120 @@ ALTER TABLE ONLY suricata_tls
 
 ALTER TABLE ONLY pcap_summary
 	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
+
+CREATE FUNCTION http_text() RETURNS trigger AS $http_text$
+	BEGIN
+		NEW.alltext := concat_ws(' ', NEW.httpdata#>'{url}', NEW.httpdata#>'{hostname}', NEW.httpdata#>'{http_user_agent}');
+		RETURN NEW;
+	END;
+$http_text$ LANGUAGE plpgsql;
+
+CREATE TRIGGER http_text BEFORE INSERT OR UPDATE ON suricata_http
+	FOR EACH ROW EXECUTE PROCEDURE http_text();
+	
+CREATE FUNCTION dns_text() RETURNS trigger AS $dns_text$
+	BEGIN
+		NEW.alltext := concat_ws(' ', NEW.dnsdata#>'{rdata}', NEW.dnsdata#>'{rrname}');
+		RETURN NEW;
+	END;
+$dns_text$ LANGUAGE plpgsql;
+
+CREATE TRIGGER dns_text BEFORE INSERT OR UPDATE ON suricata_dns
+	FOR EACH ROW EXECUTE PROCEDURE dns_text();
+
+CREATE FUNCTION tls_text() RETURNS trigger AS $tls_text$
+	BEGIN
+		NEW.alltext := concat_ws(' ', NEW.tlsdata#>'{sni}', NEW.tlsdata#>'{subject}', NEW.tlsdata#>'{issuerdn}');
+		RETURN NEW;
+	END;
+$tls_text$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tls_text BEFORE INSERT OR UPDATE ON suricata_tls
+	FOR EACH ROW EXECUTE PROCEDURE tls_text();
+	
+CREATE FUNCTION alert_text() RETURNS trigger AS $alert_text$
+	BEGIN
+		NEW.alltext := NEW.alert#>'{signature}';
+		RETURN NEW;
+	END;
+$alert_text$ LANGUAGE plpgsql;
+
+CREATE TRIGGER alert_text BEFORE INSERT OR UPDATE ON suricata_alert
+	FOR EACH ROW EXECUTE PROCEDURE alert_text();
+
+CREATE FUNCTION sysmon_text() RETURNS trigger AS $sysmon_text$
+	BEGIN
+		IF NEW.eventid = 1 THEN
+			NEW.alltext = concat_ws(' ', NEW.eventdata#>'{Image}', NEW.eventdata#>'{CommandLine}', NEW.eventdata#>'{ParentImage}');
+		END IF;
+		IF NEW.eventid = 2 THEN
+			NEW.alltext = concat_ws(' ', NEW.eventdata#>'{Image}', NEW.eventdata#>'{TargetFilename}');
+		END IF;
+		IF NEW.eventid = 3 THEN
+			NEW.alltext = concat_ws(' ', NEW.eventdata#>'{Image}', NEW.eventdata#>'{DestinationHostname}');
+		END IF;
+		IF NEW.eventid = 5 THEN
+			NEW.alltext = NEW.eventdata#>'{Image}';
+		END IF;
+		IF NEW.eventid = 6 THEN
+			NEW.alltext = concat_ws(' ', NEW.eventdata#>'{ImageLoaded}', NEW.eventdata#>'{Signature}');
+		END IF;
+		IF NEW.eventid = 7 THEN
+			NEW.alltext = concat_ws(' ', NEW.eventdata#>'{Image}', NEW.eventdata#>'{ImageLoaded}', NEW.eventdata#>'{Company}');
+		END IF;
+		IF NEW.eventid = 8 THEN
+			NEW.alltext = concat_ws(' ', NEW.eventdata#>'{SourceImage}', NEW.eventdata#>'{TargetImage}');
+		END IF;
+		IF NEW.eventid = 9 THEN
+			NEW.alltext = NEW.eventdata#>'{Image}';
+		END IF;
+		IF NEW.eventid = 10 THEN
+			NEW.alltext = concat_ws(' ', NEW.eventdata#>'{SourceImage}', NEW.eventdata#>'{TargetImage}');
+		END IF;
+		IF NEW.eventid = 11 THEN
+			NEW.alltext = concat_ws(' ', NEW.eventdata#>'{Image}', NEW.eventdata#>'{TargetFilename}');
+		END IF;
+		IF NEW.eventid = 12 THEN
+			NEW.alltext = concat_ws(' ', NEW.eventdata#>'{Image}', NEW.eventdata#>'{TargetObject}');
+		END IF;
+		IF NEW.eventid = 13 THEN
+			NEW.alltext = concat_ws(' ', NEW.eventdata#>'{Image}', NEW.eventdata#>'{TargetObject}', NEW.eventdata#>'{Details}');
+		END IF;
+		IF NEW.eventid = 14 THEN
+			NEW.alltext = concat_ws(' ', NEW.eventdata#>'{Image}', NEW.eventdata#>'{TargetObject}', NEW.eventdata#>'{NewName}');
+		END IF;
+		IF NEW.eventid = 15 THEN
+			NEW.alltext = concat_ws(' ', NEW.eventdata#>'{Image}', NEW.eventdata#>'{TargetFilename}');
+		END IF;
+		IF NEW.eventid = 17 THEN
+			NEW.alltext = concat_ws(' ', NEW.eventdata#>'{Image}', NEW.eventdata#>'{PipeName}');
+		END IF;
+		IF NEW.eventid = 18 THEN
+			NEW.alltext = concat_ws(' ', NEW.eventdata#>'{Image}', NEW.eventdata#>'{PipeName}');
+		END IF;
+		RETURN NEW;
+	END;
+$sysmon_text$ LANGUAGE plpgsql;
+
+CREATE TRIGGER sysmon_text BEFORE INSERT OR UPDATE ON sysmon_evts
+	FOR EACH ROW EXECUTE PROCEDURE sysmon_text();
+
+CREATE FUNCTION file_text() RETURNS trigger AS $file_text$
+	BEGIN
+		NEW.alltext := concat_ws(' ', NEW.os_path, NEW.avresult, jsonb_object_keys(NEW.yararesult));
+		RETURN NEW;
+	END;
+$file_text$ LANGUAGE plpgsql;
+
+CREATE TRIGGER file_text BEFORE INSERT OR UPDATE ON victimfiles
+	FOR EACH ROW EXECUTE PROCEDURE file_text();
+	
+CREATE INDEX http_trgm ON suricata_http USING GIN(alltext gin_trgm_ops);
+CREATE INDEX tls_trgm ON suricata_tls USING GIN(alltext gin_trgm_ops);
+CREATE INDEX dns_trgm ON suricata_dns USING GIN(alltext gin_trgm_ops);
+CREATE INDEX alert_trgm ON suricata_alert USING GIN(alltext gin_trgm_ops);
+CREATE INDEX sysmon_trgm ON sysmon_evts USING GIN(alltext gin_trgm_ops);
+CREATE INDEX files_trgm ON victimfiles USING GIN(alltext gin_trgm_ops);
 	
 --
 -- Name: public; Type: ACL; Schema: -; Owner: postgres

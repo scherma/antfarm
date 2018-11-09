@@ -15,179 +15,208 @@ var dbparams = {
 var pg = require('knex')(dbparams);
 var format = require('string-template');
 
-function new_suspect(sha256, sha1, md5, originalname, magic, avresult, exifdata, yararesult) {
-	var formatted = moment().format('YYYY-MM-DD HH:mm:ss ZZ');
-	return pg.raw(
-		'INSERT INTO suspects (sha256, sha1, md5, originalname, magic, avresult, exifdata, yararesult, uploadtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (sha256) DO NOTHING;',
-		[sha256, sha1, md5, originalname, magic, avresult, JSON.stringify(exifdata), JSON.stringify(yararesult), formatted]
-	);
-}
-
-function new_case(uuid, unixtime, sha256, fname, reboots, banking, web, runtime, priority) {
-	var formatted = moment.unix(unixtime).format('YYYY-MM-DD HH:mm:ss');
-	
-	var components = fname.split(".");
-	var ext = components[components.length - 1];
-	
-	// default method to run a suspect
-	// cmd /c start <file>
-	var runstyle = 2;
-	
-	// direct CallProcessAsUser
-	var type0 = ["exe", "com", "bat", "bin", "cpl", "ins", "inx", "isu", "job", "pif", "paf", "mst", "msi", "msc"];
-	
-	// explorer.exe <file>
-	var type1 = ["jse", "wsf", "vbs", "js"];
-	
-	if (type0.indexOf(ext) >= 0) {
-		runstyle = 0;
-	} else if (type1.indexOf(ext) >= 0) {
-		runstyle = 1;
-	}
-	
-	return pg.insert({
-		uuid: uuid,
-		submittime: formatted,
-		sha256: sha256,
-		fname: fname,
-		status: 'submitted',
-		runstyle: runstyle,
-		reboots: reboots,
-		banking: banking,
-		web: web,
-		runtime: runtime,
-		priority: priority})
-	.into('cases');
-}
-
-function list_cases(page=0, desc=true, where={}, limit=20) {
-	var order = 'desc';
-	if (!desc) {
-		order = 'asc';
-	}
-	
-	var offset = 0;
-	if (page > 0) {
-		offset = (limit - 1) * page;
-	}
-	var pgr = "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS submittime, cases.sha256, cases.fname, cases.uuid AS uuid, cases.status, workerstate.position, alerts.c AS alert_count, dns.c AS dns_count, http.c AS http_count, files.c as files_count FROM cases LEFT JOIN workerstate ON cases.uuid = workerstate.job_uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_alert GROUP BY uuid) AS alerts ON cases.uuid = alerts.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_dns GROUP BY uuid) AS dns ON cases.uuid = dns.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_http GROUP BY uuid) AS http ON cases.uuid = http.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM victimfiles GROUP BY uuid) AS files ON cases.uuid = files.uuid";
-	
-	if (where) {
-		return pg.select(pg.raw(pgr))
-		.where(where).orderBy('submittime', order).limit(limit).offset(offset);
-	} else {
-		return pg.select(pg.raw(pgr))
-		.orderBy('submittime', order).limit(limit).offset(offset);
-	}
-}
-
-function list_workers() {
-	return pg('victims').select('victims.*', 'workerstate.id', 'workerstate.pid', 'workerstate.position', 'workerstate.params', 'workerstate.job_uuid').leftJoin('workerstate', 'victims.uuid', 'workerstate.uuid');
-}
-
-function set_victim_status(uuid, status) {
-	return pg('victims').update({status: status}).where({uuid: uuid});
-}
-
-function list_files(page=0, where={}, limit=20) {
-	var offset = 0;
-	if (page > 0) {
-		offset = (limit - 1) * page;
-	}
-		
-	if (where) {
-		parsedwhere = {};
-		if (where.sha256) { parsedwhere["suspects.sha256"] = where.sha256; }
-		if (where.sha1) { parsedwhere["suspects.sha1"] = where.sha1; }
-		if (where.md5) { parsedwhere["suspects.md5"] = where.md5; }
-		return pg('suspects').select('suspects.*').count('cases.sha256 AS runcount')
-		.leftJoin('cases', 'suspects.sha256', '=', 'cases.sha256').groupBy('suspects.sha256').where(parsedwhere).orderBy('uploadtime', 'desc').limit(limit).offset(offset);
-	} else {
-		return pg('suspects').select('suspects.*').count('cases.sha256 AS runcount')
-		.leftJoin('cases', 'suspects.sha256', '=', 'cases.sha256').groupBy('suspects.sha256').orderBy('uploadtime', 'desc').limit(limit).offset(offset);
-	}
-}
-
-function sysmon_for_case(uuid) {
-	return pg('sysmon_evts').select(pg.raw("recordid, eventid, to_char(timestamp, 'YYYY-MM-DD HH24:MI:SS') as timestamp, executionprocess, executionthread, computer, eventdata")).where({uuid: uuid});
-}
-
-function victimfiles(uuid) {
-	return pg('victimfiles').select('*').where({uuid:uuid});
-}
-
-function show_case(uuid) {
-	return pg('cases').leftJoin('suspects', 'cases.sha256', '=', 'suspects.sha256').where({'cases.uuid': uuid});
-}
-
-function suricata_for_case(uuid) {
-	var dns = pg('suricata_dns').where({uuid: uuid});
-	var http = pg('suricata_http').where({uuid: uuid});
-	var alert = pg('suricata_alert').where({uuid: uuid});
-	var tls = pg('suricata_tls').where({uuid: uuid});
-	return Promise.all([dns, http, alert, tls]);
-}
-
-function pcap_summary_for_case(uuid) {
-	return pg('pcap_summary').where('uuid', uuid);
-}
-
-function delete_case(uuid) {
-	
-	return pg.transaction(t => {
-		
-		var delete_dns = pg('suricata_dns').where('uuid', uuid).del().transacting(t);
-		var delete_victimfiles = pg('victimfiles').where('uuid', uuid).del().transacting(t);
-		var delete_http = pg('suricata_http').where('uuid', uuid).del().transacting(t);
-		var delete_alert = pg('suricata_alert').where('uuid', uuid).del().transacting(t);
-		var delete_tls = pg('suricata_tls').where('uuid', uuid).del().transacting(t);
-		var delete_pcap = pg('pcap_summary').where('uuid', uuid).del().transacting(t);
-		var delete_sysmon = pg('sysmon_evts').where('uuid', uuid).del().transacting(t);
-		var del_case = pg('cases').where('uuid', uuid).del().transacting(t);
-		
-		return Promise.all([delete_dns, delete_http, delete_alert, delete_tls, delete_pcap, delete_sysmon, delete_victimfiles])
-		.then(() => {
-			return del_case;
-		})
-		.then(t.commit)
-		.catch((err) => {
-			console.log(err);
-			t.rollback();
-		});
-	});
-}
-
-function update_clam(sha256, clamresult) {
-	pg('suspects').where({sha256: sha256})
-	.then((res) => {
-		if (res.avresult != clamresult && clamresult !== '') {
-			pg('suspects').update({avresult: clamresult}).where({sha256: sha256})
-			.then(() => {
-				console.log(format("Updated avresult for {sha256} from '{avr}' to '{clm}'", {sha256: sha256, avr: res.avresult, clm: clamresult}));
-			});
-		}
-	});
-}
-
-function suspectProperties(sha256) {
-	return pg('suspects').select('suspects.*', 'cases.uuid')
-	.leftJoin('cases', 'suspects.sha256', '=', 'cases.sha256')
-	.where({'cases.sha256': sha256});
-}
-
 module.exports = {
-	list_cases: list_cases,
-	new_case: new_case,
-	new_suspect: new_suspect,
-	show_case: show_case,
-	list_files: list_files,
-	list_workers: list_workers,
-	set_victim_status: set_victim_status,
-	delete_case: delete_case,
-	sysmon_for_case: sysmon_for_case,
-	suricata_for_case: suricata_for_case,
-	pcap_summary_for_case: pcap_summary_for_case,
-	victimfiles: victimfiles,
-	update_clam: update_clam,
-	suspectProperties: suspectProperties
+	new_suspect: function(sha256, sha1, md5, originalname, magic, avresult, exifdata, yararesult) {
+		var formatted = moment().format('YYYY-MM-DD HH:mm:ss ZZ');
+		return pg.raw(
+			'INSERT INTO suspects (sha256, sha1, md5, originalname, magic, avresult, exifdata, yararesult, uploadtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (sha256) DO NOTHING;',
+			[sha256, sha1, md5, originalname, magic, avresult, JSON.stringify(exifdata), JSON.stringify(yararesult), formatted]
+		);
+	},
+	
+	new_case: function(uuid, unixtime, sha256, fname, reboots, banking, web, runtime, priority) {
+		var formatted = moment.unix(unixtime).format('YYYY-MM-DD HH:mm:ss');
+		
+		var components = fname.split(".");
+		var ext = components[components.length - 1];
+		
+		// default method to run a suspect
+		// cmd /c start <file>
+		var runstyle = 2;
+		
+		// direct CallProcessAsUser
+		var type0 = ["exe", "com", "bat", "bin", "cpl", "ins", "inx", "isu", "job", "pif", "paf", "mst", "msi", "msc"];
+		
+		// explorer.exe <file>
+		var type1 = ["jse", "wsf", "vbs", "js"];
+		
+		if (type0.indexOf(ext) >= 0) {
+			runstyle = 0;
+		} else if (type1.indexOf(ext) >= 0) {
+			runstyle = 1;
+		}
+		
+		return pg.insert({
+			uuid: uuid,
+			submittime: formatted,
+			sha256: sha256,
+			fname: fname,
+			status: 'submitted',
+			runstyle: runstyle,
+			reboots: reboots,
+			banking: banking,
+			web: web,
+			runtime: runtime,
+			priority: priority})
+		.into('cases');
+	},
+	
+	list_cases: function(page=0, desc=true, where={}, limit=20) {
+		var order = 'desc';
+		if (!desc) {
+			order = 'asc';
+		}
+		
+		var offset = 0;
+		if (page > 0) {
+			offset = (limit - 1) * page;
+		}
+		var pgr = "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS submittime, cases.sha256, cases.fname, cases.uuid AS uuid, cases.status, workerstate.position, alerts.c AS alert_count, dns.c AS dns_count, http.c AS http_count, files.c as files_count FROM cases LEFT JOIN workerstate ON cases.uuid = workerstate.job_uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_alert GROUP BY uuid) AS alerts ON cases.uuid = alerts.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_dns GROUP BY uuid) AS dns ON cases.uuid = dns.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_http GROUP BY uuid) AS http ON cases.uuid = http.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM victimfiles GROUP BY uuid) AS files ON cases.uuid = files.uuid";
+		
+		if (where) {
+			return pg.select(pg.raw(pgr))
+			.where(where).orderBy('submittime', order).limit(limit).offset(offset);
+		} else {
+			return pg.select(pg.raw(pgr))
+			.orderBy('submittime', order).limit(limit).offset(offset);
+		}
+	},
+	
+	list_workers: function() {
+		return pg('victims').select('victims.*', 'workerstate.id', 'workerstate.pid', 'workerstate.position', 'workerstate.params', 'workerstate.job_uuid').leftJoin('workerstate', 'victims.uuid', 'workerstate.uuid');
+	},
+	
+	set_victim_status: function(uuid, status) {
+		return pg('victims').update({status: status}).where({uuid: uuid});
+	},
+	
+	list_files: function(page=0, where={}, limit=20) {
+		var offset = 0;
+		if (page > 0) {
+			offset = (limit - 1) * page;
+		}
+			
+		if (where) {
+			parsedwhere = {};
+			if (where.sha256) { parsedwhere["suspects.sha256"] = where.sha256; }
+			if (where.sha1) { parsedwhere["suspects.sha1"] = where.sha1; }
+			if (where.md5) { parsedwhere["suspects.md5"] = where.md5; }
+			return pg('suspects').select('suspects.*').count('cases.sha256 AS runcount')
+			.leftJoin('cases', 'suspects.sha256', '=', 'cases.sha256').groupBy('suspects.sha256').where(parsedwhere).orderBy('uploadtime', 'desc').limit(limit).offset(offset);
+		} else {
+			return pg('suspects').select('suspects.*').count('cases.sha256 AS runcount')
+			.leftJoin('cases', 'suspects.sha256', '=', 'cases.sha256').groupBy('suspects.sha256').orderBy('uploadtime', 'desc').limit(limit).offset(offset);
+		}
+	},
+	
+	sysmon_for_case: function(uuid) {
+		return pg('sysmon_evts').select(pg.raw("recordid, eventid, to_char(timestamp, 'YYYY-MM-DD HH24:MI:SS.MS') as timestamp, executionprocess, executionthread, computer, eventdata")).where({uuid: uuid});
+	},
+	
+	victimfiles: function(uuid) {
+		return pg('victimfiles').select('*').where({uuid:uuid});
+	},
+	
+	show_case: function(uuid) {
+		return pg('cases').leftJoin('suspects', 'cases.sha256', '=', 'suspects.sha256').where({'cases.uuid': uuid});
+	},
+	
+	suricata_for_case: function(uuid) {
+		var dns = pg('suricata_dns').where({uuid: uuid});
+		var http = pg('suricata_http').where({uuid: uuid});
+		var alert = pg('suricata_alert').where({uuid: uuid});
+		var tls = pg('suricata_tls').where({uuid: uuid});
+		return Promise.all([dns, http, alert, tls]);
+	},
+	
+	pcap_summary_for_case: function(uuid) {
+		return pg('pcap_summary').where('uuid', uuid);
+	},
+	
+	delete_case: function(uuid) {
+		
+		return pg.transaction(t => {
+			
+			var delete_dns = pg('suricata_dns').where('uuid', uuid).del().transacting(t);
+			var delete_victimfiles = pg('victimfiles').where('uuid', uuid).del().transacting(t);
+			var delete_http = pg('suricata_http').where('uuid', uuid).del().transacting(t);
+			var delete_alert = pg('suricata_alert').where('uuid', uuid).del().transacting(t);
+			var delete_tls = pg('suricata_tls').where('uuid', uuid).del().transacting(t);
+			var delete_pcap = pg('pcap_summary').where('uuid', uuid).del().transacting(t);
+			var delete_sysmon = pg('sysmon_evts').where('uuid', uuid).del().transacting(t);
+			var del_case = pg('cases').where('uuid', uuid).del().transacting(t);
+			
+			return Promise.all([delete_dns, delete_http, delete_alert, delete_tls, delete_pcap, delete_sysmon, delete_victimfiles])
+			.then(() => {
+				return del_case;
+			})
+			.then(t.commit)
+			.catch((err) => {
+				console.log(err);
+				t.rollback();
+			});
+		});
+	},
+	
+	update_clam: function(sha256, clamresult) {
+		pg('suspects').where({sha256: sha256})
+		.then((res) => {
+			if (res.avresult != clamresult && clamresult !== '') {
+				pg('suspects').update({avresult: clamresult}).where({sha256: sha256})
+				.then(() => {
+					console.log(format("Updated avresult for {sha256} from '{avr}' to '{clm}'", {sha256: sha256, avr: res.avresult, clm: clamresult}));
+				});
+			}
+		});
+	},
+	
+	suspectProperties: function(sha256) {
+		return pg('suspects').select('suspects.*', 'cases.uuid')
+		.leftJoin('cases', 'suspects.sha256', '=', 'cases.sha256')
+		.where({'cases.sha256': sha256});
+	},
+	
+	search_on_term: function (searchterm, limit=100) {
+		var suri_http = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, suricata_http.alltext) AS sml FROM cases LEFT JOIN suricata_http ON cases.uuid = suricata_http.uuid WHERE ? <% suricata_http.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
+		var suri_dns = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, suricata_dns.alltext) AS sml FROM cases LEFT JOIN suricata_dns ON cases.uuid = suricata_dns.uuid WHERE ? <% suricata_dns.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
+		var suri_tls = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, suricata_tls.alltext) AS sml FROM cases LEFT JOIN suricata_tls ON cases.uuid = suricata_tls.uuid WHERE ? <% suricata_tls.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
+		var suri_alert = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, suricata_alert.alltext) AS sml FROM cases LEFT JOIN suricata_alert ON cases.uuid = suricata_alert.uuid WHERE ? <% suricata_alert.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
+		var sysmon_evt = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, sysmon_evts.alltext) AS sml FROM cases LEFT JOIN sysmon_evts ON cases.uuid = sysmon_evts.uuid WHERE ? <% sysmon_evts.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
+		var victimfiles = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, victimfiles.alltext) AS sml FROM cases LEFT JOIN victimfiles ON cases.uuid = victimfiles.uuid WHERE ? <% victimfiles.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
+		return Promise.all([suri_http, suri_dns, suri_tls, suri_alert, sysmon_evt, victimfiles]);
+	},
+	
+	search_on_ip: function(ipaddr) {
+		var dns_ip = pg("cases").select("cases.*", "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime").leftJoin("suricata_dns", "cases.uuid", "=", "suricata_dns.uuid")
+			.where({"suricata_dns.dnsdata#>'{rdata}'": ipaddr});
+		var http_ip = pg("cases").select("cases.*", "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime").leftJoin("suricata_http", "cases.uuid", "=", "suricata_http.uuid")
+			.where({"suricata_http.dest_ip": ipaddr}).orWhere({"suricata_http.httpdata#>'{hostname}'": ipaddr});
+		var tls_ip = pg("cases").select("cases.*", "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime").leftJoin("suricata_tls", "cases.uuid", "=", "suricata_tls.uuid")
+			.where({"suricata_tls.dest_ip": ipaddr});
+		var alert_ip = pg("cases").select("cases.*", "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime").leftJoin("suricata_alert", "cases.uuid", "=", "suricata_alert.uuid")
+			.where({"suricata_alert.dest_ip": ipaddr}).orWhere({"suricata_alert.src_ip": ipaddr});
+			
+		return Promise.all([dns_ip, http_ip, tls_ip, alert_ip]);
+	},
+	
+	search_on_md5: function(hash32) {
+		var suspects = pg("suspects").select("*").where({md5: hash32});
+		var sysmon = pg("cases").select("cases.*", "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime").leftJoin("sysmon_evts", "cases.uuid", "=", "sysmon_evts.uuid")
+			.where({"sysmon_evts.eventdata#>>'{Hashes,MD5}'": hash32}).orWhere({"sysmon_evts.eventdata#>>'{Hashes,IMPHASH}'": hash32}).groupBy("cases.uuid");
+		return Promise.all([suspects, sysmon]);
+	},
+	
+	search_on_sha1: function(sha1hash) {
+		var suspects = pg("suspects").select("*").where({sha1: sha1hash});
+		var sysmon = pg("cases").select("cases.*", "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime").leftJoin("sysmon_evts", "cases.uuid", "=", "sysmon_evts.uuid")
+			.where({"sysmon_evts.eventdata#>>'{Hashes,SHA1}'": sha1hash}).groupBy("cases.uuid");
+		return Promise.all([suspects, sysmon]);
+	},
+	
+	search_on_sha256: function(sha256hash) {
+		var suspects = pg("suspects").select("*").where({sha256: sha256hash});
+		var sysmon = pg("cases").select("cases.*", "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime").leftJoin("sysmon_evts", "cases.uuid", "=", "sysmon_evts.uuid")
+			.where({"sysmon_evts.eventdata#>>'{Hashes,SHA256}'": sha256hash}).groupBy("cases.uuid");
+		return Promise.all([suspects, sysmon]);
+	}
 };

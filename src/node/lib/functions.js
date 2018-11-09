@@ -346,9 +346,9 @@ var SuricataEventsOfInterest = function(event) {
 	
 	if (event.httpdata || event.dnsdata) {
 		var namearr = [];
-		if (event.httpdata) {
+		if (event.httpdata && event.httpdata.hostname) {
 			namearr = event.httpdata.hostname.split(".");	
-		} else {
+		} else if (event.dnsdata && event.dnsdata.rrname) {
 			namearr = event.dnsdata.rrname.split(".");
 		}
 		
@@ -430,10 +430,10 @@ function ParseVictimFile(row) {
 	filedata.ctime_nsec = row.file_stat.st_ctime_nsec;
 	filedata.humantime = {};
 	if (filedata.ctime_sec) {
-		filedata.humantime.created = moment.unix(filedata.ctime_sec).format("YYYY-MM-DD HH:mm:ss Z");
+		filedata.humantime.created = moment.unix(filedata.ctime_sec).add(filedata.ctime_nsec / 1000, 'ms').format("YYYY-MM-DD HH:mm:ss.SSS");
 	}
-	filedata.humantime.modified = moment.unix(row.file_stat.st_mtime_sec).format("YYYY-MM-DD HH:mm:ss Z");
-	filedata.humantime.accessed = moment.unix(row.file_stat.st_atime_sec).format("YYYY-MM-DD HH:mm:ss Z");
+	filedata.humantime.modified = moment.unix(row.file_stat.st_mtime_sec).add(row.file_stat.st_mtime_nsec / 1000, 'ms').format("YYYY-MM-DD HH:mm:ss.SSS");
+	filedata.humantime.accessed = moment.unix(row.file_stat.st_atime_sec).add(row.file_stat.st_atime_nsec / 1000, 'ms').format("YYYY-MM-DD HH:mm:ss.SSS");
 	if (filedata.size) {
 		if (filedata.size > 1024*1024*1024) {
 			filedata.humansize = Math.round(filedata.size / (1024*1024*1024)) + " GB";
@@ -729,41 +729,51 @@ function GetCase(req) {
 function OverviewItems(ids, dns, http, tls, sysmon, files) {
 	return new Promise((fulfill, reject) => {
 		var items = [];
+		var tsfmt = 'YYYY-MM-DD HH:mm:ss.SSS';
 		ids.forEach((i) => {
 			var item = {};
-			item.timestamp = moment(i.timestamp).format();
-			item.type = 'ids';
+			item.timestamp = moment(i.timestamp).format(tsfmt);
+			item.timestampraw = moment(i.timestamp);
+			item.type = 'alert';
 			item.title = 'IDS alert';
 			item.info = format('{signature} ({srcip}:{srcport} → {dstip}:{dstport})', {signature: i.alert.signature, srcip: i.src_ip, srcport: i.src_port, dstip: i.dest_ip, dstport: i.dest_port});
+			item.source = 'Suricata';
 			items.push(item);
 		});
 		dns.forEach((d) => {
 			var item = {};
-			item.timestamp = moment(d.timestamp).format();
+			item.timestampraw = moment(d.timestamp);
+			item.timestamp = item.timestampraw.format(tsfmt);
 			item.type = 'netconn';
 			item.title = 'DNS query';
 			item.info = format('{type} {rrtype} {rrname}', {type: d.dnsdata.type, rrtype: d.dnsdata.rrtype, rrname: d.dnsdata.rrname});
+			item.source = 'Suricata';
 			items.push(item);
 		});
 		http.forEach((h) => {
 			var item = {};
-			item.timestamp = moment(h.timestamp).format();
+			item.timestampraw = moment(h.timestamp);
+			item.timestamp = item.timestampraw.format(tsfmt);
 			item.type = 'netconn';
 			item.title = 'HTTP request';
 			item.info = format('({hostname}) {method} {url}', {hostname: h.httpdata.hostname, method: h.httpdata.http_method, url: h.httpdata.url});
+			item.source = 'Suricata';
 			items.push(item);
 		});
 		tls.forEach((t) => {
 			var item = {};
-			item.timestamp = moment(t.timestamp).format();
+			item.timestampraw = moment(t.timestamp);
+			item.timestamp = item.timestampraw.format(tsfmt);
 			item.type = 'netconn';
 			item.title = 'TLS connection';
 			item.info = t.tlsdata.sni;
+			item.source = 'Suricata';
 			items.push(item);
 		});
 		sysmon.forEach((s) => {
 			var item = {};
-			item.timestamp = moment(s.System.SystemTime, 'YYYY-MM-DD hh:mm:ss').format();
+			item.timestampraw = moment(s.System.SystemTime, 'YYYY-MM-DD hh:mm:ss.SSS');
+			item.timestamp = item.timestampraw.format(tsfmt);
 			item.type = 'misc';
 			if ([1, 5].indexOf(s.System.EventID) >= 0) {
 				item.type = 'process';
@@ -774,20 +784,27 @@ function OverviewItems(ids, dns, http, tls, sysmon, files) {
 			}
 			item.title = s.System.EventName;
 			item.info = s.Highlight;
+			item.source = 'Sysmon';
 			items.push(item);
 		});
 		files.forEach((f) => {
 			var item = {};
-			item.timestamp = moment(f.humantime.modified, 'YYYY-MM-DD hh:mm:ss').format();
-			item.type = 'file';
-			item.title = 'File modified';
+			item.timestampraw = moment(f.humantime.modified, 'YYYY-MM-DD hh:mm:ss.SSS');
+			item.timestamp = item.timestampraw.format(tsfmt);
+			if (f.avresult || Object.keys(f.yararesult).length > 0) {
+				item.type = 'alert';	
+			} else {
+				item.type = 'file';	
+			}
+			item.title = 'Last modified';
 			item.info = f.basename;
+			item.source = 'Filesystem';
 			items.push(item);
 		});
 		
 		items.sort(function(a,b) {
-			var m1 = moment(a.timestamp);
-			var m2 = moment(b.timestamp);
+			var m1 = moment(a.timestampraw);
+			var m2 = moment(b.timestampraw);
 			if (m1 < m2) {
 				return -1;
 			}
@@ -893,6 +910,116 @@ function SuspectProperties(sha256) {
 	});
 }
 
+
+function SearchRawTerm(searchterm) {
+	var hits = {
+		cases: {},
+		suspects: {}
+	};
+	
+	switch(FindStringType(searchterm)) {
+		case "ipv4":
+			db.search_on_ip(searchterm).then((values) => {
+				values.forEach((val) => {
+					val.forEach((row) => {
+						if (row.uuid in hits.cases) {
+							hits.cases[row.uuid].count += 1;
+						} else {
+							hits.cases[row.uuid] = row;
+							hits.cases[row.uuid].count = 1;
+						}
+						hits.cases[row.uuid].sml = 1;
+					});
+				});
+				
+				return hits;
+			});
+			break;
+		case "sha256":
+			db.search_on_sha256(searchterm).then((values) => {
+				values[0].forEach((suspect) => {
+					hits.suspects[suspect.sha256] = suspect;
+					hits.suspects[suspect.sha256].sml = 1;
+				});
+				values[1].forEach((sysmon) => {
+					if (sysmon.uuid in hits.cases) {
+						hits.cases[sysmon.uuid].count += 1;
+					} else {
+						hits.cases[sysmon.uuid] = sysmon;
+						hits.cases[sysmon.uuid].count = 1;
+					}
+					hits.cases[sysmon.uuid].sml = 1;
+				});
+				return hits;
+			});
+			break;
+		case "sha1":
+			db.search_on_sha1(searchterm).then((values) => {
+				values[0].forEach((suspect) => {
+					hits.suspects[suspect.sha256] = suspect;
+					hits.suspects[suspect.sha256].sml = 1;
+				});
+				values[1].forEach((sysmon) => {
+					if (sysmon.uuid in hits.cases) {
+						hits.cases[sysmon.uuid].count += 1;
+					} else {
+						hits.cases[sysmon.uuid] = sysmon;
+						hits.cases[sysmon.uuid].count = 1;
+					}
+					hits.cases[sysmon.uuid].sml = 1;
+				});
+				return hits;
+			});
+			break;
+		case "hash32":
+			db.search_on_sha1(searchterm).then((values) => {
+				values[0].forEach((suspect) => {
+					hits.suspects[suspect.sha256] = suspect;
+					hits.suspects[suspect.sha256].sml = 1;
+				});
+				values[1].forEach((sysmon) => {
+					if (sysmon.uuid in hits.cases) {
+						hits.cases[sysmon.uuid].count += 1;
+					} else {
+						hits.cases[sysmon.uuid] = sysmon;
+						hits.cases[sysmon.uuid].count = 1;
+					}
+					hits.cases[sysmon.uuid].sml = 1;
+				});
+				return hits;
+			});
+			break;
+		default:
+			return db.search_on_term(searchterm).then((values) => {
+				values.forEach((val) => {
+					val.rows.forEach((row) => {
+						if (row.uuid in hits.cases) {
+							hits.cases[row.uuid].count += 1;
+							if (hits.cases[row.uuid].sml < row.sml) {
+								hits.cases[row.uuid].sml = row.sml;
+							}
+						} else {
+							hits.cases[row.uuid] = row;
+							hits.cases[row.uuid].count = 1;
+						}
+					});
+				});
+				
+				return hits;
+			});
+	}
+}
+
+function FindStringType(thestring) {
+	if (thestring.match(/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/)) return "ipv4";
+	if (thestring.match(/^[A-Fa-f0-9]{64}$/)) return "sha256";
+	if (thestring.match(/^[A-Fa-f0-9]{40}$/)) return "sha1";
+	if (thestring.match(/^[A-Fa-f0-9]{32}$/)) return "hash32"; // md5 or imphash
+	
+	// if no match treat as a generic full text search string
+	return "string";
+}
+
 module.exports = {
 	Hashes: Hashes,
 	Suspect: Suspect,
@@ -910,5 +1037,6 @@ module.exports = {
 	ClamScan: ClamScan,
 	ClamUpdate: ClamUpdate,
 	ExtractSavedFile: ExtractSavedFile,
-	SuspectProperties: SuspectProperties
+	SuspectProperties: SuspectProperties,
+	SearchRawTerm: SearchRawTerm
 };
