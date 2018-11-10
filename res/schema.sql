@@ -422,7 +422,7 @@ CREATE TRIGGER sysmon_text BEFORE INSERT OR UPDATE ON sysmon_evts
 
 CREATE FUNCTION file_text() RETURNS trigger AS $file_text$
 	BEGIN
-		NEW.alltext := concat_ws(' ', NEW.os_path, NEW.avresult, jsonb_object_keys(NEW.yararesult));
+		NEW.alltext := concat_ws(' ', NEW.os_path, NEW.avresult, (SELECT string_agg(key, ' ') FROM jsonb_object_keys(NEW.yararesult) as key));
 		RETURN NEW;
 	END;
 $file_text$ LANGUAGE plpgsql;
