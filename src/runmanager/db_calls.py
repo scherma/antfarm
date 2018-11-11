@@ -140,6 +140,50 @@ def insert_sysmon(events_list, uuid, cursor):
         lineno = tb.tb_lineno
         logger.error("Exception {0} {1} in {2}, line {3} parsing Sysmon data, events not written to DB".format(ex_type, ex, fname, lineno))
         
+def all_case_events(uuid, cursor):
+    sysmonsql = """SELECT * FROM sysmon_evts WHERE uuid = %s"""
+    httpsql = """SELECT * FROM suricata_http WHERE uuid = %s"""
+    dnssql = """SELECT * FROM suricata_dns WHERE uuid = %s"""
+    alertsql = """SELECT * FROM suricata_alert WHERE uuid = %s"""
+    tlssql  = """SELECT * FROM suricata_tls WHERE uuid = %s"""
+    filessql = """SELECT * FROM victimfiles WHERE uuid = %s"""
+    
+    cursor.execute(sysmonsql, (uuid,))
+    sysmonrows = cursor.fetchall()
+    cursor.execute(httpsql, (uuid,))
+    httprows = cursor.fetchall()
+    cursor.execute(dnssql, (uuid,))
+    dnsrows = cursor.fetchall()
+    cursor.execute(alertsql, (uuid,))
+    alertrows = cursor.fetchall()
+    cursor.execute(tlssql, (uuid,))
+    tlsrows = cursor.fetchall()
+    cursor.execute(filessql, (uuid,))
+    filesrows = cursor.fetchall()
+    
+    return {"sysmon": sysmonrows, "http": httprows, "dns": dnsrows, "alert": alertrows, "files": filesrows}
+
+def tag_artifact(evtdata, evttype, cursor):
+    if evttype == "sysmon":
+        sql = """UPDATE sysmon_evts SET is_artifact = true WHERE uuid = %s AND recordid = %s"""
+        cursor.execute(sql, (evtdata["uuid"], evtdata["recordid"]))
+    elif evttype == "dns":
+        sql = """UPDATE suricata_dns SET is_artifact = true WHERE uuid = %s AND id = %s"""
+        cursor.execute(sql, (evtdata["uuid"], evtdata["id"]))
+    elif evttype == "tls":
+        sql = """UPDATE suricata_tls SET is_artifact = true WHERE uuid = %s AND id = %s"""
+        cursor.execute(sql, (evtdata["uuid"], evtdata["id"]))
+    elif evttype == "http":
+        sql = """UPDATE suricata_http SET is_artifact = true WHERE uuid = %s AND id = %s"""
+        cursor.execute(sql, (evtdata["uuid"], evtdata["id"]))
+    elif evttype == "alert":
+        sql = """UPDATE suricata_alert SET is_artifact = true WHERE uuid = %s AND id = %s"""
+        cursor.execute(sql, (evtdata["uuid"], evtdata["id"]))
+    elif evttype == "filesystem":
+        sql = """UPDATE victimfiles SET is_artifact = true WHERE uuid = %s AND file_path = %s"""
+        cursor.execute(sql, (evtdata["uuid"], evtdata["file_path"]))
+        
+    
 def timestomped_files(uuid, cursor):
     sql = """SELECT * FROM sysmon_evts WHERE uuid = %s AND eventid = 2"""
     cursor.execute(sql, (uuid,))

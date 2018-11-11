@@ -1,7 +1,6 @@
 <Sysmon schemaversion="4.1">
   <EventFiltering>
     <ProcessCreate onmatch="include">
-      <Image condition="begin with" name="undefined">C:\Users</Image>
       <Image condition="image" name="technique_id=T1202,technique_name=Indirect Command Execution">wscript.exe</Image>
       <Image condition="begin with" name="technique_id=T1036,technique_name=Masquerading">C:\Windows\Fonts\</Image>
       <Image condition="contains" name="technique_id=T1036,technique_name=Masquerading">\htdocs\</Image>
@@ -379,7 +378,7 @@
       <ImageLoaded name="technique_id=T1003,technique_name=Credential Dumping">C:\Windows\System32\cryptdll.dll</ImageLoaded>
     </ImageLoad>
     <ImageLoad onmatch="exclude">
-	<Image condition="image">C:\Windows\CoffeeSvc.exe</Image>
+      <Image>C:\Windows\CoffeeSvc.exe</Image>
     </ImageLoad>
     <CreateRemoteThread onmatch="include">
       <TargetImage name="technique_id=T1055,technique_name=Process Injection">C:\Windows\System32\sysmon.exe</TargetImage>

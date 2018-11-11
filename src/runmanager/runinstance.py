@@ -4,7 +4,7 @@
 # contact http_error_418 @ unsafehex.com
 
 import logging, os, configparser, libvirt, json, arrow, pyvnc, shutil, time, victimfiles, glob, subprocess
-import tempfile, evtx_dates, db_calls, psycopg2, psycopg2.extras, sys, pcap_parser, yarahandler, magic
+import tempfile, evtx_dates, db_calls, psycopg2, psycopg2.extras, sys, pcap_parser, yarahandler, magic, case_postprocess
 import scapy.all as scapy
 from lxml import etree
 from io import StringIO, BytesIO
@@ -59,6 +59,7 @@ class RunInstance():
         self.dbconn = dbconn
         self.domid = domid
         self.yara_test()
+        self.vf = None
         
     @property
     def rawfile(self):
@@ -309,11 +310,11 @@ class RunInstance():
             
             self.screenshot(dom, lv_conn)
             if ext in macrotypes:
-                vncconn.enable_macros(self.victim_params["ms_office_type"])
-                vncconn.enable_dde()
-                self.screenshot(dom, lv_conn)
+                #vncconn.enable_macros(self.victim_params["ms_office_type"])
+                #vncconn.enable_dde()
                 vncconn.client.pause(10)
-                vncconn.close_window()
+                self.screenshot(dom, lv_conn)
+                #vncconn.close_window()
             
             #logger.info("VM prepped for suspect execution, starting behaviour sequence")
             if self.interactive:
@@ -386,10 +387,10 @@ class RunInstance():
         dtend = arrow.get(self.endtime)
         try:
             logger.info("Obtaining new files from guest filesystem")
-            vf = victimfiles.VictimFiles(self.conf, self.victim_params["diskfile"], '/dev/sda2')
-            filesdict = vf.download_new_files(dtstart, self.rundir)
-            registriesdict = vf.download_modified_registries(dtstart, self.rundir, self.victim_params["username"])
-            targetedfilesdict = vf.download_specific_files(self.targeted_files_list(), self.rundir)
+            self.vf = victimfiles.VictimFiles(self.conf, self.victim_params["diskfile"], '/dev/sda2')
+            filesdict = self.vf.download_new_files(dtstart, self.rundir)
+            registriesdict = self.vf.download_modified_registries(dtstart, self.rundir, self.victim_params["username"])
+            targetedfilesdict = self.vf.download_specific_files(self.targeted_files_list(), self.rundir)
             compileddict = {**filesdict, **registriesdict, **targetedfilesdict}
             db_calls.insert_files(compileddict, self.uuid, self.cursor)
             
@@ -428,6 +429,15 @@ class RunInstance():
             fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
             lineno = tb.tb_lineno
             logger.error("Exception {0} {1} in {2}, line {3} while processing job, Suricata data not written".format(ex_type, ex, fname, lineno))
+            
+        try:
+            pp = case_postprocess.Postprocessor(self.uuid, self.cursor)
+            pp.update_events()
+        except Exception:
+            ex_type, ex, tb = sys.exc_info()
+            fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
+            lineno = tb.tb_lineno
+            logger.error("Exception {0} {1} in {2}, line {3} while processing job, case postprocessing failed".format(ex_type, ex, fname, lineno))
             
         self.get_pcap()
     

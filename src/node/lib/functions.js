@@ -500,7 +500,7 @@ function GetCase(req) {
 	var imagepath = path.join(rootdir, 'www', 'public', 'images', 'cases', uuidshort, req.params.uuid);
 	var imagepublicpath = path.join('/images', 'cases', uuidshort, req.params.uuid);
 	
-	var sysmonP = db.sysmon_for_case(req.params.uuid);
+	var sysmonP = db.sysmon_for_case(req);
 	
 	var eventsP = new Promise((fulfill, reject) => {
 		db.suricata_for_case(req.params.uuid).then((values) => {
@@ -513,29 +513,29 @@ function GetCase(req) {
 						
 			values[0].forEach((dns_row) => {
 				dns_row.timestamp = moment(dns_row.timestamp).toISOString();
-				dns_row.interesting = SuricataEventsOfInterest(dns_row);
-				if (dns_row.interesting) {
+				//dns_row.interesting = SuricataEventsOfInterest(dns_row);
+				if (!dns_row.is_artifact || req.query.artifacts == "1") {
 					d.dns.push(dns_row);
 				}
 			});
 			values[1].forEach((http_row) => {
 				http_row.timestamp = moment(http_row.timestamp).toISOString();
-				http_row.interesting = SuricataEventsOfInterest(http_row);
-				if (http_row.interesting) {
+				//http_row.interesting = SuricataEventsOfInterest(http_row);
+				if (!http_row.is_artifact || req.query.artifacts == "1") {
 					d.http.push(http_row);
 				}
 			});
 			values[2].forEach((alert_row) => {
 				alert_row.timestamp = moment(alert_row.timestamp).toISOString();
-				alert_row.interesting = SuricataEventsOfInterest(alert_row);
-				if (alert_row.interesting) {
+				//alert_row.interesting = SuricataEventsOfInterest(alert_row);
+				if (!alert_row.is_artifact || req.query.artifacts == "1") {
 					d.alert.push(alert_row);
 				}
 			});
 			values[3].forEach((tls_row) => {
 				tls_row.timestamp = moment(tls_row.timestamp).toISOString();
-				tls_row.interesting = SuricataEventsOfInterest(tls_row);
-				if (tls_row.interesting) {
+				//tls_row.interesting = SuricataEventsOfInterest(tls_row);
+				if (!tls_row.is_artifact || req.query.artifacts == "1") {
 					d.tls.push(tls_row);
 				}
 			});
