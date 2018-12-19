@@ -25,7 +25,28 @@ server {
     
     location / {
         proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $http_host;
     }
+    
+    location /novnc {
+        alias /usr/local/unsafehex/antfarm/novnc;
+        index vnc.html;
+        try_files $uri $uri/ /vnc.html;
+    }
+
+    location ~ ^/vncsockets/(..)$ {
+        proxy_http_version 1.1;
+        proxy_pass http://127.0.0.1:68$1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # VNC connection timeout
+        proxy_read_timeout 61s;
+
+        # Disable cache
+        proxy_buffering off;
+    }
+
 }
 
 server {

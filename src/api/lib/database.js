@@ -30,20 +30,9 @@ function vmCanRegister(vmname) {
 	});
 }
 
-function registerVictimService(guid,
-							   vmname,
-							   vmip,
-							   osname,
-							   officeVersionString,
-							   officeVersionNum,
-							   username,
-							   password,
-							   displayHeight,
-							   displayWidth,
-							   malwareX,
-							   malwareY) {
-	var officeType = 0;
-	switch(officeVersionNum) {
+function registerVictimService(regparams) {
+	var officetype = 0;
+	switch(regparams.officeversionnum) {
 		case "12.0":
 			officeType = 1;
 			break;
@@ -60,19 +49,21 @@ function registerVictimService(guid,
 			break;
 	}
 	
+	console.log(regparams);
+	
 	return pg('victims').update({
-		guid: guid,
-		ip: vmip,
-		os: osname,
-		ms_office_type: officeType,
-		ms_office_string: officeVersionString,
-		username: username,
-		password: password,
-		display_x: displayWidth,
-		display_y: displayHeight,
-		malware_pos_x: malwareX,
-		malware_pos_y: malwareY
-		}).where({libvirtname: vmname});
+		guid: regparams.guid,
+		ip: regparams.ip,
+		os: regparams.osname,
+		ms_office_type: officetype,
+		ms_office_string: regparams.officeversionstring,
+		username: regparams.username,
+		password: regparams.password,
+		display_x: regparams.displaywidth,
+		display_y: regparams.displayheight,
+		malware_pos_x: regparams.malwarex,
+		malware_pos_y: regparams.malwarey
+		}).where({libvirtname: regparams.vmname});
 }
 
 function findCaseForVM(guid, state) {

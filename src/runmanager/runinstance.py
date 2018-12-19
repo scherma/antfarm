@@ -3,7 +3,7 @@
 # MIT License © https://github.com/scherma
 # contact http_error_418 @ unsafehex.com
 
-import logging, os, configparser, libvirt, json, arrow, pyvnc, shutil, time, victimfiles, glob, subprocess
+import logging, os, configparser, libvirt, json, arrow, pyvnc, shutil, time, victimfiles, glob, websockify, multiprocessing, signal
 import tempfile, evtx_dates, db_calls, psycopg2, psycopg2.extras, sys, pcap_parser, yarahandler, magic, case_postprocess
 import scapy.all as scapy
 from lxml import etree
@@ -17,7 +17,7 @@ class RunInstance():
     def __init__(   self,
                     cursor,
                     dbconn,
-                    domid,
+                    domuuid,
                     conf,
                     fname,
                     uuid,
@@ -53,13 +53,14 @@ class RunInstance():
         self.imgdir = self._make_imgdir()
         self.runlog = self._register_logger()
         self.pcap_file = os.path.join(self.rundir, "capture.pcap")
-        self.stop_capture = False
+        #self.stop_capture = False
         self.imgsequence = 0
         self.cursor = cursor
         self.dbconn = dbconn
-        self.domid = domid
+        self.domuuid = domuuid
         self.yara_test()
         self.vf = None
+        self.vncthread = None
         
     @property
     def rawfile(self):
@@ -67,7 +68,7 @@ class RunInstance():
     
     @property
     def downloadfile(self):
-        return os.path.join(self.filespath, 'downloads', str(self.domid), self.fname)
+        return os.path.join(self.filespath, 'downloads', str(self.domuuid), self.fname)
     
     @property
     def banking(self):
@@ -93,13 +94,13 @@ class RunInstance():
     def interactive(self, value):
         self._interactive = bool(value)
         
-    @property
-    def stop_capture(self):
-        return bool(self._stop_capture)
+#    @property
+#    def stop_capture(self):
+#        return bool(self._stop_capture)
 
-    @stop_capture.setter
-    def stop_capture(self, value):
-        self._stop_capture = bool(value)
+#    @stop_capture.setter
+#    def stop_capture(self, value):
+#        self._stop_capture = bool(value)
         
     def _dump_dict(self):
         tformat = 'YYYY-MM-DD HH:mm:ss.SSSZ'
@@ -120,8 +121,7 @@ class RunInstance():
             "victim_params": self.victim_params,
             "runcmds": self.runcmds,
             "rundir": self.rundir,
-            "pcap_file": self.pcap_file,
-            "stop_capture": self.stop_capture
+            "pcap_file": self.pcap_file
         }
         return selfdict
         
@@ -195,22 +195,22 @@ class RunInstance():
         self.cursor.execute("""UPDATE "cases" SET status = %s WHERE uuid=%s""", (status, self.uuid))
         self.dbconn.commit()
     
-    def write_capture(self, pkt):
-        scapy.wrpcap(self.pcap_file, pkt, append=True)
-        if self.stop_capture:
-            logger.info("Wrote pcap to file {0}".format(self.pcap_file))
-            summary_file = os.path.join(self.rundir, 'pcap_summary.json')
-            c = pcap_parser.conversations(self.pcap_file)
-            sql = """INSERT INTO pcap_summary (uuid, src_ip, src_port, dest_ip, dest_port, protocol) VALUES %s"""
-            values = []
-            for cevent in c:
-                row = (self.uuid, cevent["src"], cevent["srcport"], cevent["dst"], cevent["dstport"], cevent["protocol"])
-                values.append(row)
-            psycopg2.extras.execute_values(self.cursor, sql, values)
-            with open(summary_file, 'w') as f:
-                f.write(json.dumps(c))
-            logger.debug("Stop capture issued, raising exception to terminate thread")
-            raise StopCaptureException("Stop Capture flag set")
+#    def write_capture(self, pkt):
+#        scapy.wrpcap(self.pcap_file, pkt, append=True)
+#        if self.stop_capture:
+#            logger.info("Wrote pcap to file {0}".format(self.pcap_file))
+#            summary_file = os.path.join(self.rundir, 'pcap_summary.json')
+#            c = pcap_parser.conversations(self.pcap_file)
+#            sql = """INSERT INTO pcap_summary (uuid, src_ip, src_port, dest_ip, dest_port, protocol) VALUES %s"""
+#            values = []
+#            for cevent in c:
+#                row = (self.uuid, cevent["src"], cevent["srcport"], cevent["dst"], cevent["dstport"], cevent["protocol"])
+#                values.append(row)
+#            psycopg2.extras.execute_values(self.cursor, sql, values)
+#            with open(summary_file, 'w') as f:
+#                f.write(json.dumps(c))
+#            logger.debug("Stop capture issued, raising exception to terminate thread")
+#            raise StopCaptureException("Stop Capture flag set")
         
     def get_pcap(self):
         try:
@@ -261,10 +261,10 @@ class RunInstance():
             lineno = tb.tb_lineno
             logger.error("Exception {0} {1} in {2}, line {3} while processing pcap".format(ex_type, ex, fname, lineno))
         
-    def capture(self):
-        fl = "host {0} and not (host {1} and port 28080)".format(self.victim_params["ip"], self.conf.get("General", "gateway_ip"))
-        logger.debug("Packet capture starting with filter '{0}'".format(fl))
-        scapy.sniff(iface="vnet0", filter=fl, prn=self.write_capture)
+#    def capture(self):
+#        fl = "host {0} and not (host {1} and port 28080)".format(self.victim_params["ip"], self.conf.get("General", "gateway_ip"))
+#        logger.debug("Packet capture starting with filter '{0}'".format(fl))
+#        scapy.sniff(iface="vnet0", filter=fl, prn=self.write_capture)
             
     def events_to_store(self, searchfiles, startdate, enddate):
         events = {}
@@ -295,8 +295,6 @@ class RunInstance():
         return events
     
     def behaviour(self, dom, lv_conn):
-        # give 15 seconds for execution to take place before starting behaviour
-        time.sleep(15)
         try: 
             cstr = "{0}::{1}".format(self.victim_params["vnc"]["address"], self.victim_params["vnc"]["port"])
             vncconn = pyvnc.Connector(cstr, self.victim_params["password"], (self.victim_params["display_x"], self.victim_params["display_y"]))
@@ -460,7 +458,23 @@ class RunInstance():
                 to_read.insert(0, evefile)
             
         return to_read
+    
+    def present_vnc(self):
+        lport = 6800 + (int(self.victim_params["vnc"]["port"]) - 5900)
+        dport = self.victim_params["vnc"]["port"]
+        self.vncthread = multiprocessing.Process(target=vncsocket, args=("127.0.0.1", lport, dport))
+        self.vncthread.start()
+        logger.info("Started websockify server on {} -> {}".format(lport, dport))
+    
+    def remove_vnc(self):
+        self.vncthread.terminate()
+        logger.info("Stopped websockify server")
             
+def vncsocket(host, lport, dport):
+    logger.debug("Spinning up websocket process...")
+    server = websockify.WebSocketProxy(**{"target_host": host, "target_port": dport, "listen_port": lport})
+    server.start_server()
+        
             
             
 def get_screen_image(dom, lv_conn):

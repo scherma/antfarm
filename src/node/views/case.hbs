@@ -21,10 +21,14 @@ $(document).ready(function() {
 						<div class="col-sm-2 ph-8"><strong>Name</strong></div>
 						<div class="col-sm-10 text-break ph-8">{{properties.fname.text}}</div>
 					</div>
+					<div class="row">
+						<div class="col-sm-2 ph-8"><strong>Status</strong></div>
+						<div class="col-sm-10 text-break ph-8">{{properties.status.text}}</div>
+					</div>
 				</div>
 			</div>
 		</div>
-		<div class="card">
+		<div class="card scrolltab-card">
 			<div class="card-body">
 				<nav class="navbar navbar-default">
 					<div class="navbar-header">
@@ -51,358 +55,358 @@ $(document).ready(function() {
 								<a href="#meta" class="nav-item" id="meta-tab" data-toggle="tab" role="tab">Meta</a>
 							</li>
 						</ul>
-						<ul class="nav navbar-nav navbar-right">
-							<li class="nav-item pcap-link">
-								<a href="{{pcaplink}}" class="nav-item">Get pcap</a>
-							</li>
-							<li class="nav-item file-link">
-								<a href="{{this.suspectlink}}">Get file</a>
-							</li>
-						</ul>
+						<div class="nav navbar-nav navbar-right btn-group" style="padding: 8px">
+							
+							<a href="{{vnclink}}" target="_blank" class="btn btn-default">Launch VNC</a>
+							<a href="{{pcaplink}}" class="btn btn-default">Get pcap</a>
+							<a href="{{this.suspectlink}}" class="btn btn-default">Get file</a>
+						</div>
 					</div>
 				</nav>
-				<div class="tab-content">
-					<div class="tab-pane fade active in" id="overview" aria-labelledby="overview-tab">
-						<div class="card">
-							<div class="card-body">
-								{{#overview}}
-								<div class="list-group-item overview-{{this.type}}">
-									<div data-toggle="collapse" href="#overview-{{this.id}}"
-									     role="button" aria-expanded="false" aria-controls="#overview-{{this.id}}">
-										<div class="row metapane-txt text-break">
-											<div class="col-sm-2">
-												<p class="list-group-item-text">{{this.timestamp}}</p>
-											</div>
-											<div class="col-sm-2">
-												<p class="list-group-item-text">{{this.title}}</p>
-											</div>
-											<div class="col-sm-2">
-												<p class="list-group-item-text">{{this.source}}</p>
-											</div>
-											<div class="col-sm-6">
-												<p class="list-group-item-text">{{this.info}}</p>
-											</div>
-										</div>
-									</div>
-								</div>
-								{{/overview}}
-							</div>
-						</div>
-					</div>
-					<div class="tab-pane fade" id="network" role="tabpanel" aria-labelledby="network-tab">
-						<ul class="nav nav-pills card-header-pills">
-							<li class="nav-item active">
-								<a class="nav-link active" id="suricata-alert-tab" href="#suricata-alert" data-toggle="tab" role="tab">
-									IDS <span class="badge">{{badges.ids}}</span>
-								</a>
-							</li>
-							<li class="nav-item">
-								<a class="nav-link" id="suricata-dns-tab" href="#suricata-dns" data-toggle="tab" role="tab">
-									DNS <span class="badge">{{badges.dns}}</span>
-								</a>
-							</li>
-							<li class="nav-item">
-								<a class="nav-link" id="suricata-http-tab" href="#suricata-http" data-toggle="tab" role="tab">
-									HTTP <span class="badge">{{badges.http}}</span>
-								</a>
-							</li>
-							<li class="nav-item">
-								<a class="nav-link" id="suricata-tls-tab" href="#suricata-tls" data-toggle="tab" role="tab">
-									TLS <span class="badge">{{badges.tls}}</span>
-								</a>
-							</li>
-						</ul>
-						<div class="card">
-							<div class="card-body">
-								<div class="tab-content">
-									<div class="tab-pane fade active in" id="suricata-alert" role="tabpanel" aria-labelledby="suricata-alert-tab">
-										{{#suricata.alert}}
-										<div class="list-group-item">
-											<div data-toggle="collapse" href="#suricata-alert-{{this.id}}"
-										   role="button" aria-expanded="false" aria-controls="suricata-alert-{{this.id}}">
-												<div class="row metapane-txt text-break">
-													<div class="col-sm-4">
-														<p class="list-group-item-text">{{this.timestamp}}</p>
-													</div>
-													<div class="col-sm-8">
-														<p class="list-group-item-text"><strong>{{this.alert.signature}}</strong></p>
-														<p class="list-group-item-text">{{this.src_ip}}:{{this.src_port}} → {{this.dest_ip}}:{{this.dest_port}}</p>
-													</div>
+				<div class="scrolltab">
+					<div class="tab-content">
+						<div class="tab-pane fade active in" id="overview" aria-labelledby="overview-tab">
+							<div class="card">
+								<div class="card-body">
+									{{#overview}}
+									<div class="list-group-item overview-{{this.type}}">
+										<div data-toggle="collapse" href="#overview-{{this.id}}"
+										     role="button" aria-expanded="false" aria-controls="#overview-{{this.id}}">
+											<div class="row metapane-txt text-break">
+												<div class="col-sm-2">
+													<p class="list-group-item-text">{{this.timestamp}}</p>
 												</div>
-											</div>
-											<div class="collapse multi-collapse metapane-txt" id="suricata-alert-{{this.id}}">
-												
-												<div class="metapane-listitem-inner monospace">
-													<div class="hexdata-outer">
-														<div class=hextable">
-														{{#each this.hextable}}
-															<div class="hexrow monospace">
-																{{#each this}}
-																<div class="hexitem">{{this}}</div>
-																{{/each}}
-															</div>
-														{{/each}}
-														</div>
-														<div class="asciitable">
-															<div class="asciitable monospace">
-                                                                                                                        <pre class="asciiline asciitable monospace">{{#each this.asciitable}}{{this}}
-{{/each}}</pre>
-															</div>
-														</div>
-													</div>
+												<div class="col-sm-2">
+													<p class="list-group-item-text">{{this.title}}</p>
+												</div>
+												<div class="col-sm-2">
+													<p class="list-group-item-text">{{this.source}}</p>
+												</div>
+												<div class="col-sm-6">
+													<p class="list-group-item-text">{{this.info}}</p>
 												</div>
 											</div>
 										</div>
-										{{/suricata.alert}}
 									</div>
-									<div class="tab-pane fade" id="suricata-dns" role="tabpanel" aria-labelledby="suricata-dns-tab">
-										{{#suricata.dns}}
-										<div class="list-group-item">
-											<div data-toggle="collapse" href="#suricata-dns-{{this.id}}"
-										   role="button" aria-expanded="false" aria-controls="suricata-dns-{{this.id}}">
-												<div class="row metapane-txt">
-													<div class="col-sm-4">
-														<p class="list-group-item-text"><strong>{{this.dnsdata.type}} {{this.dnsdata.rrtype}}</strong></p>
-														<p class="list-group-item-text">{{this.timestamp}}</p>
-													</div>
-													<div class="col-sm-8 text-break">
-														<p class="list-group-item-text">{{this.dnsdata.rrname}}</p>
-														<p class="list-group-item-text">{{this.dnsdata.rdata}}</p>
-													</div>
-												</div>
-											</div>
-											<div class="collapse multi-collapse" id="suricata-dns-{{this.id}}">
-												<div class="list-group-item-text">{{this.Highlight}}</div>
-											</div>
-										</div>
-										{{/suricata.dns}}
-									</div>
-									<div class="tab-pane fade" id="suricata-http" role="tabpanel" aria-labelledby="suricata-http-tab">
-										{{#suricata.http}}
-										<div class="list-group-item">
-											<div data-toggle="collapse" href="#suricata-http-{{this.id}}"
-											    role="button" aria-expanded="false" aria-controls="suricata-http-{{this.id}}">
-												<div class="row metapane-txt text-break">
-													<div class="col-sm-4">
-														<p class="list-group-item-text"><strong>{{this.httpdata.hostname}}</strong></p>
-														<p class="list-group-item-text">{{this.timestamp}}</p>
-													</div>
-													<div class="col-sm-8">
-														<p class="list-group-item-text">{{this.httpdata.http_method}} {{this.httpdata.url}}</p>
-														<p class="list-group-item-text">{{this.dest_ip}}:{{this.dest_port}}</p>
-													</div>
-												</div>
-											</div>
-											<div class="collapse multi-collapse" id="suricata-http-{{this.id}}">
-												<div class="list-group-item-text">{{this.Highlight}}</div>
-											</div>
-										</div>
-										{{/suricata.http}}
-									</div>
-									<div class="tab-pane fade" id="suricata-tls" role="tabpanel" aria-labelledby="suricata-tls-tab">
-										{{#suricata.tls}}
-										<div class="list-group-item">
-											<div data-toggle="collapse" href="#suricata-tls-{{this.id}}"
-											    role="button" aria-expanded="false" aria-controls="suricata-tls-{{this.id}}">
-												<div class="row metapane-txt">
-													<div class="col-sm-4">
-														<p class="list-group-item-text"><strong>{{this.dest_ip}}</strong></p>
-														<p class="list-group-item-text">{{this.timestamp}}</p>
-													</div>
-													<div class="col-sm-8 text-break">
-														<p class="list-group-item-text">{{this.tlsdata.sni}}</p>
-														<p class="list-group-item-text">{{this.tlsdata.issuerdn}}</p>
-													</div>
-												</div>
-											</div>
-											<div class="collapse multi-collapse" id="suricata-tls-{{this.id}}">
-												<div class="metapane-listitem-inner">
-													{{#each this.tlsdata}}
-													<div class="row metapane-txt">
-														<div class="col-sm-4"><strong>{{@key}}</strong></div>
-														<div class="col-sm-8">{{this}}</div>
-													</div>
-													{{/each}}
-												</div>
-											</div>
-										</div>
-										{{/suricata.tls}}
-									</div>
-									
+									{{/overview}}
 								</div>
 							</div>
 						</div>
-						
-					</div>
-					<div class="tab-pane fade" id="host" role="tabpanel" aria-labelledby="host-tab">
-						<ul class="nav nav-pills card-header-pills">
-							<li class="nav-item active">
-								<a class="nav-link active" id="sysmon-tab" href="#sysmon" data-toggle="tab" role="tab">
-									Sysmon <span class="badge">{{badges.sysmon}}</span>
-								</a>
-							</li>
-							<li class="nav-item">
-								<a class="nav-link" id="files-tab" href="#files" data-toggle="tab" role="tab">
-									Files <span class="badge">{{badges.files}}</span>
-								</a>
-							</li>
-						</ul>
-						<div class="card">
-							<div class="card-body">
-								<div class="tab-content">
-									<div class="tab-pane fade active in" id="sysmon" role="tabpanel" aria-labelledby="sysmon-tab">
-										<div id="accordion">
-											{{#sysmon}}
-											<div class="list-group-item card">
-												<div class="card-header" id="heading-sysmon-{{this.System.EventRecordID}}">
-													<div class="row metapane-txt-lg" role="button" data-toggle="collapse"
-													     data-target="#collapse-sysmon-{{this.System.EventRecordID}}"
-													     aria-controls="collapse-sysmon-{{this.System.EventRecordID}}">
+						<div class="tab-pane fade" id="network" role="tabpanel" aria-labelledby="network-tab">
+							<ul class="nav nav-pills card-header-pills">
+								<li class="nav-item active">
+									<a class="nav-link active" id="suricata-alert-tab" href="#suricata-alert" data-toggle="tab" role="tab">
+										IDS <span class="badge">{{badges.ids}}</span>
+									</a>
+								</li>
+								<li class="nav-item">
+									<a class="nav-link" id="suricata-dns-tab" href="#suricata-dns" data-toggle="tab" role="tab">
+										DNS <span class="badge">{{badges.dns}}</span>
+									</a>
+								</li>
+								<li class="nav-item">
+									<a class="nav-link" id="suricata-http-tab" href="#suricata-http" data-toggle="tab" role="tab">
+										HTTP <span class="badge">{{badges.http}}</span>
+									</a>
+								</li>
+								<li class="nav-item">
+									<a class="nav-link" id="suricata-tls-tab" href="#suricata-tls" data-toggle="tab" role="tab">
+										TLS <span class="badge">{{badges.tls}}</span>
+									</a>
+								</li>
+							</ul>
+							<div class="card">
+								<div class="card-body">
+									<div class="tab-content">
+										<div class="tab-pane fade active in" id="suricata-alert" role="tabpanel" aria-labelledby="suricata-alert-tab">
+											{{#suricata.alert}}
+											<div class="list-group-item">
+												<div data-toggle="collapse" href="#suricata-alert-{{this.id}}"
+											   role="button" aria-expanded="false" aria-controls="suricata-alert-{{this.id}}">
+													<div class="row metapane-txt text-break">
 														<div class="col-sm-4">
-															<p class="list-group-item-text"><strong>{{this.System.EventName}}</strong></p>
-															<p class="list-group-item-text">{{this.System.SystemTime}}</p>
+															<p class="list-group-item-text">{{this.timestamp}}</p>
 														</div>
 														<div class="col-sm-8">
-															<p class="list-group-item-text text-break">{{this.Highlight}}</p>
+															<p class="list-group-item-text"><strong>{{this.alert.signature}}</strong></p>
+															<p class="list-group-item-text">{{this.src_ip}}:{{this.src_port}} → {{this.dest_ip}}:{{this.dest_port}}</p>
 														</div>
-													</div>		
-												</div>
-												<div id="collapse-sysmon-{{this.System.EventRecordID}}" class="collapse metapane-txt"
-												    aria-labelledby="heading-sysmon-{{this.System.EventRecordID}}" data-parent="#accordion">
-													<div class="metapane-listitem-inner">
-														{{#each this.System}}
-														<div class="row">
-															<div class="col-sm-3">
-																<strong>{{@key}}</strong>
-															</div>
-															<div class="col-sm-9">
-																{{this}}
-															</div>
-														</div>
-														{{/each}}
 													</div>
-													<div class="metapane-listitem-inner">
-														{{#each this.Data}}
-														<div class="row">
-															<div class="col-sm-3">
-																<strong>{{@key}}</strong>
+												</div>
+												<div class="collapse multi-collapse metapane-txt" id="suricata-alert-{{this.id}}">
+													
+													<div class="metapane-listitem-inner monospace">
+														<div class="hexdata-outer">
+															<div class=hextable">
+															{{#each this.hextable}}
+																<div class="hexrow monospace">
+																	{{#each this}}
+																	<div class="hexitem">{{this}}</div>
+																	{{/each}}
+																</div>
+															{{/each}}
 															</div>
-															<div class="col-sm-9">
-																<span class="text-break">{{this}}</span>
+															<div class="asciitable">
+																<div class="asciitable monospace">
+																<pre class="asciiline asciitable monospace">{{#each this.asciitable}}{{this}}
+	{{/each}}</pre>
+																</div>
 															</div>
 														</div>
-														{{/each}}
 													</div>
 												</div>
 											</div>
-											{{/sysmon}}
+											{{/suricata.alert}}
 										</div>
-									</div>
-									<div class="tab-pane fade" id="files" role="tabpanel" aria-labelledby="files-tab">
-										{{#files}}
-										<div class="list-group-item">
-											<div data-toggle="collapse" href="#files-{{this.id}}"
-											     role="button" aria-expanded="false" aria-controls="files-{{this.id}}">
-												<div class="row metapane-txt">
-													<div class="col-sm-3">{{this.humantime.modified}}</div>
-													<div class="col-sm-9 text-break">{{this.path}}</div>
-												</div>
-												{{#if this.avresult}}
-												<div class="row">
-													<div class="col-sm-12">
-														<span class="label label-danger">{{this.avresult}}</span>
+										<div class="tab-pane fade" id="suricata-dns" role="tabpanel" aria-labelledby="suricata-dns-tab">
+											{{#suricata.dns}}
+											<div class="list-group-item">
+												<div data-toggle="collapse" href="#suricata-dns-{{this.id}}"
+											   role="button" aria-expanded="false" aria-controls="suricata-dns-{{this.id}}">
+													<div class="row metapane-txt">
+														<div class="col-sm-4">
+															<p class="list-group-item-text"><strong>{{this.dnsdata.type}} {{this.dnsdata.rrtype}}</strong></p>
+															<p class="list-group-item-text">{{this.timestamp}}</p>
+														</div>
+														<div class="col-sm-8 text-break">
+															<p class="list-group-item-text">{{this.dnsdata.rrname}}</p>
+															<p class="list-group-item-text">{{this.dnsdata.rdata}}</p>
+														</div>
 													</div>
 												</div>
-												{{/if}}
-												
-												<div class="row">
-													<div class="col-sm-12">
-														{{#each this.yararesult}}
-														<span class="label label-danger">{{@key}}</span>
+												<div class="collapse multi-collapse" id="suricata-dns-{{this.id}}">
+													<div class="list-group-item-text">{{this.Highlight}}</div>
+												</div>
+											</div>
+											{{/suricata.dns}}
+										</div>
+										<div class="tab-pane fade" id="suricata-http" role="tabpanel" aria-labelledby="suricata-http-tab">
+											{{#suricata.http}}
+											<div class="list-group-item">
+												<div data-toggle="collapse" href="#suricata-http-{{this.id}}"
+												    role="button" aria-expanded="false" aria-controls="suricata-http-{{this.id}}">
+													<div class="row metapane-txt text-break">
+														<div class="col-sm-4">
+															<p class="list-group-item-text"><strong>{{this.httpdata.hostname}}</strong></p>
+															<p class="list-group-item-text">{{this.timestamp}}</p>
+														</div>
+														<div class="col-sm-8">
+															<p class="list-group-item-text">{{this.httpdata.http_method}} {{this.httpdata.url}}</p>
+															<p class="list-group-item-text">{{this.dest_ip}}:{{this.dest_port}}</p>
+														</div>
+													</div>
+												</div>
+												<div class="collapse multi-collapse" id="suricata-http-{{this.id}}">
+													<div class="list-group-item-text">{{this.Highlight}}</div>
+												</div>
+											</div>
+											{{/suricata.http}}
+										</div>
+										<div class="tab-pane fade" id="suricata-tls" role="tabpanel" aria-labelledby="suricata-tls-tab">
+											{{#suricata.tls}}
+											<div class="list-group-item">
+												<div data-toggle="collapse" href="#suricata-tls-{{this.id}}"
+												    role="button" aria-expanded="false" aria-controls="suricata-tls-{{this.id}}">
+													<div class="row metapane-txt">
+														<div class="col-sm-4">
+															<p class="list-group-item-text"><strong>{{this.dest_ip}}</strong></p>
+															<p class="list-group-item-text">{{this.timestamp}}</p>
+														</div>
+														<div class="col-sm-8 text-break">
+															<p class="list-group-item-text">{{this.tlsdata.sni}}</p>
+															<p class="list-group-item-text">{{this.tlsdata.issuerdn}}</p>
+														</div>
+													</div>
+												</div>
+												<div class="collapse multi-collapse" id="suricata-tls-{{this.id}}">
+													<div class="metapane-listitem-inner">
+														{{#each this.tlsdata}}
+														<div class="row metapane-txt">
+															<div class="col-sm-4"><strong>{{@key}}</strong></div>
+															<div class="col-sm-8">{{this}}</div>
+														</div>
 														{{/each}}
 													</div>
 												</div>
 											</div>
-											<div class="collapse multi-collapse metapane-txt" id="files-{{this.id}}">
-												<div class="metapane-listitem-inner">
-													{{#if this.sha256}}
-													<div class="row">
-														<div class="col-sm-3"><strong>SHA256</strong></div>
-														<div class="col-sm-9">{{this.sha256}} <a href="https://www.virustotal.com/#/file/{{this.sha256}}" target="_blank">👁 VT</a></div>
-													</div>
-													{{/if}}
-													<div class="row">
-														<div class="col-sm-3"><strong>Accessed</strong></div>
-														<div class="col-sm-9">{{this.humantime.accessed}}</div>
-													</div>
-													<div class="row">
-														<div class="col-sm-3"><strong>Modified</strong></div>
-														<div class="col-sm-9">{{this.humantime.modified}}</div>
-													</div>
-													<div class="row">
-														<div class="col-sm-3"><strong>Saved?</strong></div>
-														<div class="col-sm-9">{{this.saved}}</div>
-													</div>
-													{{#if this.mimetype}}
-													<div class="row">
-														<div class="col-sm-3"><strong>MIME</strong></div>
-														<div class="col-sm-9">{{this.mimetype}}</div>
-													</div>
-													{{/if}}
-													{{#if this.download}}
-													<div class="row">
-														<form action="/cases/{{this.casesha256.text}}/{{this.uuid}}/file" method="post" enctype="application/json">
-															<label for="{{this.sha256}}-submit" class="btn btn-link btn-sm">Download</label>
-															<input type="hidden" name="path" value="{{this.download}}">
-															<input type="hidden" name="filesha256" value="{{this.sha256}}">
-															<input type="submit" id="{{this.sha256}}-submit" value="Download" class="hidden">
-														</form>
-													</div>
-													{{/if}}
-												</div>
-											</div>
+											{{/suricata.tls}}
 										</div>
-										{{/files}}
+										
 									</div>
 								</div>
 							</div>
+							
 						</div>
-						
-					</div>
-					<div class="tab-pane fade" id="meta" role="tabpanel" aria-labelledby="meta-tab">
-						<ul class="nav nav-pills card-header-pills">
-							<li class="nav-item active">
-								<a class="nav-link active" id="metadetail-tab" href="#metadetail" data-toggle="tab" role="tab">Meta</a>
-							</li>
-							<li class="nav-item">
-								<a class="nav-link" id="exif-tab" href="#exif" data-toggle="tab" role="tab">EXIF</a>
-							</li>
-						</ul>
-						<div class="card">
-							<div class="card-body">
-								<div class="tab-content">
-									<div class="tab-pane fade active in" id="metadetail" role="tabpanel" aria-labelledby="metadetail-tab">
-										{{#each properties}}
-										<div class="row metapane-txt">
-											<div class="col-sm-4" align="left"><strong>{{this.name}}</strong></div>
-											<div id="detail-{{@key}}" class="col-sm-8 text-break {{this.class}}" title="{{this.htmltitle}}">{{this.text}}</div>
+						<div class="tab-pane fade" id="host" role="tabpanel" aria-labelledby="host-tab">
+							<ul class="nav nav-pills card-header-pills">
+								<li class="nav-item active">
+									<a class="nav-link active" id="sysmon-tab" href="#sysmon" data-toggle="tab" role="tab">
+										Sysmon <span class="badge">{{badges.sysmon}}</span>
+									</a>
+								</li>
+								<li class="nav-item">
+									<a class="nav-link" id="files-tab" href="#files" data-toggle="tab" role="tab">
+										Files <span class="badge">{{badges.files}}</span>
+									</a>
+								</li>
+							</ul>
+							<div class="card">
+								<div class="card-body">
+									<div class="tab-content">
+										<div class="tab-pane fade active in" id="sysmon" role="tabpanel" aria-labelledby="sysmon-tab">
+											<div id="accordion">
+												{{#sysmon}}
+												<div class="list-group-item card">
+													<div class="card-header" id="heading-sysmon-{{this.System.EventRecordID}}">
+														<div class="row metapane-txt-lg" role="button" data-toggle="collapse"
+														     data-target="#collapse-sysmon-{{this.System.EventRecordID}}"
+														     aria-controls="collapse-sysmon-{{this.System.EventRecordID}}">
+															<div class="col-sm-4">
+																<p class="list-group-item-text"><strong>{{this.System.EventName}}</strong></p>
+																<p class="list-group-item-text">{{this.System.SystemTime}}</p>
+															</div>
+															<div class="col-sm-8">
+																<p class="list-group-item-text text-break">{{this.Highlight}}</p>
+															</div>
+														</div>		
+													</div>
+													<div id="collapse-sysmon-{{this.System.EventRecordID}}" class="collapse metapane-txt"
+													    aria-labelledby="heading-sysmon-{{this.System.EventRecordID}}" data-parent="#accordion">
+														<div class="metapane-listitem-inner">
+															{{#each this.System}}
+															<div class="row">
+																<div class="col-sm-3">
+																	<strong>{{@key}}</strong>
+																</div>
+																<div class="col-sm-9">
+																	{{this}}
+																</div>
+															</div>
+															{{/each}}
+														</div>
+														<div class="metapane-listitem-inner">
+															{{#each this.Data}}
+															<div class="row">
+																<div class="col-sm-3">
+																	<strong>{{@key}}</strong>
+																</div>
+																<div class="col-sm-9">
+																	<span class="text-break">{{this}}</span>
+																</div>
+															</div>
+															{{/each}}
+														</div>
+													</div>
+												</div>
+												{{/sysmon}}
+											</div>
 										</div>
-										{{/each}}
-									</div>
-									<div class="tab-pane fade" id="exif" role="tabpanel" aria-labelledby="exif-tab">
-										{{#each exifdata}}
-										<div class="row metapane-txt">
-											<div class="col-sm-4" align="left"><strong>{{@key}}</strong></div>
-											<div class="col-sm-8 text-break">{{this}}</div>
+										<div class="tab-pane fade" id="files" role="tabpanel" aria-labelledby="files-tab">
+											{{#files}}
+											<div class="list-group-item">
+												<div data-toggle="collapse" href="#files-{{this.id}}"
+												     role="button" aria-expanded="false" aria-controls="files-{{this.id}}">
+													<div class="row metapane-txt">
+														<div class="col-sm-3">{{this.humantime.modified}}</div>
+														<div class="col-sm-9 text-break">{{this.path}}</div>
+													</div>
+													{{#if this.avresult}}
+													<div class="row">
+														<div class="col-sm-12">
+															<span class="label label-danger">{{this.avresult}}</span>
+														</div>
+													</div>
+													{{/if}}
+													
+													<div class="row">
+														<div class="col-sm-12">
+															{{#each this.yararesult}}
+															<span class="label label-danger">{{@key}}</span>
+															{{/each}}
+														</div>
+													</div>
+												</div>
+												<div class="collapse multi-collapse metapane-txt" id="files-{{this.id}}">
+													<div class="metapane-listitem-inner">
+														{{#if this.sha256}}
+														<div class="row">
+															<div class="col-sm-3"><strong>SHA256</strong></div>
+															<div class="col-sm-9">{{this.sha256}} <a href="https://www.virustotal.com/#/file/{{this.sha256}}" target="_blank">👁 VT</a></div>
+														</div>
+														{{/if}}
+														<div class="row">
+															<div class="col-sm-3"><strong>Accessed</strong></div>
+															<div class="col-sm-9">{{this.humantime.accessed}}</div>
+														</div>
+														<div class="row">
+															<div class="col-sm-3"><strong>Modified</strong></div>
+															<div class="col-sm-9">{{this.humantime.modified}}</div>
+														</div>
+														<div class="row">
+															<div class="col-sm-3"><strong>Saved?</strong></div>
+															<div class="col-sm-9">{{this.saved}}</div>
+														</div>
+														{{#if this.mimetype}}
+														<div class="row">
+															<div class="col-sm-3"><strong>MIME</strong></div>
+															<div class="col-sm-9">{{this.mimetype}}</div>
+														</div>
+														{{/if}}
+														{{#if this.download}}
+														<div class="row">
+															<form action="/cases/{{this.casesha256.text}}/{{this.uuid}}/file" method="post" enctype="application/json">
+																<label for="{{this.sha256}}-submit" class="btn btn-link btn-sm">Download</label>
+																<input type="hidden" name="path" value="{{this.download}}">
+																<input type="hidden" name="filesha256" value="{{this.sha256}}">
+																<input type="submit" id="{{this.sha256}}-submit" value="Download" class="hidden">
+															</form>
+														</div>
+														{{/if}}
+													</div>
+												</div>
+											</div>
+											{{/files}}
 										</div>
-										{{/each}}
 									</div>
 								</div>
 							</div>
+							
 						</div>
-						
+						<div class="tab-pane fade" id="meta" role="tabpanel" aria-labelledby="meta-tab">
+							<ul class="nav nav-pills card-header-pills">
+								<li class="nav-item active">
+									<a class="nav-link active" id="metadetail-tab" href="#metadetail" data-toggle="tab" role="tab">Meta</a>
+								</li>
+								<li class="nav-item">
+									<a class="nav-link" id="exif-tab" href="#exif" data-toggle="tab" role="tab">EXIF</a>
+								</li>
+							</ul>
+							<div class="card">
+								<div class="card-body">
+									<div class="tab-content">
+										<div class="tab-pane fade active in" id="metadetail" role="tabpanel" aria-labelledby="metadetail-tab">
+											{{#each properties}}
+											<div class="row metapane-txt">
+												<div class="col-sm-4" align="left"><strong>{{this.name}}</strong></div>
+												<div id="detail-{{@key}}" class="col-sm-8 text-break {{this.class}}" title="{{this.htmltitle}}">{{this.text}}</div>
+											</div>
+											{{/each}}
+										</div>
+										<div class="tab-pane fade" id="exif" role="tabpanel" aria-labelledby="exif-tab">
+											{{#each exifdata}}
+											<div class="row metapane-txt">
+												<div class="col-sm-4" align="left"><strong>{{@key}}</strong></div>
+												<div class="col-sm-8 text-break">{{this}}</div>
+											</div>
+											{{/each}}
+										</div>
+									</div>
+								</div>
+							</div>
+							
+						</div>
 					</div>
-				</div>	
+				</div>
 			</div>
 		</div>
 	</div>

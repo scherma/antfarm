@@ -4,7 +4,7 @@
 # contact http_error_418 @ unsafehex.com
 
 import logging, libvirt, psycopg2, psycopg2.extras, os, psutil, arrow, socket, json, sys
-import runinstance, threading, time, pcap_parser, maintenance, db_calls
+import runinstance, threading, time, pcap_parser, maintenance, db_calls, subprocess
 from lxml import etree
 import configparser
 from io import StringIO, BytesIO
@@ -17,7 +17,7 @@ class Worker():
         self._conf = config
         self._vm_uuid = vmdata["uuid"]
         
-        self.logger = logger.getChild("worker")
+        self.logger = logger.getChild("worker-{}".format(self._vm_uuid))
         self.logger.setLevel(NUM_LEVEL)
         logfile = os.path.join(self._conf.get('General', 'logdir'), str(self._vm_uuid)) + '.log'
         logger.info("Logging run at level {}".format(RUN_NUM_LEVEL))
@@ -35,13 +35,15 @@ class Worker():
         fh.setFormatter(formatter)
         self.logger.addHandler(fh)
         
-        self._vm_id = vmdata["id"]
+        #self._vm_id = vmdata["id"]
         self._mntdir = self._check_mntdir()
         self._dldir = self._check_dldir()
         self._lv_conn = libvirt.open("qemu:///system")
         self._cursor, self._dbconn = self._db_conn(self._conf.get('General', 'dbname'), self._conf.get('General', 'dbuser'), self._conf.get('General' ,'dbpass'))
         self._victim_params = self._get_victim_params()
         self.outputdata = {}
+        
+        self._cursor.execute("""INSERT INTO "workerstate" (uuid, pid, position, params) VALUES (%s, %s, %s, '{}')""", (self._vm_uuid, os.getpid(), 'idle'))
         
         self.logger.info("Instantiated worker object")
         
@@ -65,7 +67,7 @@ class Worker():
         return mntdir
         
     def _check_dldir(self):
-        dldir = os.path.join(self._conf.get('General', 'basedir'), self._conf.get('General', 'instancename'), 'suspects', 'downloads', str(self._vm_id))
+        dldir = os.path.join(self._conf.get('General', 'basedir'), self._conf.get('General', 'instancename'), 'suspects', 'downloads', str(self._vm_uuid))
         self.logger.debug("Selected download directory {0}".format(dldir))
         if not os.path.exists(dldir):
             self.logger.debug("Download directory {} does not exist, creating...".format(dldir))
@@ -75,6 +77,7 @@ class Worker():
         
                 
     def _exit(self, value=0):
+        self._cursor.execute("""DELETE FROM workerstate WHERE uuid = %s""", (self._vm_uuid,))
         dbconn.close()
         self.logger.info("Closed connection to DB - cleanup complete, exiting now.")
         exit(value)
@@ -161,20 +164,23 @@ class Worker():
             
             while True:
                 available = True
+                pid = None
                 for c in psutil.net_connections():
-                    if c.laddr[1] == int(vncport) and c.status == 'ESTABLISHED':
+                    if c.laddr.port == int(vncport) and c.status == 'ESTABLISHED':
                         available = False
+                        pid = c.pid
                 if available:
                     break
                 else:
                     if tryctr > 3:
-                        raise RuntimeError("VNC unavailable - possible VNC library problem. Aborting.")
+                        logger.info("PID {} has been hogging VNC connection. Terminating with extreme prejudice...".format(pid))
+                        subprocess.call("kill", "-9", "{}".format(pid))
                     if state != "vnc_blocked":
                         self._state_update("vnc_blocked")
                         self._case_update("vnc_blocked", params["uuid"])
                         state = "vnc_blocked"
-                    self.logger.error("VNC connection blocked, sleeping 20 seconds...")
-                    time.sleep(20)
+                        self.logger.error("VNC connection blocked, sleeping 20 seconds...")
+                        time.sleep(20)
                     tryctr += 1
             
             self.outputdata["received job"] = params
@@ -185,7 +191,7 @@ class Worker():
             suspect = runinstance.RunInstance(
                 self._cursor,
                 self._dbconn,
-                self._vm_id,
+                self._vm_uuid,
                 cfg,
                 params["fname"],
                 params["uuid"],
@@ -201,7 +207,7 @@ class Worker():
             
             self._case_update('received', suspect.uuid)
             tformat = 'YYYY-MM-DD HH:mm:ss.SSSZ'
-            
+                        
             updateparams = (self._vm_uuid,
                             suspect.victim_params["os"],
                             arrow.get(suspect.submittime).format(tformat),
@@ -211,10 +217,11 @@ class Worker():
                             bool(suspect.banking),
                             bool(suspect.web),
                             suspect.ttl,
+                            json.dumps(self._victim_params),
                             suspect.uuid)
             
-            self._cursor.execute("""UPDATE cases SET (vm_uuid, vm_os, submittime, starttime, reboots, interactive, banking, web, runtime)=""" +
-                                """(%s, %s, %s, %s, %s, %s, %s, %s, %s) WHERE uuid=%s""", updateparams)
+            self._cursor.execute("""UPDATE cases SET (vm_uuid, vm_os, submittime, starttime, reboots, interactive, banking, web, runtime, victim_params)=""" +
+                                """(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) WHERE uuid=%s""", updateparams)
             self._dbconn.commit()
             
             self._state_update('initialising', (True, suspect._dump_dict()))
@@ -226,6 +233,13 @@ class Worker():
             imgdir = os.path.join(imgshort, suspect.uuid)
             if not os.path.exists(imgdir):
                 os.mkdir(imgdir)
+            
+            state, reason = dom.state()
+            if state in [libvirt.VIR_DOMAIN_SHUTOFF, libvirt.VIR_DOMAIN_SHUTDOWN]:
+                # need domain to be running first
+                self.logger.info("Victim is offline. Starting first...")
+                dom.create()
+                time.sleep(5)
             
             # revert to most recent snapshot
             self.logger.info("Restoring snapshot")
@@ -259,6 +273,7 @@ class Worker():
             begin = arrow.utcnow()
             end = begin.shift(seconds=+suspect.ttl)
             suspect.do_run(dom, self._lv_conn)
+            suspect.present_vnc()
             
             # if minimum runtime not yet elapsed, let malware run until it has
             while arrow.utcnow() < end:
@@ -298,9 +313,10 @@ class Worker():
             self.logger.error("Exception {0} {1} in {2}, line {3} while processing job, aborting".format(ex_type, ex, fname, lineno))
             self._case_update('failed', suspect.uuid)
         finally:
+            suspect.remove_vnc()
             self._state_update('cleanup', (False,None))
             # ensure capture thread exits
-            suspect.stop_capture = True
+            #suspect.stop_capture = True
             try:
                 socket.create_connection((suspect.victim_params["ip"], 389), timeout=1)
             except:

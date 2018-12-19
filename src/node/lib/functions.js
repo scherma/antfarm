@@ -429,10 +429,10 @@ function ParseVictimFile(row) {
 	filedata.ctime_nsec = row.file_stat.st_ctime_nsec;
 	filedata.humantime = {};
 	if (filedata.ctime_sec) {
-		filedata.humantime.created = moment.unix(filedata.ctime_sec).add(filedata.ctime_nsec / 1000, 'ms').format("YYYY-MM-DD HH:mm:ss.SSS");
+		filedata.humantime.created = moment.unix(filedata.ctime_sec).add(filedata.ctime_nsec / 1000000, 'ms').format("YYYY-MM-DD HH:mm:ss.SSS");
 	}
-	filedata.humantime.modified = moment.unix(row.file_stat.st_mtime_sec).add(row.file_stat.st_mtime_nsec / 1000, 'ms').format("YYYY-MM-DD HH:mm:ss.SSS");
-	filedata.humantime.accessed = moment.unix(row.file_stat.st_atime_sec).add(row.file_stat.st_atime_nsec / 1000, 'ms').format("YYYY-MM-DD HH:mm:ss.SSS");
+	filedata.humantime.modified = moment.unix(row.file_stat.st_mtime_sec).add(row.file_stat.st_mtime_nsec / 1000000, 'ms').format("YYYY-MM-DD HH:mm:ss.SSS");
+	filedata.humantime.accessed = moment.unix(row.file_stat.st_atime_sec).add(row.file_stat.st_atime_nsec / 1000000, 'ms').format("YYYY-MM-DD HH:mm:ss.SSS");
 	if (filedata.size) {
 		if (filedata.size > 1024*1024*1024) {
 			filedata.humansize = Math.round(filedata.size / (1024*1024*1024)) + " GB";
@@ -604,8 +604,6 @@ function GetCase(req) {
 	return Promise.all([eventsP, sysmonP, pcapsummaryP, runlogP, thiscase, screenshots, victimfiles])
 	.then((values) => {
 		if (values[4].length < 1) {
-			res.status = 404;
-			res.send("Case not found in DB");
 			throw "Case not found in DB";
 		}
 		var suspect = values[4][0];
@@ -655,6 +653,10 @@ function GetCase(req) {
 		
 		var pcaplink = '/cases/' + properties.sha256.text + '/' + properties.uuid.text + '/pcap';
 		var suspectlink = '/files/' + properties.sha256.text;
+		var sockid = null;
+		console.log(suspect.victim_params);
+		if (suspect.victim_params) sockid = (parseInt(suspect.victim_params.vnc.port) - 5900);
+		var vnclink = format('/novnc/vnc.html?host={host}&port={port}&path=vncsockets/{sockid}', {host: req.hostname, port: 443, sockid: sockid});
 		
 		var fileslist = [];
 		var badfileslist = [];
@@ -710,6 +712,7 @@ function GetCase(req) {
 				sysmon: sysmon,
 				pcaplink: pcaplink,
 				suspectlink: suspectlink,
+				vnclink: vnclink,
 				pcapsummary: pcapsummary,
 				runlog: runlog,
 				caseid: caseid,

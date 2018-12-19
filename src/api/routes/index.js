@@ -16,27 +16,38 @@ router.get('/', function(req, res, next) {
 });
 
 router.post('/register', function(req, res, next) {
-  if (db.vmCanRegister(req.body.VMName)) {
-    db.registerVictimService(
-      req.body.GUID,
-      req.body.VMName,
-      req.ip, 
-      req.body.OSName,
-      req.body.OfficeVersionString,
-      req.body.OfficeVersionNum,
-      req.body.username,
-      req.body.password,
-      req.body.DisplayHeight,
-      req.body.DisplayWidth,
-			req.body.MalwareX,
-			req.body.MalwareY
-    )
-    .then(() => {
-      res.status(200).send("Registered");
-    });
-  } else {
-    res.status(403).send("Specified VM doesn't exist");
-  }
+	var canregister = false;
+	db.vmCanRegister(req.body.VMName).then((r) => {
+		canregister = r; 
+		if (canregister) {
+			console.log(req.body);
+			db.registerVictimService(
+				{
+					guid: req.body.GUID,
+					vmname: req.body.VMName,
+					ip: req.body.VMIP, 
+					osname: req.body.OSName,
+					officeversionstring: req.body.OfficeVersionString,
+					officeversionnum: req.body.OfficeVersionNum,
+					username: req.body.username,
+					password: req.body.password,
+					displayheight: req.body.DisplayHeight,
+					displaywidth: req.body.DisplayWidth,
+					malwarex: req.body.MalwarePosX,
+					malwarey: req.body.MalwarePosY
+				}
+			)
+			.then((dbr) => {
+				if (dbr == 1) {
+					res.status(200).send("Registered");	
+				} else {
+					res.status(404).send("Registration failed. Does the VM exist in the database?");
+				}
+			});
+		} else {
+			res.status(403).send("Specified VM doesn't exist");
+		}
+	});
 });
 
 router.get('/case/:guid', function(req, res, next) {

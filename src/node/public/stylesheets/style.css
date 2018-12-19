@@ -135,7 +135,6 @@ html,body {
   background-image: -webkit-gradient(linear,left top,left bottom,from(#d6e5ff),to(#eaf2ff));
   background-image: linear-gradient(to bottom, #d6e5ff 0,#eaf2ff 100%);
   filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ffd6e5ff', endColorstr='#ffeaf2ff', GradientType=0);
-  webkit-box-shadow: inset 0 3px 9px rgba(0,0,0,.075);
   box-shadow: inset 0 3px 9px rgba(0,0,0,.075);
 }
 
@@ -154,7 +153,6 @@ html,body {
   background-image: -webkit-gradient(linear,left top,left bottom,from(#d6ffd8),to(#f2ffea));
   background-image: linear-gradient(to bottom, #d6ffd8 0,#f2ffea 100%);
   filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ffd6ffd8', endColorstr='#fff2ffea', GradientType=0);
-  webkit-box-shadow: inset 0 3px 9px rgba(0,0,0,.075);
   box-shadow: inset 0 3px 9px rgba(0,0,0,.075);
 }
 
@@ -249,16 +247,29 @@ html,body {
 
 @media (min-width: 1024px) {
   .case-container {
+    display: flex;
     height: calc(100% - 71px);
     width: 100%;
   }
   
   .meta-pane {
+    display: flex;
     flex-direction: column;
-    height: calc(100%);
     width: 60%;
+    height: 100%;
     float: left;
-    overflow-y: scroll;
+    word-wrap: break-word;
+  }
+    
+  .scrolltab-card {
+    height: calc(100% - 77px);
+  }
+  
+  .scrolltab-card>.card-body {
+    height: calc(100% - 64px);
+  }
+  
+  .scrolltab-card.navbar {
   }
   
   .metatable>tbody>tr>td {
@@ -273,6 +284,20 @@ html,body {
     height: 100%;
   }
   
+  .scrolltab {
+    display: block;
+    overflow-y: auto;
+    flex: 1;
+    bottom: 0;
+    height: 100%;
+    width: 100%;
+  }
+  
+  .scrolltab>.tab-content {
+    width: 100%;
+    height: 100%;
+  }
+    
   .screen-pane {
     display: flex;
     padding: 0 8px 0 8px;
@@ -290,7 +315,7 @@ html,body {
     
   .detail-pane {
     display: flex;
-    overflow-y: scroll;
+    overflow-y: auto;
     flex: 1;
     bottom: 0;
     height: auto;

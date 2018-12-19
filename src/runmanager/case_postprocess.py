@@ -73,7 +73,9 @@ class Postprocessor:
     
     def is_suricata_http_artifact(self, evt):
         rmatches = [
-            r"ctldl\.windowsupdate\.com$"
+            r"\.windowsupdate\.com$",
+            r"\.microsoft\.com$",
+            r"\.symcd\.com$"
         ]
         for rmatch in rmatches:
             if "hostname" in evt["httpdata"] and re.search(rmatch, evt["httpdata"]["hostname"]):

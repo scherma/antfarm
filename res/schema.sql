@@ -53,7 +53,8 @@ CREATE TABLE cases (
     vm_os text,
     runtime integer DEFAULT 180,
 	runstyle integer,
-	priority integer DEFAULT 0
+	priority integer DEFAULT 0,
+	victim_params jsonb
 );
 
 

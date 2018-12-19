@@ -2,6 +2,8 @@
 # MIT License © https://github.com/scherma
 # contact http_error_418 @ unsafehex.com
 
+qemu_version=3.0.0
+
 if [[ $EUID -ne 0 ]]; then
     echo "This script must be run as root"
     exit 1
@@ -10,6 +12,7 @@ fi
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
+fail=0
 
 echo -e "${GREEN}Thank you for choosing to install the Antfarm sandbox${NC}"
 
@@ -54,237 +57,525 @@ echo "export NO_AT_BRIDGE=1" >> "/home/$LABUSER/.bash_profile"
 
 chown "$LABUSER:$LABUSER" "/home/$LABUSER/.bash_profile"
 
-echo -e "${GREEN}Running basic updates...${NC}"
+function install_antfarm_dependencies() {
+	echo -e "${GREEN}Running basic updates...${NC}"
+	
+	apt-get -qq update -y 
+	apt-get -qq upgrade -y
+	apt-get -qq dist-upgrade -y
+	
+	echo -e "${GREEN}Installing core dependencies...${NC}"
+	# stretch does not include npm with default nodejs install
+	# this command makes me uncomfortable
+	curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
+	
+	# failed to find in stretch: libopenjpeg-dev
+	apt-get -qq install -y python3-pip nodejs nginx libjpeg-dev curl tcpdump libcap2-bin libcap-ng-dev libmagic-dev libjansson-dev libpcre3 libpcre3-dbg \
+	libpcre3-dev postgresql-9.6 postgresql-contrib curl libpcap-dev git screen python3-lxml tor libguestfs-tools libffi-dev libssl-dev tshark \
+	libnl-3-dev libnl-route-3-dev libxml2-dev libdevmapper-dev libyajl2 libyajl-dev pkg-config libyaml-dev build-essential libpq-dev python3-libvirt \
+	libnet1-dev zlib1g zlib1g-dev libcap-ng-dev libcap-ng0 libnss3-dev libgeoip-dev liblua5.1-dev libhiredis-dev libevent-dev libgeoip-dev python3-dev \
+	clamav clamav-daemon clamav-freshclam python3-guestfs xsltproc pm-utils yara libyara-dev libpciaccess-dev liblzo2-dev libsnappy-dev libbz2-dev \
+	libgtk-3-dev libvte-dev librdmacm-dev libgoogle-perftools-dev
+	if [ $? -eq 1 ]; then
+		fail=1
+	fi
+	apt-get -qq upgrade -y dnsmasq
+	
+	echo -e "${GREEN}Installing python dependencies...${NC}"
+	# apt-get remove -y python-cffi # probably not required anymore
+	pip3 -qq uninstall yara
+	pip3 -qq install --upgrade Pillow
+	pip3 -qq install --upgrade twisted
+	pip3 -qq install scapy pytest vncdotool pika psycopg2 arrow pyshark psutil tabulate ipaddress xmljson yara-python python-magic pytest websockify
+	
+	echo -e "${GREEN}Installing Python EVTX Parser by Willi Ballenthin...${NC}"
+	pip3 -qq install https://github.com/williballenthin/python-evtx
+	
+	echo -e "${GREEN}Installing global nodejs packages...${NC}"
+	apt-get -qq install nodejs
+	npm -qq cache clean -f
+	npm -qq install -g n
+	# lots of features missing from repository version of nodejs - update it
+	n -q latest
+	npm -qq install nodemon -g --save
+	
+	echo -e "${GREEN}Granting user permissions for packet capture...${NC}"
+	chmod +s /usr/sbin/tcpdump
+	groupadd pcap
+	usermod -a -G pcap "$LABUSER"
+	chgrp pcap /usr/sbin/tcpdump
+	chmod 750 /usr/sbin/tcpdump
+	# possibly only python needs cap_net_raw but setting on both to be sure
+	setcap cap_net_raw,cap_net_admin=eip /usr/sbin/tcpdump
+	setcap cap_net_raw,cap_net_admin=eip /usr/bin/python3.5
+	# setcap cap_net_raw,cap_net_admin=eip /usr/bin/python3.6
+	# when running as non-root, tcpdump looks for gettext in the wrong place (as does libvirt)
+	ln -s /usr/bin/gettext.sh /usr/local/bin/gettext.sh
+}
 
-# stock version of postgresql (9.4) does not support ON CONFLICT
-#echo "deb http://apt.postgresql.org/pub/repos/apt/ jessie-pgdg main" >> /etc/apt/sources.list.d/pgdg.list
-#wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
+function configure_antfarm_db() {
+	#test postgres install here
+	echo -e "${GREEN}Configuring database...${NC}"
+	su -c "psql -c \"CREATE USER $SBXNAME WITH PASSWORD '$DBPASS';\"" postgres
+	su -c "psql -c \"CREATE DATABASE $SBXNAME;\"" postgres
+	su -c "psql -q $SBXNAME < $SCRIPTDIR/res/schema.sql" postgres
+	su -c "psql -q $SBXNAME -c \"GRANT ALL PRIVILEGES ON DATABASE $SBXNAME TO $SBXNAME;\"" postgres
+	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE workerstate TO $SBXNAME;\"" postgres
+	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE victims TO $SBXNAME;\"" postgres
+	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE suspects TO $SBXNAME;\"" postgres
+	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE cases TO $SBXNAME;\"" postgres
+	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE victimfiles TO $SBXNAME;\"" postgres
+	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE sysmon_evts TO $SBXNAME;\"" postgres
+	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE suricata_dns TO $SBXNAME;\"" postgres
+	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE suricata_http TO $SBXNAME;\"" postgres
+	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE suricata_alert TO $SBXNAME;\"" postgres
+	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE suricata_tls TO $SBXNAME;\"" postgres
+	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE pcap_summary TO $SBXNAME;\"" postgres
+	su -c "psql -q $SBXNAME -c \"GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO $SBXNAME;\"" postgres
+}
 
-apt-get update -y
-apt-get upgrade -y
-apt-get dist-upgrade -y
+function make_antfarm_dirs() {
+	echo -e "${GREEN}Directory structure creation...${NC}"
+	addgroup libvirt-qemu
+	addgroup "$SBXNAME"
+	mkdir /usr/local/unsafehex/
+	mkdir "/usr/local/unsafehex/$SBXNAME"
+	mkdir "/usr/local/unsafehex/$SBXNAME/suspects"
+	mkdir "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
+	mkdir "/usr/local/unsafehex/$SBXNAME/output"
+	mkdir "/usr/local/unsafehex/$SBXNAME/runmanager"
+	mkdir "/usr/local/unsafehex/$SBXNAME/runmanager/logs"
+	mkdir "/usr/local/unsafehex/$SBXNAME/utils"
+	mkdir "/usr/local/unsafehex/$SBXNAME/yara"
+	mkdir "/usr/local/unsafehex/$SBXNAME/www"
+	mkdir "/usr/local/unsafehex/$SBXNAME/api"
+	mkdir "/usr/local/unsafehex/$SBXNAME/pcaps"
+	mkdir "/usr/local/unsafehex/$SBXNAME/novnc"
+	mkdir /mnt/images
+	mkdir "/mnt/$SBXNAME"
+	chgrp "$SBXNAME" "/mnt/$SBXNAME"
+	chmod g+rw /mnt/"$SBXNAME"
+	chgrp libvirt-qemu /mnt/images
+	chmod g+rw /mnt/images	
+}
 
-echo -e "${GREEN}Installing core dependencies...${NC}"
-# stretch does not include npm with default nodejs install
-curl -sL https://deb.nodesource.com/setup_9.x | sudo -E bash -
+function install_antfarm_core() {
+	echo -e "${GREEN}Unwrapping sandbox manager files and utilities...${NC}"
+	python3 "$SCRIPTDIR/scripts/write_tor_iptables.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTDIR/src/runmanager/"
+	python3 "$SCRIPTDIR/scripts/write_network.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTDIR/res/vnet.xml"
+	cp -r "$SCRIPTDIR/src/runmanager/"* "/usr/local/unsafehex/$SBXNAME/runmanager/"
+	chmod +x "/usr/local/unsafehex/$SBXNAME/runmanager/runmanager"
+	wget https://live.sysinternals.com/Sysmon64.exe -O "/usr/local/unsafehex/$SBXNAME/suspects/downloads/Sysmon64.exe"
+	cp "$SCRIPTDIR/res/sysmon-8-cfg.xml" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
+	wget -q https://github.com/scherma/teaservice/releases/download/0.1/TeaService.Setup.msi -O "/usr/local/unsafehex/$SBXNAME/suspects/downloads/TeaService Setup.msi"
+	cp "$SCRIPTDIR/res/MousePos.exe" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
+	cp "$SCRIPTDIR/res/bios.bin" "/usr/local/unsafehex/$SBXNAME/"
+	cp -r "$SCRIPTDIR/src/node/"* "/usr/local/unsafehex/$SBXNAME/www/"
+	mkdir "/usr/local/unsafehex/$SBXNAME/www/public/images"
+	mkdir "/usr/local/unsafehex/$SBXNAME/www/public/images/cases"
+	cp -r "$SCRIPTDIR/src/api/"* "/usr/local/unsafehex/$SBXNAME/api/"
+	cp -r "$SCRIPTDIR/src/utils/"* "/usr/local/unsafehex/$SBXNAME/utils/"
+	cp -r "$SCRIPTDIR/src/novnc/"* "/usr/local/unsafehex/$SBXNAME/novnc/"
+	chmod +x "/usr/local/unsafehex/$SBXNAME/utils/suricata-clean.sh"
+	chmod +x "/usr/local/unsafehex/$SBXNAME/utils/yara-update.sh"
+	chmod 775 -R /usr/local/unsafehex
+	usermod -a -G "$SBXNAME" "$LABUSER"
+	python3 "$SCRIPTDIR/scripts/writerunconf.py" "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
+	python3 "$SCRIPTDIR/scripts/writewwwconf.py" "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
+	python3 "$SCRIPTDIR/scripts/write_unit_file.py" "$SBXNAME" "$LABUSER"
+	python3 "$SCRIPTDIR/scripts/write_pcap.py" "$SBXNAME"
+}
 
-apt-get install -y python3-pip nodejs nginx libjpeg-dev curl tcpdump libcap2-bin libcap-ng-dev libmagic-dev libjansson-dev libpcre3 libpcre3-dbg libpciaccess-dev
-apt-get install -y libpcre3-dev postgresql-9.6 postgresql-contrib curl libpcap-dev git screen python3-lxml tor libguestfs-tools libffi-dev libssl-dev tshark
-apt-get install -y libnl-3-dev libnl-route-3-dev libxml2-dev libdevmapper-dev libyajl2 libyajl-dev pkg-config libyaml-dev build-essential libpq-dev python3-libvirt
-apt-get install -y libnet1-dev zlib1g zlib1g-dev libcap-ng-dev libcap-ng0 libnss3-dev libgeoip-dev liblua5.1-dev libhiredis-dev libevent-dev libgeoip-dev python3-dev
-apt-get install -y clamav clamav-daemon clamav-freshclam python3-guestfs xsltproc pm-utils yara libyara-dev
-apt-get install -y libpciaccess-dev # debian stretch
-apt-get upgrade -y dnsmasq
+function build_libvirt() {
+	mkdir "/tmp/$SBXNAME"
+	mkdir "/tmp/$SBXNAME/libvirt"
+	cd "/tmp/$SBXNAME/libvirt"
+	if wget https://libvirt.org/sources/libvirt-4.0.0.tar.xz; then
+		echo -e "${GREEN}Building required version of libvirt...${NC}"
+		tar xvfJ libvirt-4.0.0.tar.xz
+		cd libvirt-4.0.0
+		./configure --with-qemu-group=libvirt-qemu --localstatedir=/usr/local/var --with-dnsmasq-path=/usr/sbin/dnsmasq
+		if [ $? -eq 0 ]; then
+			echo -e "${GREEN}Installing libvirt...${NC}"
+			if make; then
+				make install
+				usermod -a -G libvirt-qemu "$LABUSER"
+				usermod -a -G kvm "$LABUSER"
+				usermod -a -G wireshark "$LABUSER"
+				apt-get -qq install -y libvirt-daemon libvirt-clients virt-manager
+				echo -e "${GREEN}Installing libvirt extras...${NC}"
+				cp "$SCRIPTDIR/res/libvirtd.service" /etc/systemd/system
+				rm "/etc/libvirt/libvirtd.conf"
+				cp "$SCRIPTDIR/res/libvirtd.conf" /etc/libvirt/
+				# socket file is not necessary and if not present in /etc/systemd/system, systemd will fall back to the next available one
+				# better to make sure they're all gone otherwise libvirt sockets will be created in the wrong location and with wrong permissions
+				rm /lib/systemd/system/libvirtd.socket
+			else
+				echo -e "${RED}Compiling Libvirt failed"
+				fail=1
+			fi
+		else
+			echo -e "${RED}Libvirt configure failed{NC}"
+			fail=1
+		fi
+	fi
+}
 
-# failed to find in stretch: libopenjpeg-dev
+function build_suricata() {
+	echo -e "${GREEN}Building required version of Suricata...${NC}"
+	mkdir -v "/tmp/$SBXNAME/suricata"
+	cd "/tmp/$SBXNAME/suricata"
+	if wget https://www.openinfosecfoundation.org/download/suricata-4.0.0.tar.gz; then
+		tar zxvf suricata-4.0.0.tar.gz
+		cd suricata-4.0.0
+		./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-geoip
+		make && make install
+		make install-conf
+		cp "$SCRIPTDIR/res/suricata.yaml" /etc/suricata
+	fi
+}
 
-echo -e "${GREEN}Installing python dependencies...${NC}"
-# apt-get remove -y python-cffi # probably not required anymore
-pip3 uninstall yara
-pip3 install --upgrade Pillow
-pip3 install --upgrade twisted
-pip3 install scapy-python3 pytest vncdotool Pillow pika psycopg2 arrow pyshark psutil tabulate ipaddress xmljson yara-python python-magic
+function make_cron() {
+	echo -e "${GREEN}Setting up Emerging Threats download...${NC}"
+	cd "/tmp/$SBXNAME/"
+	git clone https://github.com/seanthegeek/etupdate.git
+	cp etupdate/etupdate /usr/sbin
+	/usr/sbin/etupdate -V
+	crontab -l > tmpcron
+	MINUTE=$(shuf -i 0-59 -n 1)
+	echo "${MINUTE} * * * * /usr/sbin/etupdate" >> tmpcron
+	echo "1 0 * * * /usr/local/unsafehex/$SBXNAME/utils/suricata-clean.sh" >> tmpcron
+	echo "1 0 * * MON /usr/local/unsafehex/$SBXNAME/utils/yara-update.sh" >> tmpcron
+	echo "0 * * * * su $SBXUSER -c '/usr/local/unsafehex/$SBXNAME/utils/dumpcap.sh >> /dev/null 2>&1'" >> tmpcron
+	crontab tmpcron
+	rm tmpcron
+}
 
-echo -e "${GREEN}Installing Python EVTX Parser by Willi Ballenthin...${NC}"
-pip3 install https://github.com/williballenthin/python-evtx
-# cd /tmp
-# git clone https://github.com/williballenthin/python-evtx
-# cd python-evtx
-# python3 setup.py install
+function clam_setup() {
+	echo -e "${GREEN}Configuring ClamAV to accept TCP connections...${NC}"
+	echo "TCPSocket 9999" >> /etc/clamav/clamd.conf
+	echo "TCPAddr 127.0.0.1" >> /etc/clamav/clamd.conf
+	cp -rf "$SCRIPTDIR/res/extend.conf" /etc/systemd/system/clamav-daemon.service.d/extend.conf
+}
 
-echo -e "${GREEN}Installing global nodejs packages...${NC}"
-apt-get install nodejs
-npm cache clean -f
-npm install -g n
-# lots of features missing from repository version of nodejs - update it
-n stable
-npm install nodemon -g --save
+function nginx_setup() {
+	# needs work to automate setup of nginx
+	echo -e "${GREEN}Setting up nginx...${NC}"
+	cd "/tmp/$SBXNAME/"
+	mkdir ssl
+	cd "/tmp/$SBXNAME/ssl"
+	openssl req -x509 -nodes -days 365 -newkey rsa:4096 -subj "/CN=$SBXNAME/O=$SBXNAME/C=$CCODE" -keyout "$SBXNAME".key -out "$SBXNAME".crt
+	openssl dhparam -dsaparam -out dhparam.pem 4096
+	mkdir /etc/nginx/ssl
+	chmod 700 /etc/nginx/ssl
+	cp "$SBXNAME".key "$SBXNAME".crt dhparam.pem /etc/nginx/ssl
+	rm /etc/nginx/sites-enabled/default
+	cp "$SCRIPTDIR/res/nginx" "/etc/nginx/sites-enabled/$SBXNAME"
+}
 
-echo -e "${GREEN}Configuring database...${NC}"
-su -c "psql -c \"CREATE USER $SBXNAME WITH PASSWORD '$DBPASS';\"" postgres
-su -c "psql -c \"CREATE DATABASE $SBXNAME;\"" postgres
-su -c "psql $SBXNAME < $SCRIPTDIR/res/schema.sql" postgres
-su -c "psql $SBXNAME -c \"GRANT ALL PRIVILEGES ON DATABASE $SBXNAME TO $SBXNAME;\"" postgres
-su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE workerstate TO $SBXNAME;\"" postgres
-su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE victims TO $SBXNAME;\"" postgres
-su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE suspects TO $SBXNAME;\"" postgres
-su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE cases TO $SBXNAME;\"" postgres
-su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE victimfiles TO $SBXNAME;\"" postgres
-su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE sysmon_evts TO $SBXNAME;\"" postgres
-su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE suricata_dns TO $SBXNAME;\"" postgres
-su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE suricata_http TO $SBXNAME;\"" postgres
-su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE suricata_alert TO $SBXNAME;\"" postgres
-su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE suricata_tls TO $SBXNAME;\"" postgres
-su -c "psql $SBXNAME -c \"GRANT ALL ON TABLE pcap_summary TO $SBXNAME;\"" postgres
-su -c "psql $SBXNAME -c \"GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO $SBXNAME;\"" postgres
+function finishing_touches() {
+	echo -e "${GREEN}Setting permissions on sandbox file structure...${NC}"
+	chown root:"$SBXNAME" -R /usr/local/unsafehex
+	
+	echo -e "${GREEN}Setting permissions for control of services...${NC}"
+	echo "Cmnd_Alias ANTFARM_CMNDS = /bin/systemctl start $SBXNAME, /bin/systemctl stop $SBXNAME, /bin/systemctl restart $SBXNAME" >> /etc/sudoers.d/antfarm
+	echo "Cmnd_Alias SURICATA_CMNDS = /bin/systemctl restart suricata" >> /etc/sudoers.d/antfarm
+	echo "%$SBXNAME ALL=(ALL) NOPASSWD: ANTFARM_CMNDS,SURICATA_CMNDS" >> /etc/sudoers.d/antfarm
+	
+	cd "$SCRIPTDIR"
+	
+	echo -e "${GREEN}Starting clam and libvirt services...${NC}"
+	# settings on libvirt not in effect until reloaded
+	systemctl daemon-reload
+	service clamav-daemon stop
+	service clamav-daemon start
+	service clamav-freshclam stop
+	service clamav-freshclam start
+	service libvirtd stop
+	service libvirtd start
+	service libvirt-guests stop
+	service libvirt-guests start
+	service virtlockd stop
+	service virtlockd start
+	service virtlogd stop
+	service virtlogd start
+	
+	echo -e "${GREEN}Configuring tor, virtual network, and host run scripts${NC}"
+	{
+		echo ""
+		echo "TransPort $GATEWAY_IP:8081"
+		echo "DNSPort $GATEWAY_IP:5353"
+	} >> /etc/tor/torrc
+	
+	virsh -c qemu:///system net-destroy default
+	virsh -c qemu:///system net-undefine default
+	virsh -c qemu:///system net-create "$SCRIPTDIR/res/vnet.xml"
+	
+	echo -e "${GREEN}Cleaning up temporary files...${NC}"
+	rm -rf "/tmp/$SBXNAME"
+}
 
-echo -e "${GREEN}Granting user permissions for packet capture...${NC}"
-chmod +s /usr/sbin/tcpdump
-groupadd pcap
-usermod -a -G pcap "$LABUSER"
-chgrp pcap /usr/sbin/tcpdump
-chmod 750 /usr/sbin/tcpdump
-# possibly only python needs cap_net_raw but setting on both to be sure
-setcap cap_net_raw,cap_net_admin=eip /usr/sbin/tcpdump
-setcap cap_net_raw,cap_net_admin=eip /usr/bin/python3.5
-# setcap cap_net_raw,cap_net_admin=eip /usr/bin/python3.6
-# when running as non-root, tcpdump looks for gettext in the wrong place (as does libvirt)
-ln -s /usr/bin/gettext.sh /usr/local/bin/gettext.sh
+function replace_qemu_clues_public() {
+    echo '[+] Patching QEMU clues'
+    if ! sed -i 's/QEMU HARDDISK/ACER HARDDISK/g' qemu*/hw/ide/core.c; then
+        echo 'QEMU HARDDISK was not replaced in core.c'; fail=1
+    fi
+    if ! sed -i 's/QEMU HARDDISK/ACER HARDDISK/g' qemu*/hw/scsi/scsi-disk.c; then
+        echo 'QEMU HARDDISK was not replaced in scsi-disk.c'; fail=1
+    fi
+    if ! sed -i 's/QEMU DVD-ROM/ACER DVD-ROM/g' qemu*/hw/ide/core.c; then
+        echo 'QEMU DVD-ROM was not replaced in core.c'; fail=1
+    fi
+    if ! sed -i 's/QEMU DVD-ROM/ACER DVD-ROM/g' qemu*/hw/ide/atapi.c; then
+        echo 'QEMU DVD-ROM was not replaced in atapi.c'; fail=1
+    fi
+    if ! sed -i 's/s->vendor = g_strdup("QEMU");/s->vendor = g_strdup("ACER");/g' qemu*/hw/scsi/scsi-disk.c; then
+        echo 'Vendor string was not replaced in scsi-disk.c'; fail=1
+    fi
+    if ! sed -i 's/QEMU CD-ROM/ACER CD-ROM/g' qemu*/hw/scsi/scsi-disk.c; then
+        echo 'QEMU CD-ROM was not patched in scsi-disk.c'; fail=1
+    fi
+    if ! sed -i 's/padstr8(buf + 8, 8, "QEMU");/padstr8(buf + 8, 8, "ACER");/g' qemu*/hw/ide/atapi.c; then
+        echo 'padstr was not replaced in atapi.c'; fail=1
+    fi
+    if ! sed -i 's/QEMU MICRODRIVE/ACER MICRODRIVE/g' qemu*/hw/ide/core.c; then
+        echo 'QEMU MICRODRIVE was not replaced in core.c'; fail=1
+    fi
+    if ! sed -i 's/KVMKVMKVM\\0\\0\\0/GenuineIntel/g' qemu*/target/i386/kvm.c; then
+        echo 'KVMKVMKVM was not replaced in kvm.c'; fail=1
+    fi
+	# by @http_error_418
+    if  sed -i 's/Microsoft Hv/GenuineIntel/g' qemu*/target/i386/kvm.c; then
+        echo 'Microsoft Hv was not replaced in target/i386/kvm.c'; fail=1
+    fi
+    if ! sed -i 's/"bochs"/"hawks"/g' qemu*/block/bochs.c; then
+        echo 'BOCHS was not replaced in block/bochs.c'; fail=1
+    fi
+    # by Tim Shelton (redsand) @ HAWK (hawk.io)
+    if ! sed -i 's/"BOCHS "/"ALASKA"/g' qemu*/include/hw/acpi/aml-build.h; then
+        echo 'bochs was not replaced in include/hw/acpi/aml-build.h'; fail=1
+    fi
+    # by Tim Shelton (redsand) @ HAWK (hawk.io)
+    if ! sed -i 's/Bochs Pseudo/Intel RealTime/g' qemu*/roms/ipxe/src/drivers/net/pnic.c; then
+        echo 'Bochs Pseudo was not replaced in roms/ipxe/src/drivers/net/pnic.c'; fail=1
+    fi
+}
 
-echo -e "${GREEN}Directory structure creation...${NC}"
-addgroup libvirt-qemu
-addgroup "$SBXNAME"
-mkdir -v /usr/local/unsafehex/
-mkdir -v "/usr/local/unsafehex/$SBXNAME"
-mkdir -v "/usr/local/unsafehex/$SBXNAME/suspects"
-mkdir -v "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
-mkdir -v "/usr/local/unsafehex/$SBXNAME/output"
-mkdir -v "/usr/local/unsafehex/$SBXNAME/runmanager"
-mkdir -v "/usr/local/unsafehex/$SBXNAME/runmanager/logs"
-mkdir -v "/usr/local/unsafehex/$SBXNAME/utils"
-mkdir -v "/usr/local/unsafehex/$SBXNAME/yara"
-mkdir -v "/usr/local/unsafehex/$SBXNAME/www"
-mkdir -v "/usr/local/unsafehex/$SBXNAME/api"
-mkdir -v "/usr/local/unsafehex/$SBXNAME/pcaps"
-mkdir -v /mnt/images
-mkdir -v "/mnt/$SBXNAME"
-chgrp "$SBXNAME" "/mnt/$SBXNAME"
-chmod g+rw /mnt/"$SBXNAME"
-chgrp libvirt-qemu /mnt/images
-chmod g+rw /mnt/images
+function replace_seabios_clues_public() {
+    echo "[+] deleting BOCHS APCI tables"
+    echo "[+] Generating SeaBios Kconfig"
+    #./scripts/kconfig/merge_config.sh -o . >/dev/null 2>&1
+    #sed -i 's/CONFIG_ACPI_DSDT=y/CONFIG_ACPI_DSDT=n/g' .config
+    #sed -i 's/CONFIG_XEN=y/CONFIG_XEN=n/g' .config
+    echo "[+] Fixing SeaBios antivms"
+    if ! sed -i 's/Bochs/Phnx /g' src/config.h; then
+        echo 'Bochs was not replaced in src/config.h'; fail=1
+    fi
+    if ! sed -i 's/BOCHSCPU/PHNXCPU/g' src/config.h; then
+        echo 'BOCHSCPU was not replaced in src/config.h'; fail=1
+    fi
+    if ! sed -i 's/"BOCHS "/"PHNX "/g' src/config.h; then
+        echo 'BOCHS was not replaced in src/config.h'; fail=1
+    fi
+    if ! sed -i 's/BXPC/PHPC/g' src/config.h; then
+        echo 'BXPC was not replaced in src/config.h'; fail=1
+    fi
+    if ! sed -i 's/QEMU0001/ACER0001/g' src/fw/ssdt-misc.dsl; then
+        echo 'QEMU0001 was not replaced in src/fw/ssdt-misc.dsl'; fail=1
+    fi
+    if ! sed -i 's/QEMU\/Bochs/ACER\/Phnx /g' vgasrc/Kconfig; then
+        echo 'QEMU\/Bochs was not replaced in vgasrc/Kconfig'; fail=1
+    fi
+    if ! sed -i 's/qemu /acer /g' vgasrc/Kconfig; then
+        echo 'qemu was not replaced in vgasrc/Kconfig'; fail=1
+    fi
 
-echo -e "${GREEN}Unwrapping sandbox manager files and utilities...${NC}"
-python3 "$SCRIPTDIR/scripts/write_tor_iptables.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTDIR/src/runmanager/"
-python3 "$SCRIPTDIR/scripts/write_network.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTDIR/res/vnet.xml"
-cp -rv "$SCRIPTDIR/src/runmanager/"* "/usr/local/unsafehex/$SBXNAME/runmanager/"
-chmod +x "/usr/local/unsafehex/$SBXNAME/runmanager/runmanager"
-wget https://live.sysinternals.com/Sysmon64.exe -o "/usr/local/unsafehex/$SBXNAME/suspects/downloads/Sysmon64.exe"
-cp -v "$SCRIPTDIR/res/sysmon.xml" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
-wget https://github.com/scherma/teaservice/releases/download/0.1/TeaService.Setup.msi -o "/usr/local/unsafehex/$SBXNAME/suspects/downloads/TeaService Setup.msi"
-cp -v "$SCRIPTDIR/res/MousePos.exe" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
-cp -v "$SCRIPTDIR/res/bios.bin" "/usr/local/unsafehex/$SBXNAME/"
-cp -rv "$SCRIPTDIR/src/node/"* "/usr/local/unsafehex/$SBXNAME/www/"
-cp -rv "$SCRIPTDIR/src/api/"* "/usr/local/unsafehex/$SBXNAME/api/"
-cp -rv "$SCRIPTDIR/src/utils/"* "/usr/local/unsafehex/$SBXNAME/utils/"
-chmod +x "/usr/local/unsafehex/$SBXNAME/utils/suricata-clean.sh"
-chmod +x "/usr/local/unsafehex/$SBXNAME/utils/yara-update.sh"
-chmod 775 -R /usr/local/unsafehex
-usermod -a -G "$SBXNAME" "$LABUSER"
-python3 "$SCRIPTDIR/scripts/writerunconf.py" "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
-python3 "$SCRIPTDIR/scripts/writewwwconf.py" "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
-python3 "$SCRIPTDIR/scripts/write_unit_file.py" "$SBXNAME" "$LABUSER"
-python3 "$SCRIPTDIR/scripts/write_pcap.py" "$SBXNAME"
+    FILES=(
+        src/hw/blockcmd.c
+        src/fw/paravirt.c
+    )
+    for file in "${FILES[@]}"; do 
+        if ! sed -i 's/"QEMU/"ACER/g' "$file"; then
+            echo "QEMU was not replaced in $file"; fail=1
+        fi
+    done
+    if ! sed -i 's/"QEMU"/"ACER"/g' src/hw/blockcmd.c; then
+        echo '"QEMU" was not replaced in  src/hw/blockcmd.c'; fail=1
+    fi
+    FILES=(
+        "src/fw/acpi-dsdt.dsl" 
+        "src/fw/q35-acpi-dsdt.dsl"
+    )
+    for file in "${FILES[@]}"; do 
+        if ! sed -i 's/"BXPC"/ARPC"/g' "$file"; then
+            echo "BXPC was not replaced in $file"; fail=1
+        fi
+        if ! sed -i 's/"BXDSDT"/"ARDSDT"/g' "$file"; then
+            echo "BXDSDT was not replaced in $file"; fail=1
+        fi
+    done
+    if ! sed -i 's/"BXPC"/"ARPC"/g' "src/fw/ssdt-pcihp.dsl"; then
+        echo 'BXPC was not replaced in src/fw/ssdt-pcihp.dsl'; fail=1
+    fi
+    if ! sed -i 's/"BXDSDT"/"ARDSDT"/g' "src/fw/ssdt-pcihp.dsl"; then
+        echo 'BXDSDT was not replaced in src/fw/ssdt-pcihp.dsl'; fail=1
+    fi
+    if ! sed -i 's/"BXPC"/"ARPC"/g' "src/fw/ssdt-proc.dsl"; then
+        echo 'BXPC was not replaced in "src/fw/ssdt-proc.dsl"'; fail=1
+    fi
+    if ! sed -i 's/"BXSSDT"/"ARSSDT"/g' "src/fw/ssdt-proc.dsl"; then
+        echo 'BXSSDT was not replaced in src/fw/ssdt-proc.dsl'; fail=1
+    fi
+    if ! sed -i 's/"BXPC"/"ARPC"/g' "src/fw/ssdt-misc.dsl"; then
+        echo 'BXPC was not replaced in src/fw/ssdt-misc.dsl'; fail=1
+    fi
+    if ! sed -i 's/"BXSSDTSU"/"ARSSDTSU"/g' "src/fw/ssdt-misc.dsl"; then
+        echo 'BXDSDT was not replaced in src/fw/ssdt-misc.dsl'; fail=1
+    fi
+    if ! sed -i 's/"BXSSDTSUSP"/"ARSSDTSUSP"/g' src/fw/ssdt-misc.dsl; then
+        echo 'BXSSDTSUSP was not replaced in src/fw/ssdt-misc.dsl'; fail=1
+    fi
+    if ! sed -i 's/"BXSSDT"/"ARSSDT"/g' src/fw/ssdt-proc.dsl; then
+        echo 'BXSSDT was not replaced in src/fw/ssdt-proc.dsl'; fail=1
+    fi
+    if ! sed -i 's/"BXSSDTPCIHP"/"ARSSDTPCIHP"/g' src/fw/ssdt-pcihp.dsl; then
+        echo 'BXPC was not replaced in src/fw/ssdt-pcihp.dsl'; fail=1
+    fi
+    FILES=(
+        src/fw/q35-acpi-dsdt.dsl
+        src/fw/acpi-dsdt.dsl
+        src/fw/ssdt-misc.dsl
+        src/fw/ssdt-proc.dsl
+        src/fw/ssdt-pcihp.dsl
+        src/config.h
+    )
+    for file in "${FILES[@]}"; do 
+        if ! sed -i 's/"BXPC"/"A M I"/g' "$file"; then
+            echo "BXPC was not replaced in $file"; fail=1
+        fi
+    done
+}
 
-echo -e "${GREEN}Installing required node modules...${NC}"
-cd "/usr/local/unsafehex/$SBXNAME/www"
-npm i
-cd "/usr/local/unsafehex/$SBXNAME/api"
-npm i
+function seabios_func() {
+    cd /tmp || return     
+    echo -e '${GREEN}Installing SeaBios dependencies${NC}'
+    apt-get install git iasl -y
+    if [ -d seabios ]; then
+        rm -r seabios
+    fi
+    if git clone https://github.com/coreboot/seabios.git; then
+        cd seabios || return
+        if declare -f -F "replace_seabios_clues"; then
+            replace_seabios_clues
+        else
+            replace_seabios_clues_public
+        fi
+        # sudo make help
+        # sudo make menuconfig -> BIOS tables -> disable Include default ACPI DSDT
+        if make -j "$(getconf _NPROCESSORS_ONLN)"; then
+            echo -e '${GREEN}Replacing old bios.bin to new out/bios.bin${NC}'
+            bios=0
+            FILES=(
+                "/usr/share/qemu/bios.bin"
+                "/usr/share/qemu/bios-256k.bin" 
+            )
+            for file in "${FILES[@]}"; do 
+                cp -f out/bios.bin "$file"
+                bios=1
+            done
+            if [ $bios -eq 1 ]; then
+                echo -e '${GREEN}Patched bios.bin placed correctly${NC}'
+            else
+                echo -e '${RED}Bios patching failed${NC}'
+            fi
+        else
+            echo -e '${RED}Bios compilation failed${NC}'
+        fi
+        cd - || return
+    else
+        echo -e '${RED}Check if git installed or network connection is OK${NC}'
+    fi
+}
 
-echo -e "${GREEN}Building required version of libvirt...${NC}"
-mkdir -v "/tmp/$SBXNAME"
-mkdir -v "/tmp/$SBXNAME/libvirt"
-cd "/tmp/$SBXNAME/libvirt"
-wget https://libvirt.org/sources/libvirt-4.0.0.tar.xz
-tar xvfJ libvirt-4.0.0.tar.xz
-cd libvirt-4.0.0
-./configure --with-qemu-group=libvirt-qemu --localstatedir=/usr/local/var --with-dnsmasq-path=/usr/sbin/dnsmasq
-make && make install
-usermod -a -G libvirt-qemu "$LABUSER"
-usermod -a -G kvm "$LABUSER"
-usermod -a -G wireshark "$LABUSER"
-apt-get install -y libvirt-daemon libvirt-clients virt-manager
-cp -v "$SCRIPTDIR/res/libvirtd.service" /etc/systemd/system
-rm -v "/etc/libvirt/libvirtd.conf"
-cp -v "$SCRIPTDIR/res/libvirtd.conf" /etc/libvirt/
-# socket file is not necessary and if not present in /etc/systemd/system, systemd will fall back to the next available one
-# better to make sure they're all gone otherwise libvirt sockets will be created in the wrong location and with wrong permissions
-rm -v /lib/systemd/system/libvirtd.socket
+function qemu_func() {
+    cd /tmp || return 
 
-echo -e "${GREEN}Building required version of Suricata...${NC}"
-mkdir -v "/tmp/$SBXNAME/suricata"
-cd "/tmp/$SBXNAME/suricata"
-wget https://www.openinfosecfoundation.org/download/suricata-4.0.0.tar.gz
-tar zxvf suricata-4.0.0.tar.gz
-cd suricata-4.0.0
-./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-geoip
-make && make install
-make install-conf
-cp -v "$SCRIPTDIR/res/suricata.yaml" /etc/suricata
+    echo -e '${GREEN}Cleaning QEMU old install if exists${NC}'
+    rm -r /usr/share/qemu >/dev/null 2>&1
+    sudo dpkg -r ubuntu-vm-builder python-vm-builder >/dev/null 2>&1
+    sudo dpkg -l |grep qemu |cut -d " " -f 3|xargs sudo dpkg --purge --force-all >/dev/null 2>&1
 
-echo -e "${GREEN}Setting up Emerging Threats download...${NC}"
-cd "/tmp/$SBXNAME/"
-git clone https://github.com/seanthegeek/etupdate.git
-cp -v etupdate/etupdate /usr/sbin
-/usr/sbin/etupdate -V
-crontab -l > tmpcron
-MINUTE=$(shuf -i 0-59 -n 1)
-echo "${MINUTE} * * * * /usr/sbin/etupdate" >> tmpcron
-echo "1 0 * * * /usr/local/unsafehex/$SBXNAME/utils/suricata-clean.sh" >> tmpcron
-echo "1 0 * * MON /usr/local/unsafehex/$SBXNAME/utils/yara-update.sh" >> tmpcron
-echo "0 * * * * su $SBXUSER -c '/usr/local/unsafehex/$SBXNAME/utils/dumpcap.sh >> /dev/null 2>&1'" >> tmpcron
-crontab tmpcron
-rm tmpcron
+    echo -e '${GREEN}Downloading QEMU source code${NC}'
+    if [ ! -f qemu-$qemu_version.tar.xz ]; then 
+        wget https://download.qemu.org/qemu-$qemu_version.tar.xz
+    fi
+    if [ $(tar xf qemu-$qemu_version.tar.xz) ]; then
+        echo -e "${RED}Failed to extract, check if download was correct${NC}"
+        exit 1
+    fi
+    fail=0
 
-echo -e "${GREEN}Configuring ClamAV to accept TCP connections...${NC}"
-echo "TCPSocket 9999" >> /etc/clamav/clamd.conf
-echo "TCPAddr 127.0.0.1" >> /etc/clamav/clamd.conf
-cp -rf "$SCRIPTDIR/res/extend.conf" /etc/systemd/system/clamav-daemon.service.d/extend.conf
+    if [ $? -eq 0 ]; then
+        if declare -f -F "replace_qemu_clues"; then
+            replace_qemu_clues
+        else
+            replace_qemu_clues_public
+        fi
+        if [ $fail -eq 0 ]; then
+            echo -e '${GREEN}Starting compile of qemu...{$NC}'
+            cd qemu-$qemu_version || return
+			# needs to be updated with the exact options required
+            ./configure --prefix=/usr --libexecdir=/usr/lib/qemu --localstatedir=/var --bindir=/usr/bin/ --target-list=i386-softmmu,x86_64-softmmu,i386-linux-user,x86_64-linux-user --enable-gnutls --enable-docs --enable-gtk --enable-vnc --enable-vnc-sasl --enable-vnc-png --enable-vnc-jpeg --enable-curl --enable-kvm --enable-linux-aio --enable-cap-ng --enable-vhost-net --enable-vhost-crypto --enable-spice --enable-usb-redir --enable-lzo --enable-snappy --enable-bzip2 --enable-coroutine-pool --enable-libssh2 --enable-libxml2 --enable-tcmalloc --enable-replication --enable-tools --enable-capstone --enable-virtfs --enable-bzip2 --enable-linux-user --enable-nettle --enable-fdt --enable-libusb --enable-snappy --enable-seccomp --enable-tpm
+            if  [ $? -eq 0 ]; then
+                echo '${GREEN}Installing qemu...${NC}'
+                #dpkg -i qemu*.deb
+                if [ -f /usr/share/qemu/qemu_logo_no_text.svg ]; then
+                    rm /usr/share/qemu/qemu_logo_no_text.svg
+                fi
+                make -j"$(getconf _NPROCESSORS_ONLN)"
+                checkinstall -D --pkgname=qemu-$qemu_version --nodoc --showinstall=no --default
+                # hack for libvirt/virt-manager
+                if [ ! -f /usr/bin/qemu-system-x86_64-spice ]; then 
+                    ln -s /usr/bin/qemu-system-x86_64 /usr/bin/qemu-system-x86_64-spice
+                fi
+                if [ ! -f /usr/bin/kvm-spice ]; then 
+                    ln -s /usr/bin/qemu-system-x86_64 /usr/bin/kvm-spice
+                fi
+                if [ ! -f /usr/bin/kvm ]; then 
+                    ln -s /usr/bin/qemu-system-x86_64 /usr/bin/kvm
+                fi
+                if  [ $? -eq 0 ]; then
+                    echo -e '${GREEN}Patched, compiled and installed${NC}'
+                else
+                    echo -e '${RED}Install failed${NC}'
+                fi
+            else
+                echo -e '${RED}Compilling failed${NC}'
+            fi
+        else
+            echo -e '${RED}Check previous output${NC}'
+            exit
+        fi
 
-echo -e "${GREEN}Setting up nginx...${NC}"
-cd "/tmp/$SBXNAME/"
-mkdir -v ssl
-cd "/tmp/$SBXNAME/ssl"
-openssl req -x509 -nodes -days 365 -newkey rsa:4096 -subj "/CN=$SBXNAME/O=$SBXNAME/C=$CCODE" -keyout "$SBXNAME".key -out "$SBXNAME".crt
-openssl dhparam -dsaparam -out dhparam.pem 4096
-mkdir -v /etc/nginx/ssl
-chmod 700 /etc/nginx/ssl
-cp -v "$SBXNAME".key "$SBXNAME".crt dhparam.pem /etc/nginx/ssl
-rm -v /etc/nginx/sites-enabled/default
-cp -v "$SCRIPTDIR/res/nginx" "/etc/nginx/sites-enabled/$SBXNAME"
+    else
+        echo -e '${RED}Download QEMU source was not possible${NC}'
+    fi
+}
 
-echo -e "${GREEN}Setting permissions on sandbox file structure...${NC}"
-chown root:"$SBXNAME" -R /usr/local/unsafehex
 
-echo -e "${GREEN}Setting permissions for control of services...${NC}"
-echo "Cmnd_Alias PCAPRING_CMNDS = /bin/systemctl start pcapring, /bin/systemctl stop pcapring, /bin/systemctl restart pcapring" >> /etc/sudoers.d/antfarm
-echo "Cmnd_Alias ANTFARM_CMNDS = /bin/systemctl start $SBXNAME, /bin/systemctl stop $SBXNAME, /bin/systemctl restart $SBXNAME" >> /etc/sudoers.d/antfarm
-echo "Cmnd_Alias SURICATA_CMNDS = /bin/systemctl restart suricata" >> /etc/sudoers.d/antfarm
-echo "%$SBXNAME ALL=(ALL) NOPASSWD: ANTFARM_CMNDS,PCAPRING_CMNDS,SURICATA_CMNDS" >> /etc/sudoers.d/antfarm
 
-cd "$SCRIPTDIR"
+INSTALL_CMDS=["install_antfarm_dependencies", "configure_antfarm_db", "make_antfarm_dirs", "build_libvirt", "build_suricata", "make_cron", "clam_setup", "nginx_setup", "seabios_func", "qemu_func", "finishing_touches"]
 
-echo -e "${GREEN}Starting clam and libvirt services...${NC}"
-# settings on libvirt not in effect until reloaded
-systemctl daemon-reload
-service clamav-daemon stop
-service clamav-daemon start
-service clamav-freshclam stop
-service clamav-freshclam start
-service libvirtd stop
-service libvirtd start
-service libvirt-guests stop
-service libvirt-guests start
-service virtlockd stop
-service virtlockd start
-service virtlogd stop
-service virtlogd start
-service pcapring start
+for cmd in "${INSTALL_CMDS[@]}"; do
+	read -p "Enter for next stage..." CONTINUE
+	cmd
+	if [ fail -eq 1 ]; then
+		echo -e "${RED}Errors occurred and the installation has failed. See previous output for details. Aborting."
+		exit 1
+	fi
+done
 
-echo -e "${GREEN}Configuring tor, virtual network, and host run scripts${NC}"
-{
-	echo ""
-	echo "TransPort $GATEWAY_IP:8081"
-	echo "DNSPort $GATEWAY_IP:5353"
-} >> /etc/tor/torrc
-
-virsh -c qemu:///system net-destroy default
-virsh -c qemu:///system net-undefine default
-virsh -c qemu:///system net-create "$SCRIPTDIR/res/vnet.xml"
-
-echo -e "${GREEN}Cleaning up temporary files...${NC}"
-rm -rfv "/tmp/$SBXNAME"
-
+	
 echo -e "${GREEN}INITIAL SETUP COMPLETE${NC}"
 echo -e "You will now need to fill in config options and create your Windows VMs. Please see ${RED}README.md${NC} for details."
 echo -e "Please log out and back in for permissions to take effect."

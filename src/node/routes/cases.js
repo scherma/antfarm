@@ -49,6 +49,10 @@ router.get('/view/:sha256/:uuid', function(req,res,next) {
 	.then((caseobj) => {
 		caseobj.mainmenu = mainmenu;
 		res.render("case", caseobj);
+	}).catch((err) => {
+		console.log(err);
+		res.status(404);
+		res.send(err);
 	});
 });
 
@@ -56,6 +60,10 @@ router.get('/json/:sha256/:uuid', function(req, res, next) {
 	functions.GetCase(req)
 	.then((caseobj) => {
 		res.send(caseobj);
+	}).catch((err) => {
+		console.log(err);
+		res.status(404);
+		res.send();
 	});
 });
 

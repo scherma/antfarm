@@ -22,7 +22,7 @@ class Broker():
         self.lv_conn = libvirt.open("qemu:///system")
         self.cursor, self.dbconn = self._db_conn(self.conf.get("General", "dbname"), self.conf.get("General", "dbuser"), self.conf.get("General" ,"dbpass"))
         self._wipe_workerstate()
-        self._register_workers()
+        #self._register_workers()
         
     def _db_conn(self, db, user, password):
         host = "localhost"
@@ -41,7 +41,7 @@ class Broker():
             logger.info("Selected VM UUID {0} and registered worker in DB".format(uuid))
             
     def _list_available_victims(self):
-        self.cursor.execute("""SELECT id, uuid FROM workerstate WHERE position = 'idle'""")
+        self.cursor.execute("""SELECT uuid FROM victims WHERE status = 'production' AND uuid NOT IN (SELECT uuid FROM workerstate WHERE position != 'idle' AND position IS NOT NULL)""")
         victims = self.cursor.fetchall()
         return victims
                         
@@ -58,7 +58,7 @@ class Broker():
         
     def _list_available_vms(self):
         # get all started/suspended domains
-        domains = self.lv_conn.listDomainsID()
+        domains = self.lv_conn.listAllDomains()
         self.cursor.execute("""SELECT * FROM victims WHERE status = 'production'""")
         rows = self.cursor.fetchall()
         production_uuids = []
@@ -69,9 +69,9 @@ class Broker():
         # check which ones match the victims table
         if domains:
             for dom in domains:
-                uuid = self.lv_conn.lookupByID(dom).UUIDString()
-                if uuid in production_uuids:
-                    available[uuid] = {"id": dom, "uuid": uuid}
+                #uuid = self.lv_conn.lookupByID(dom).UUIDString()
+                if dom.UUIDString() in production_uuids:
+                    available[dom.UUIDString()] = {"id": dom.ID(), "uuid": dom.UUIDString()}
         else:
             errmsg = "No victims online"
             logger.error(errmsg)
