@@ -325,6 +325,7 @@ class Worker():
             # ensure vm suspended
             self._lv_conn.lookupByUUIDString(self._vm_uuid).suspend()
             self._cursor.execute("""UPDATE victims SET (runcounter)=(runcounter + 1) WHERE uuid=%s""", (self._victim_params["uuid"],))
+            self._cursor.execute("""DELETE FROM workerstate WHERE uuid = %s""", (self._victim_params["uuid"],))
             self._dbconn.commit()
             self._cursor.execute("""SELECT runcounter FROM victims WHERE uuid=%s""", (self._victim_params["uuid"],))
             rows = self._cursor.fetchall()

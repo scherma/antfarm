@@ -118,6 +118,7 @@ class Connector:
         self.mouseMove(x, y)
         self.client.mousePress(1)
         self.client.mousePress(1)
+        logger.debug("We clicked the thing. And breathe...")
         self.client.pause(self.randomTime(5))
     
     def enable_dde(self):

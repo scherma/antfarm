@@ -41,7 +41,7 @@ class Broker():
             logger.info("Selected VM UUID {0} and registered worker in DB".format(uuid))
             
     def _list_available_victims(self):
-        self.cursor.execute("""SELECT uuid FROM victims WHERE status = 'production' AND uuid NOT IN (SELECT uuid FROM workerstate WHERE position != 'idle' AND position IS NOT NULL)""")
+        self.cursor.execute("""SELECT uuid FROM victims WHERE status = 'production' AND uuid NOT IN (SELECT uuid FROM workerstate WHERE position != 'idle' AND position IS NOT NULL) ORDER BY runcounter""")
         victims = self.cursor.fetchall()
         return victims
                         
@@ -120,14 +120,14 @@ class Broker():
             lineno = tb.tb_lineno
             logger.error("Fatal exception in manager: {0} {1} in {2}, line {3}, exiting main thread".format(ex_type, ex, fname, lineno))
         finally:
-            self.cursor.execute("""SELECT * FROM workerstate""")
+            self.cursor.execute("""SELECT * FROM victims""")
             rows = self.cursor.fetchall()
             logger.info("Removing all workers from active table")
             self.cursor.execute("""DELETE FROM workerstate WHERE 1=1""")
             self.dbconn.commit()
             logger.info("Suspending all VMs")
             for row in rows:
-                self.lv_conn.lookupByID(row["id"]).suspend()
+                self.lv_conn.lookupByID(row["uuid"]).suspend()
             
             logger.info("Cleanup complete, exiting manager")
         

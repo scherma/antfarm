@@ -38,6 +38,7 @@ echo ""
 read -p "Please enter a country code for the SSL certificate: " CCODE
 read -p "Please enter the gateway IP address you wish the VM virtual network to have: " GATEWAY_IP
 read -p "Please enter the netmask for the VM virtual network: " NETMASK
+read -p "Please enter the IP of the primary interface (sandbox UI will be presented on this IP):" PRIMARY_IP
 echo ""
 echo "You have specified the following settings:"
 echo "Sandbox user: 			$LABUSER"
@@ -45,6 +46,7 @@ echo "Sandbox name: 			$SBXNAME"
 echo "SSL Country Code: 		$CCODE"
 echo "VM network gateway IP:		$GATEWAY_IP"
 echo "VM network netmask: 		$NETMASK"
+echo "Primary interface IP:     $PRIMARY_IP"    
 echo ""
 read -p "Press enter to accept these settings and install the sandbox" CONTINUE
 
@@ -271,6 +273,12 @@ function nginx_setup() {
 	cp "$SBXNAME".key "$SBXNAME".crt dhparam.pem /etc/nginx/ssl
 	rm /etc/nginx/sites-enabled/default
 	cp "$SCRIPTDIR/res/nginx" "/etc/nginx/sites-enabled/$SBXNAME"
+    sed -i "s/REPLACE_ME_LISTEN_MAIN/$PRIMARY_IP/g" "/etc/nginx/sites-enabled/$SBXNAME"
+    sed -i "s/REPLACE_ME_CERT/$SBXNAME.crt/g" "/etc/nginx/sites-enabled/$SBXNAME"
+    sed -i "s/REPLACE_ME_PKEY/$SBXNAME.key/g" "/etc/nginx/sites-enabled/$SBXNAME"
+    sed -i "s/REPLACE_ME_SERVER_NAME/$/g" "/etc/nginx/sites-enabled/$SBXNAME"
+    sed -i "s/REPLACE_ME_LISTEN_API/$GATEWAY_IP/g" "/etc/nginx/sites-enabled/$SBXNAME"
+    sed -i "s/REPLACE_ME_SBXNAME/$SBXNAME/g" "/etc/nginx/sites-enabled/$SBXNAME"
 }
 
 function finishing_touches() {
@@ -299,6 +307,8 @@ function finishing_touches() {
 	service virtlockd start
 	service virtlogd stop
 	service virtlogd start
+    service nginx stop
+    service nginx start
 	
 	echo -e "${GREEN}Configuring tor, virtual network, and host run scripts${NC}"
 	{
@@ -310,6 +320,14 @@ function finishing_touches() {
 	virsh -c qemu:///system net-destroy default
 	virsh -c qemu:///system net-undefine default
 	virsh -c qemu:///system net-create "$SCRIPTDIR/res/vnet.xml"
+
+    iptables -t nat -A PREROUTING -i virbr0 -p tcp -s $GATEWAY_IP/$NETMASK --dport 28080 -j ACCEPT
+    iptables -t nat -A PREROUTING -i virbr0 -p tcp -s $GATEWAY_IP/$NETMASK --dport 28082 -j ACCEPT
+    iptables -t nat -A PREROUTING -i virbr0 -p tcp -s $GATEWAY_IP/$NETMASK -j REDIRECT --to-ports 8081
+    iptables -t nat -A PREROUTING -i virbr0 -p udp --dport 53 -j REDIRECT --to-ports 5353 -s $GATEWAY_IP/$NETMASK
+
+    service tor stop
+    service tor start
 	
 	echo -e "${GREEN}Cleaning up temporary files...${NC}"
 	rm -rf "/tmp/$SBXNAME"
@@ -561,8 +579,6 @@ function qemu_func() {
         echo -e '${RED}Download QEMU source was not possible${NC}'
     fi
 }
-
-
 
 INSTALL_CMDS=["install_antfarm_dependencies", "configure_antfarm_db", "make_antfarm_dirs", "build_libvirt", "build_suricata", "make_cron", "clam_setup", "nginx_setup", "seabios_func", "qemu_func", "finishing_touches"]
 

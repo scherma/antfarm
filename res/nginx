@@ -2,9 +2,9 @@
 # contact http_error_418@unsafehex.com
 
 server {
-    listen REPLACE_ME:443 ssl;
-    ssl_certificate /etc/nginx/ssl/REPLACE_ME;
-    ssl_certificate_key /etc/nginx/ssl/REPLACE_ME;
+    listen REPLACE_ME_LISTEN_MAIN:443 ssl;
+    ssl_certificate /etc/nginx/ssl/REPLACE_ME_CERT;
+    ssl_certificate_key /etc/nginx/ssl/REPLACE_ME_PKEY;
     ssl_dhparam /etc/nginx/ssl/dhparam.pem;
     ssl_protocols TLSv1.2;
     ssl_prefer_server_ciphers on;
@@ -17,7 +17,7 @@ server {
     add_header X-Frame-Options SAMEORIGIN;
     add_header X-Content-Type-Options nosniff;
     index index.php index.html index.htm;
-    server_name REPLACE_ME;
+    server_name REPLACE_ME_SERVER_NAME;
     client_max_body_size 101M;
     auth_basic "off";
     
@@ -50,15 +50,15 @@ server {
 }
 
 server {
-    listen REPLACE_ME:80;
+    listen REPLACE_ME_LISTEN_MAIN:80;
     return 301 https://$server_name$request_uri;
 }
 
 
 server {
-    listen REPLACE_ME:28080 ssl;
-    ssl_certificate /etc/nginx/ssl/REPLACE_ME;
-    ssl_certificate_key /etc/nginx/ssl/REPLACE_ME;
+    listen REPLACE_ME_LISTEN_API:28080 ssl;
+    ssl_certificate /etc/nginx/ssl/REPLACE_ME_CERT;
+    ssl_certificate_key /etc/nginx/ssl/REPLACE_ME_PKEY;
     ssl_dhparam /etc/nginx/ssl/dhparam.pem;
     ssl_protocols TLSv1.2;
     ssl_prefer_server_ciphers on;
@@ -73,7 +73,7 @@ server {
     client_max_body_size 101M;
     auth_basic "off";
 
-    root /usr/local/unsafehex/REPLACE_ME/suspects/downloads;
+    root /usr/local/unsafehex/REPLACE_ME_SBXNAME/suspects/downloads;
 
     location / {
           proxy_pass http://127.0.0.1:28081;
@@ -83,7 +83,7 @@ server {
 server {
     listen REPLACE_ME: 28082;
   
-    root /usr/local/unsafehex/REPLACE_ME/suspects/downloads;
+    root /usr/local/unsafehex/REPLACE_ME_SBXNAME/suspects/downloads;
     location / {
         try_files $uri $uri/ =404;
         autoindex on;

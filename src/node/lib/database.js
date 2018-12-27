@@ -71,7 +71,7 @@ module.exports = {
 		if (page > 0) {
 			offset = (limit - 1) * page;
 		}
-		var pgr = "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS submittime, cases.sha256, cases.fname, cases.uuid AS uuid, cases.status, workerstate.position, alerts.c AS alert_count, dns.c AS dns_count, http.c AS http_count, files.c as files_count FROM cases LEFT JOIN workerstate ON cases.uuid = workerstate.job_uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_alert GROUP BY uuid) AS alerts ON cases.uuid = alerts.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_dns GROUP BY uuid) AS dns ON cases.uuid = dns.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_http GROUP BY uuid) AS http ON cases.uuid = http.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM victimfiles GROUP BY uuid) AS files ON cases.uuid = files.uuid";
+		var pgr = "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS submittime, cases.sha256, cases.fname, cases.uuid AS uuid, cases.status, workerstate.position, alerts.c AS alert_count, dns.c AS dns_count, http.c AS http_count, files.c as files_count FROM cases LEFT JOIN workerstate ON cases.uuid = workerstate.job_uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_alert WHERE is_artifact=false GROUP BY uuid) AS alerts ON cases.uuid = alerts.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_dns WHERE is_artifact=false GROUP BY uuid) AS dns ON cases.uuid = dns.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_http WHERE is_artifact=false GROUP BY uuid) AS http ON cases.uuid = http.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM victimfiles WHERE is_artifact=false GROUP BY uuid) AS files ON cases.uuid = files.uuid";
 		
 		if (where) {
 			return pg.select(pg.raw(pgr))

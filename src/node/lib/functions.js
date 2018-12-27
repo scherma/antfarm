@@ -653,9 +653,10 @@ function GetCase(req) {
 		
 		var pcaplink = '/cases/' + properties.sha256.text + '/' + properties.uuid.text + '/pcap';
 		var suspectlink = '/files/' + properties.sha256.text;
-		var sockid = null;
-		console.log(suspect.victim_params);
-		if (suspect.victim_params) sockid = (parseInt(suspect.victim_params.vnc.port) - 5900);
+		var sockid = 0;
+		var intsockid = 0;
+		if (suspect.victim_params && suspect.victim_params.vnc) { intsockid = (parseInt(suspect.victim_params.vnc.port) - 5900); }
+		if (intsockid < 10) { sockid = format("0{sockid}", { sockid: sockid }); } else { sockid = intsockid; }
 		var vnclink = format('/novnc/vnc.html?host={host}&port={port}&path=vncsockets/{sockid}', {host: req.hostname, port: 443, sockid: sockid});
 		
 		var fileslist = [];
