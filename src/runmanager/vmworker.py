@@ -305,6 +305,7 @@ class Worker():
             suspect.construct_record(self._victim_params)
             self.logger.debug("Output written")
             self._case_update('complete', suspect.uuid)
+            del(suspect)
              
         except Exception:
             ex_type, ex, tb = sys.exc_info()

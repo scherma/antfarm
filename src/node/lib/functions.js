@@ -599,8 +599,21 @@ function GetCase(req) {
 	
 	var thiscase = db.show_case(req.params.uuid);
 	
-	var victimfiles = db.victimfiles(req.params.uuid);
-	
+	var victimfiles = new Promise((fulfill, reject) => {
+		db.victimfiles(req.params.uuid)
+		.then((values) => {
+			vf = [];
+			values.forEach((victimfile) => {
+				victimfile.timestamp = moment(victimfile.timestamp).toISOString();
+				if (!victimfile.is_artifact || req.query.artifacts == "1") {
+					vf.push(victimfile);
+				}
+			});
+
+			fulfill(vf);
+		});
+	});
+
 	return Promise.all([eventsP, sysmonP, pcapsummaryP, runlogP, thiscase, screenshots, victimfiles])
 	.then((values) => {
 		if (values[4].length < 1) {

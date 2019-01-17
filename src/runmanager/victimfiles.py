@@ -174,6 +174,7 @@ class VictimFiles:
                                         
                     destfile = os.path.join("/tmp", os.path.basename(registry))
                     self.g.download(registry, destfile)
+                    registriesdict[registry]["sha256"] = self.getsha256(destfile).hexdigest()
                     zf.write(destfile, arcname=registry)
                     os.remove(destfile)
                     

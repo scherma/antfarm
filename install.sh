@@ -169,7 +169,7 @@ function install_antfarm_core() {
 	chmod +x "/usr/local/unsafehex/$SBXNAME/runmanager/runmanager"
 	wget https://live.sysinternals.com/Sysmon64.exe -O "/usr/local/unsafehex/$SBXNAME/suspects/downloads/Sysmon64.exe"
 	cp "$SCRIPTDIR/res/sysmon-8-cfg.xml" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
-	wget -q https://github.com/scherma/teaservice/releases/download/0.1/TeaService.Setup.msi -O "/usr/local/unsafehex/$SBXNAME/suspects/downloads/TeaService Setup.msi"
+	wget -q https://github.com/scherma/teaservice/releases/download/v0.2/TeaService.Setup.msi -O "/usr/local/unsafehex/$SBXNAME/suspects/downloads/TeaService Setup.msi"
 	cp "$SCRIPTDIR/res/MousePos.exe" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
 	cp "$SCRIPTDIR/res/bios.bin" "/usr/local/unsafehex/$SBXNAME/"
 	cp -r "$SCRIPTDIR/src/node/"* "/usr/local/unsafehex/$SBXNAME/www/"

@@ -61,6 +61,9 @@ class RunInstance():
         self.yara_test()
         self.vf = None
         self.vncthread = None
+
+    def __del__(self):
+        self._unregister_logger()
         
     @property
     def rawfile(self):
@@ -162,6 +165,9 @@ class RunInstance():
             logging.getLogger(module).setLevel(RUN_NUM_LEVEL)
         logger.addHandler(runlog)
         return runlog
+
+    def _unregister_logger(self):
+        logger.removeHandler(self.runlog)
 
     def _suspect_exists(self, fname):
         open(self.rawfile).close()
@@ -474,8 +480,6 @@ def vncsocket(host, lport, dport):
     logger.debug("Spinning up websocket process...")
     server = websockify.WebSocketProxy(**{"target_host": host, "target_port": dport, "listen_port": lport})
     server.start_server()
-        
-            
             
 def get_screen_image(dom, lv_conn):
     s = lv_conn.newStream()

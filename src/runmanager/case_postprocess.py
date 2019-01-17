@@ -91,11 +91,13 @@ class Postprocessor:
     def is_filesystem_artifact(self, evt):
         rmatches = [
             r"^C:\\Windows\\Temp\\.*?\.sqm$",
-            r"^C:\\Windows\\System32\\config\\systemprofile\\AppData\\LocalLow\\Microsoft\\CryptnetUrlCache"
+            r"^C:\\Windows\\System32\\config\\systemprofile\\AppData\\LocalLow\\Microsoft\\CryptnetUrlCache",
+            r"^C:\\ProgramData\\Microsoft\\Windows\\WER",
+            r"^C:\\ProgramData\\Microsoft\\Vault"
         ]
         for rmatch in rmatches:
             if re.search(rmatch, evt["os_path"], re.IGNORECASE):
-                artifact = True
+                return True
         return False
     
     def update_events(self):
@@ -110,11 +112,7 @@ class Postprocessor:
             if self.is_suricata_http_artifact(evt):
                 db_calls.tag_artifact(evt, "http", self._dbcursor)
                 total += 1
-        
-    #    for evt in pp.events["tls"]:
-    #        if pp.is_suricata_tls_artifact(evt):
-    #            print(evt)
-                
+                        
         for evt in self.events["alert"]:
             if self.is_suricata_alert_artifact(evt):
                 db_calls.tag_artifact(evt, "alert", self._dbcursor)
