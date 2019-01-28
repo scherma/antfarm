@@ -4,7 +4,7 @@
 # contact http_error_418 @ unsafehex.com
 
 import logging, libvirt, psycopg2, psycopg2.extras, os, psutil, arrow, socket, json, sys
-import runinstance, threading, time, pcap_parser, maintenance, db_calls, subprocess
+import runinstance, threading, time, pcap_parser, maintenance, db_calls, subprocess, signal
 from lxml import etree
 import configparser
 from io import StringIO, BytesIO
@@ -34,6 +34,7 @@ class Worker():
         fh.setLevel(RUN_NUM_LEVEL)
         fh.setFormatter(formatter)
         self.logger.addHandler(fh)
+        self.logfilehandler = fh
         
         #self._vm_id = vmdata["id"]
         self._mntdir = self._check_mntdir()
@@ -80,6 +81,7 @@ class Worker():
         self._cursor.execute("""DELETE FROM workerstate WHERE uuid = %s""", (self._vm_uuid,))
         dbconn.close()
         self.logger.info("Closed connection to DB - cleanup complete, exiting now.")
+        self.logger.removeHandler(self.logfilehandler)
         exit(value)
     
     def _db_cleanup(self, vm_uuid):
@@ -305,7 +307,6 @@ class Worker():
             suspect.construct_record(self._victim_params)
             self.logger.debug("Output written")
             self._case_update('complete', suspect.uuid)
-            del(suspect)
              
         except Exception:
             ex_type, ex, tb = sys.exc_info()
@@ -323,6 +324,7 @@ class Worker():
             except:
                 pass
             self.logger.removeHandler(suspect.runlog)
+            del(suspect)
             # ensure vm suspended
             self._lv_conn.lookupByUUIDString(self._vm_uuid).suspend()
             self._cursor.execute("""UPDATE victims SET (runcounter)=(runcounter + 1) WHERE uuid=%s""", (self._victim_params["uuid"],))

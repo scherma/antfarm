@@ -212,5 +212,31 @@ module.exports = {
 		var suspects = pg("suspects").select("*").where({sha256: sha256hash});
 		var sysmon = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN sysmon_evts ON cases.uuid = sysmon_evts.uuid LEFT JOIN victimfiles ON cases.uuid = victimfiles.uuid WHERE sysmon_evts.eventdata#>>'{Hashes,SHA256}' = ? OR victimfiles.sha256 = ? GROUP BY cases.uuid", [sha256hash, sha256hash]);
 		return Promise.all([suspects, sysmon]);
+	},
+
+	cases_since_datetime: function(dt) {
+		return pg("cases").count("*").where("endtime", ">", dt);
+	},
+
+	suspect_av_hits_since_datetime: function(dt) {
+		return pg.select("avresult", "suspects.uploadtime").from("suspects")
+		.whereNot({avresult: "OK"}).andWhere("suspects.uploadtime", ">", dt);
+	},
+
+	suspect_yara_hits_since_datetime: function(dt) {
+		return pg.select("yararesult", "suspects.uploadtime").from("suspects")
+		.whereNot({yararesult: '{}'}).andWhere("suspects.uploadtime", ">", dt);
+	},
+
+	case_av_hits_since_datetime: function(dt) {
+		return pg.select("victimfiles.avresult", "cases.endtime").from("victimfiles")
+		.leftJoin("cases", "victimfiles.uuid", "cases.uuid")
+		.whereRaw("victimfiles.avresult!='' AND victimfiles.avresult!='OK'").andWhere("cases.endtime", ">", dt);
+	},
+
+	case_yara_hits_since_datetime: function(dt) {
+		return pg.select("victimfiles.yararesult", "cases.endtime").from("victimfiles")
+		.leftJoin("cases", "victimfiles.uuid", "cases.uuid")
+		.whereNot({"victimfiles.yararesult": '{}'}).andWhere("cases.endtime", ">", dt);
 	}
 };

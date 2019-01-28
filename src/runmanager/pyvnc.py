@@ -172,24 +172,21 @@ class Connector:
         #self.typestring("I've got a lovely bunch of coconuts")
         #self.singleKey("enter")
         #self.singleKey("enter")
-        self.client.pause(self.randomTime(4))
-        self.close_window()
         self.randomMouseMove()
         self.randomMouseMove()
         self.client.pause(self.randomTime(8))
+        self.close_window()
+        self.client.pause(self.randomTime(4))
         self.randomMouseMove()
         self.randomMouseMove()
         self.randomMouseMove()
         self.randomMouseMove()
         self.client.pause(self.randomTime(6))
-        #self.mouseMove(33, 1036)
         self.randomMouseMove()
         
     def close_window(self):
         logger.debug("Closing window")
-        self.client.keyDown("alt")
-        self.client.keyPress("f4")
-        self.client.keyUp("alt")
+        self.mouseMove(self.x - 20, 9) # position of close button in maximised window
         self.client.pause(self.randomTime(2))
         self.singleKey("n")
         

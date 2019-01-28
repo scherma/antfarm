@@ -249,6 +249,7 @@ function make_cron() {
 	echo "1 0 * * * /usr/local/unsafehex/$SBXNAME/utils/suricata-clean.sh" >> tmpcron
 	echo "1 0 * * MON /usr/local/unsafehex/$SBXNAME/utils/yara-update.sh" >> tmpcron
 	echo "0 * * * * su $SBXUSER -c '/usr/local/unsafehex/$SBXNAME/utils/dumpcap.sh >> /dev/null 2>&1'" >> tmpcron
+    echo "2 0 * * * /usr/bin/find /usr/local/unsafehex/antfarm/pcaps/ -mtime +2 -exec rm {} \;" >> tmpcron
 	crontab tmpcron
 	rm tmpcron
 }

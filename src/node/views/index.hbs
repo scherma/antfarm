@@ -1,7 +1,69 @@
+<script src="/javascripts/Chart.bundle.min.js"></script>
 <div class="container theme-showcase" role="main">
 	<div class="page-header">
 		<h1>{{title}}</h1>	
-	
-		<p>{{bodycontent}}</p>
 	</div>
+	<canvas id="suspectHits" width="200" height="120"></canvas>
+	<script>
+		const urlParams = new URLSearchParams(window.location.search);
+		const start = urlParams.get('since');
+		let url = "/json/stats";
+		if (start) {
+			url = url + "?since=" + start;
+		}
+		$.ajax({
+			url: url,
+			dataType: "json",
+			success: function(statsobj) {
+				var datelist = statsobj.datelist;
+				var suspectavlinedata = [];
+				datelist.forEach((date) => {
+					var total = 0;
+					for (var detection in statsobj.suspectavhits[date]) {
+						total += statsobj.suspectavhits[date][detection];
+					}
+					suspectavlinedata.push(total);
+				});
+				var suspectyaralinedata = [];
+				datelist.forEach((date) => {
+					var total = 0;
+					for (var detection in statsobj.suspectyarahits[date]) {
+						total += statsobj.suspectyarahits[date][detection];
+					}
+					suspectyaralinedata.push(total);
+				});
+
+				var suspectctx = document.getElementById("suspectHits").getContext("2d");
+				var suspectHits = new Chart(suspectctx, {
+					type: "bar",
+					data: {
+						labels: datelist,
+						datasets: [
+							{
+								label: "AV detections",
+								data: suspectavlinedata,
+								borderColor: "rgb(255, 112, 112)",
+								backgroundColor: "rgb(255, 168, 168)"
+							},
+							{
+								label: "YARA detections",
+								data: suspectyaralinedata,
+								borderColor: "rgb(255, 217, 48)",
+								backgroundColor: "rgb(255, 233, 140)"
+							}
+						],
+					},
+					options: {
+						scales: {
+							yAxes: [{
+								ticks: {
+									beginAtZero: true
+								}
+							}]
+						}
+					}
+				});
+			}
+		})
+	</script>
 </div>

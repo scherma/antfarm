@@ -161,7 +161,7 @@ def all_case_events(uuid, cursor):
     cursor.execute(filessql, (uuid,))
     filesrows = cursor.fetchall()
     
-    return {"sysmon": sysmonrows, "http": httprows, "dns": dnsrows, "alert": alertrows, "files": filesrows}
+    return {"sysmon": sysmonrows, "http": httprows, "dns": dnsrows, "alert": alertrows, "files": filesrows, "tls": tlsrows}
 
 def tag_artifact(evtdata, evttype, cursor):
     if evttype == "sysmon":

@@ -111,10 +111,10 @@ var Suspect = function(fname,
 
 var GetCases = function(req) {
 	return new Promise((fulfill, reject) => {
-		var p = 0;
-		var w = {};
-		var d = true;
-		var l = 20;
+		var p = 0; // page = offset * length
+		var w = {}; // where clause
+		var d = true; // default order is descending
+		var l = 20; // default length
 		
 		if (req.query.fname) { w.fname = req.query.fname; }
 		if (req.query.sha256) { w.sha256 = req.query.sha256; }
@@ -139,11 +139,11 @@ var GetCases = function(req) {
 			var nxt = '';
 			var prv = '';
 			if (dbres.length > l) {
-				nxt = '/cases?' + buildQuery(w, p + 1, l, d);
+				nxt = '/cases' + req.path + '?' + buildQuery(w, p + 1, l, d);
 				dbres.pop();
 			}
 			if (page > 0) {
-				prv = '/cases?' + buildQuery(w, p - 1, l, d);
+				prv = '/cases' + req.path + '?' + buildQuery(w, p - 1, l, d);
 			}
 			
 			dbres.forEach((row) => {
@@ -1067,6 +1067,111 @@ function SortHits(hits) {
 	return finalhits;
 }
 
+function SandboxStats(dt) {
+	return Promise.all([
+		db.cases_since_datetime(dt), 
+		db.suspect_av_hits_since_datetime(dt),
+		db.suspect_yara_hits_since_datetime(dt),
+		db.case_av_hits_since_datetime(dt),
+		db.case_yara_hits_since_datetime(dt)
+	]).then(([cases, suspect_av_hits, suspect_yara_hits, case_av_hits, case_yara_hits]) => {
+		var output = {};
+
+		output.cases = cases[0].count;
+		output.datelist = get_date_list(dt);
+		let suspectavhits = {};
+		let suspectyarahits = {};
+		let fileavhits = {};
+		let fileyarahits = {};
+
+		suspect_av_hits.forEach((av_hit) => {
+			var day = moment(av_hit.uploadtime).format("YYYY-MM-DD");
+			var avresult = av_hit.avresult;
+			if (suspectavhits[day]) {
+				if (suspectavhits[day][avresult]) {
+					suspectavhits[day][avresult] += 1;
+				} else {
+					suspectavhits[day][avresult] = 1;
+				}
+			} else {
+				suspectavhits[day] = {};
+				suspectavhits[day][avresult] = 1;
+			}
+		});
+
+		suspect_yara_hits.forEach((yara_hit) => {
+			var day = moment(yara_hit.uploadtime).format("YYYY-MM-DD");
+			if (!suspectyarahits[day]) {
+				suspectyarahits[day] = {};
+			} 
+			Object.keys(yara_hit.yararesult).forEach((key) => {
+				if (suspectyarahits[day]) {
+					if (suspectyarahits[day][key]) {
+						suspectyarahits[day][key] += 1;
+					} else {
+						suspectyarahits[day][key] = 1;
+					}
+				} else {
+					suspectyarahits[day] = {};
+					suspectyarahits[day][key] = 1;
+				}
+			});
+		});
+
+		case_av_hits.forEach((av_hit) => {
+			var day = moment(av_hit.endtime).format("YYYY-MM-DD");
+			var avresult = av_hit.avresult;
+			if (fileavhits[day]) {
+				if (fileavhits[day][av_hit.avresult]) {
+					fileavhits[day][av_hit.avresult] += 1;
+				} else {
+					fileavhits[day][av_hit.avresult] = 1;
+				}
+			} else {
+				fileavhits[day] = {}
+				fileavhits[day][av_hit.avresult] = 1;
+			}
+		});
+
+		case_yara_hits.forEach((result) => {
+			var day = moment(result.endtime).format("YYYY-MM-DD");
+			if (!fileyarahits[day]) {
+				fileyarahits[day] = {};
+			}
+			Object.keys(result.yararesult).forEach((key) => {
+				if (fileyarahits[day]) {
+					if (fileyarahits[day][key]) {
+						fileyarahits[day][key] += 1;
+					} else {
+						fileyarahits[day][key] = 1;
+					}
+				} else {
+					fileyarahits[day] = {};
+					fileyarahits[day][key] = 1;
+				}
+			});
+		});	
+
+		output.suspectavhits = suspectavhits;
+		output.suspectyarahits = suspectyarahits;
+		output.fileavhits = fileavhits;
+		output.fileyarahits = fileyarahits;
+		return output;
+	});
+}
+
+function get_date_list(dt) {
+	var date_list = [];
+	var theday = moment(dt);
+	var today = moment().utc().startOf('day');
+	while (theday.add(1, 'days') <= today) {
+		var currentday = theday.format("YYYY-MM-DD");
+		date_list.push(currentday);
+	}
+
+	return date_list;
+}
+
 module.exports = {
 	Hashes: Hashes,
 	Suspect: Suspect,
@@ -1086,5 +1191,6 @@ module.exports = {
 	ExtractSavedFile: ExtractSavedFile,
 	SuspectProperties: SuspectProperties,
 	SearchRawTerm: SearchRawTerm,
-	SortHits: SortHits
+	SortHits: SortHits,
+	SandboxStats: SandboxStats
 };

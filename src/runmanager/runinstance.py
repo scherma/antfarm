@@ -60,10 +60,11 @@ class RunInstance():
         self.domuuid = domuuid
         self.yara_test()
         self.vf = None
-        self.vncthread = None
+        self.websockserver = None
 
     def __del__(self):
         self._unregister_logger()
+        self.remove_vnc()
         
     @property
     def rawfile(self):
@@ -232,19 +233,25 @@ class RunInstance():
             end = arrow.get(self.endtime)
             
             hours_list = arrow.Arrow.range("hour", start, end)
+
+            for pcap_file in pcaps:
+                pf = os.path.join(folder, pcap_file)
+                if arrow.get(os.path.getmtime(pf)) > start:
+                    to_read.append(pf)
+
+            logger.debug("Reading from pcaps: {}".format(to_read))
             
-            for hour in hours_list:
-                pcap_file = "{}.pcap".format(hour.format("HH"))
-                to_read.append(pcap_file)
+            #for hour in hours_list:
+            #    pcap_file = "{}.pcap".format(hour.format("HH"))
+            #    to_read.append(pcap_file)
                                     
             fl = "host {0} and not (host {1} and port 28080)".format(self.victim_params["ip"], self.conf.get("General", "gateway_ip"))
             logger.debug("Reading pcapring with filter {}".format(fl))
             logger.debug("Time parameters: {} :: {}".format(start, end))
             written = 0
             for pcap in to_read:
-                pcapfile = os.path.join(folder, pcap)
-                logger.debug("Reading {}".format(pcapfile))
-                packets = scapy.sniff(offline=pcapfile, filter=fl)
+                logger.debug("Reading {}".format(pcap))
+                packets = scapy.sniff(offline=pcap, filter=fl)
                 for packet in packets:
                     ptime = arrow.get(packet.time)
                     if ptime >= start and ptime <= end:
@@ -473,9 +480,10 @@ class RunInstance():
         logger.info("Started websockify server on {} -> {}".format(lport, dport))
     
     def remove_vnc(self):
-        self.vncthread.terminate()
-        logger.info("Stopped websockify server")
-            
+        if self.vncthread and isinstance(self.vncthread, multiprocessing.Process):
+            self.vncthread.terminate()
+            logger.info("Stopped websockify server")
+
 def vncsocket(host, lport, dport):
     logger.debug("Spinning up websocket process...")
     server = websockify.WebSocketProxy(**{"target_host": host, "target_port": dport, "listen_port": lport})

@@ -67,6 +67,12 @@ router.get('/json/:sha256/:uuid', function(req, res, next) {
 	});
 });
 
+router.get("/json", function(req, res, next) {
+	functions.GetCases(req).then((cases) => {
+		res.send(cases);
+	});
+});
+
 router.get('/:sha256/:uuid/pcap', function(req,res,next) {
 	var sd = req.params.sha256.substring(0,2);
 	var fpath = path.join(casesdir, sd, req.params.sha256, req.params.uuid, 'capture.pcap');
