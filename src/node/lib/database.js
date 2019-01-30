@@ -184,7 +184,8 @@ module.exports = {
 		var suri_alert = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, suricata_alert.alltext) AS sml FROM cases LEFT JOIN suricata_alert ON cases.uuid = suricata_alert.uuid WHERE ? <% suricata_alert.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
 		var sysmon_evt = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, sysmon_evts.alltext) AS sml FROM cases LEFT JOIN sysmon_evts ON cases.uuid = sysmon_evts.uuid WHERE ? <% sysmon_evts.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
 		var victimfiles = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, victimfiles.alltext) AS sml FROM cases LEFT JOIN victimfiles ON cases.uuid = victimfiles.uuid WHERE ? <% victimfiles.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
-		return Promise.all([suri_http, suri_dns, suri_tls, suri_alert, sysmon_evt, victimfiles]);
+		var suspects = pg.raw("SELECT *, to_char(uploadtime, 'YYYY-MM-DD HH24:MI:SS') AS uploadtime, word_similarity(?, suspects.alltext) AS sml FROM suspects WHERE ? <% alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
+		return Promise.all([suri_http, suri_dns, suri_tls, suri_alert, sysmon_evt, victimfiles, suspects]);
 	},
 	
 	search_on_ip: function(ipaddr) {
@@ -218,25 +219,33 @@ module.exports = {
 		return pg("cases").count("*").where("endtime", ">", dt);
 	},
 
+	suspects_since_datetime: function(dt) {
+		return pg("suspects").count("*").where("uploadtime", ">", dt);
+	},
+
 	suspect_av_hits_since_datetime: function(dt) {
-		return pg.select("avresult", "suspects.uploadtime").from("suspects")
+		return pg.select("avresult", "suspects.uploadtime AS time").from("suspects")
 		.whereNot({avresult: "OK"}).andWhere("suspects.uploadtime", ">", dt);
 	},
 
 	suspect_yara_hits_since_datetime: function(dt) {
-		return pg.select("yararesult", "suspects.uploadtime").from("suspects")
+		return pg.select("yararesult", "suspects.uploadtime AS time").from("suspects")
 		.whereNot({yararesult: '{}'}).andWhere("suspects.uploadtime", ">", dt);
 	},
 
 	case_av_hits_since_datetime: function(dt) {
-		return pg.select("victimfiles.avresult", "cases.endtime").from("victimfiles")
+		return pg.select("victimfiles.avresult", "cases.endtime AS time").from("victimfiles")
 		.leftJoin("cases", "victimfiles.uuid", "cases.uuid")
 		.whereRaw("victimfiles.avresult!='' AND victimfiles.avresult!='OK'").andWhere("cases.endtime", ">", dt);
 	},
 
 	case_yara_hits_since_datetime: function(dt) {
-		return pg.select("victimfiles.yararesult", "cases.endtime").from("victimfiles")
+		return pg.select("victimfiles.yararesult", "cases.endtime AS time").from("victimfiles")
 		.leftJoin("cases", "victimfiles.uuid", "cases.uuid")
 		.whereNot({"victimfiles.yararesult": '{}'}).andWhere("cases.endtime", ">", dt);
+	},
+
+	extensions_since_datetime: function(dt) {
+		return pg.raw("SELECT regexp_matches(lower(fname), '\\.(\\w+)$') AS extension, count(*) FROM cases WHERE cases.endtime > ? GROUP BY extension", [dt]);
 	}
 };

@@ -73,7 +73,8 @@ CREATE TABLE suspects (
     avresult text,
 	exifdata jsonb,
 	yararesult jsonb,
-    uploadtime timestamp with time zone
+    uploadtime timestamp with time zone,
+	alltext text
 );
 
 
@@ -324,6 +325,21 @@ ALTER TABLE ONLY suricata_tls
 ALTER TABLE ONLY pcap_summary
 	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
 
+CREATE FUNCTION suspect_text() RETURNS trigger as $suspect_text$
+	BEGIN
+		NEW.alltext := concat_ws(' ', 
+								NEW.originalname,
+								NEW.avresult,
+								(SELECT string_agg(exif.value, ' ') FROM (SELECT NEW.sha256, (jsonb_each_text(NEW.exifdata)).value) exif GROUP BY sha256), 
+								(SELECT string_agg(yara, ' ') FROM jsonb_object_keys(NEW.yararesult) AS yara)
+							);
+		RETURN NEW;
+	END;
+$suspect_text$ LANGUAGE plpgsql;
+
+CREATE TRIGGER suspect_text BEFORE INSERT OR UPDATE ON suspects
+	FOR EACH ROW EXECUTE PROCEDURE suspect_text();
+
 CREATE FUNCTION http_text() RETURNS trigger AS $http_text$
 	BEGIN
 		NEW.alltext := concat_ws(' ', NEW.httpdata#>'{url}', NEW.httpdata#>'{hostname}', NEW.httpdata#>'{http_user_agent}');
@@ -437,6 +453,7 @@ CREATE INDEX dns_trgm ON suricata_dns USING GIN(alltext gin_trgm_ops);
 CREATE INDEX alert_trgm ON suricata_alert USING GIN(alltext gin_trgm_ops);
 CREATE INDEX sysmon_trgm ON sysmon_evts USING GIN(alltext gin_trgm_ops);
 CREATE INDEX files_trgm ON victimfiles USING GIN(alltext gin_trgm_ops);
+CREATE INDEX suspect_trgm ON suspects USING GIN(alltext gin_trgm_ops);
 	
 --
 -- Name: public; Type: ACL; Schema: -; Owner: postgres

@@ -245,12 +245,17 @@ html,body {
 .overview-misc {
 }
 
+.stats-signatures-body ul {
+  list-style-type: none;
+}
+
 @media (min-width: 1024px) {
   .case-container {
     display: flex;
     height: calc(100% - 71px);
     width: 100%;
   }
+
   
   .meta-pane {
     display: flex;
@@ -325,4 +330,71 @@ html,body {
     width: 100%;
     padding: 0 8px 0 8px;
   }
+
+  .stats-container {
+    height: calc(100% - 71px);
+    width: 90%;
+  }
+
+  .statspane {
+    height: calc(100% - 140px);
+  }
+
+  .statsrow {
+    height: 50%;
+  }
+
+  .statscol {
+    height: 100%;
+  }
+  
+  .extensions-chart {
+    max-height: 100%;
+    max-width: 100%;
+  } 
+  
+  .extensions-wrapper {
+    height: 100%;
+    position: relative;
+  }
+
+  .stats-extensions {
+    height: calc(100% - 86px);
+  }
+
+  .stats-signatures {
+    height: calc(50%);
+  }
+
+  .stats-signatures.card-header {
+    height: 25px;
+  }
+
+  .stats-signatures-body {
+    height: calc(100% - 40px);
+    overflow-y: auto;
+    margin-bottom: 15px;
+  }
+
+  /* width */
+  .scrolltab::-webkit-scrollbar,.stats-signatures-body::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  /* Track */
+  .scrolltab::-webkit-scrollbar-track,.stats-signatures-body::-webkit-scrollbar-track {
+    background: #f1f1f1; 
+  }
+
+  /* Handle */
+  .scrolltab::-webkit-scrollbar-thumb,.stats-signatures-body::-webkit-scrollbar-thumb {
+    background: #888; 
+  }
+
+  /* Handle on hover */
+  .scrolltab::-webkit-scrollbar-thumb:hover,.stats-signatures-body::-webkit-scrollbar-thumb:hover {
+    background: #555; 
+  }
 }
+
+

@@ -88,7 +88,8 @@ class Postprocessor:
             r"\.msftncsi\.com$",
             r"\.windows\.com$",
             r"\.verisign\.com$",
-            r"\.bing\.com$"
+            r"\.bing\.com$",
+            r"\.windows\.com$"
         ]
         rdmatches = [
             r"\.akamaitechnologies\.com$",
@@ -111,7 +112,8 @@ class Postprocessor:
             r"\.symcd\.com$",
             r"\.windows\.com$",
             r"\.verisign\.com$",
-            r"\.bing\.com$"
+            r"\.bing\.com$",
+            r"\.windows\.com$"
         ]
         for rmatch in rmatches:
             if "hostname" in evt["httpdata"] and re.search(rmatch, evt["httpdata"]["hostname"]):

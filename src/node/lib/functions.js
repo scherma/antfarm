@@ -1005,7 +1005,8 @@ function SearchRawTerm(searchterm) {
 			});
 			break;
 		default:
-			return db.search_on_term(searchterm).then((values) => {
+			return db.search_on_term(searchterm).then(([suri_http, suri_dns, suri_tls, suri_alert, sysmon_evt, victimfiles, suspects]) => {
+				let values = [suri_http, suri_dns, suri_tls, suri_alert, sysmon_evt, victimfiles];
 				values.forEach((val) => {
 					val.rows.forEach((row) => {
 						if (row.uuid in hits.cases) {
@@ -1018,6 +1019,14 @@ function SearchRawTerm(searchterm) {
 							hits.cases[row.uuid].count = 1;
 						}
 					});
+				});
+				suspects.rows.forEach((suspect) => {
+					if (suspect.sha256 in hits.suspects) {
+						hits.suspects[suspect.sha256].count += 1;
+					} else {
+						hits.suspects[suspect.sha256] = suspect;
+						hits.suspects[suspect.sha256].count = 1;
+					}
 				});
 				
 				return hits;
@@ -1069,107 +1078,171 @@ function SortHits(hits) {
 
 function SandboxStats(dt) {
 	return Promise.all([
+		db.cases_since_datetime(moment("1970-01-01")),
 		db.cases_since_datetime(dt), 
 		db.suspect_av_hits_since_datetime(dt),
 		db.suspect_yara_hits_since_datetime(dt),
 		db.case_av_hits_since_datetime(dt),
-		db.case_yara_hits_since_datetime(dt)
-	]).then(([cases, suspect_av_hits, suspect_yara_hits, case_av_hits, case_yara_hits]) => {
+		db.case_yara_hits_since_datetime(dt),
+		db.extensions_since_datetime(dt)
+	]).then(([
+		cases_all_time,
+		cases,
+		suspect_av_hits, 
+		suspect_yara_hits, 
+		case_av_hits, 
+		case_yara_hits,
+		extensions
+	]) => {
 		var output = {};
 
+		output.startdate = dt.format("YYYY-MM-DD");
+		output.cases_all_time = cases_all_time[0].count;
 		output.cases = cases[0].count;
 		output.datelist = get_date_list(dt);
-		let suspectavhits = {};
-		let suspectyarahits = {};
-		let fileavhits = {};
-		let fileyarahits = {};
-
-		suspect_av_hits.forEach((av_hit) => {
-			var day = moment(av_hit.uploadtime).format("YYYY-MM-DD");
-			var avresult = av_hit.avresult;
-			if (suspectavhits[day]) {
-				if (suspectavhits[day][avresult]) {
-					suspectavhits[day][avresult] += 1;
-				} else {
-					suspectavhits[day][avresult] = 1;
-				}
-			} else {
-				suspectavhits[day] = {};
-				suspectavhits[day][avresult] = 1;
-			}
+		output.extensions = {
+			datasets: [{
+				data: []
+			}],
+			labels: []
+		};
+		extensions.rows.forEach((dbrow) => {
+			output.extensions.labels.push(dbrow.extension[0]);
+			output.extensions.datasets[0].data.push(dbrow.count);
 		});
 
-		suspect_yara_hits.forEach((yara_hit) => {
-			var day = moment(yara_hit.uploadtime).format("YYYY-MM-DD");
-			if (!suspectyarahits[day]) {
-				suspectyarahits[day] = {};
-			} 
-			Object.keys(yara_hit.yararesult).forEach((key) => {
-				if (suspectyarahits[day]) {
-					if (suspectyarahits[day][key]) {
-						suspectyarahits[day][key] += 1;
-					} else {
-						suspectyarahits[day][key] = 1;
-					}
+		let suspectavlinedata = [];
+		let suspectyaralinedata = [];
+		let fileavlinedata = [];
+		let fileyaralinedata = [];
+		let avhits = {};
+		let yarahits = {};
+		output.datelist.forEach((date) => {
+			let savtotal = 0;
+			let suspectavhits = av_hit_builder(suspect_av_hits);
+			for (let detection in suspectavhits.dates[date]) {
+				savtotal += suspectavhits.dates[date][detection];
+				if (avhits[detection]) {
+					avhits[detection] += suspectavhits.dates[date][detection];
 				} else {
-					suspectyarahits[day] = {};
-					suspectyarahits[day][key] = 1;
+					avhits[detection] = suspectavhits.dates[date][detection];
 				}
-			});
-		});
-
-		case_av_hits.forEach((av_hit) => {
-			var day = moment(av_hit.endtime).format("YYYY-MM-DD");
-			var avresult = av_hit.avresult;
-			if (fileavhits[day]) {
-				if (fileavhits[day][av_hit.avresult]) {
-					fileavhits[day][av_hit.avresult] += 1;
-				} else {
-					fileavhits[day][av_hit.avresult] = 1;
-				}
-			} else {
-				fileavhits[day] = {}
-				fileavhits[day][av_hit.avresult] = 1;
 			}
-		});
-
-		case_yara_hits.forEach((result) => {
-			var day = moment(result.endtime).format("YYYY-MM-DD");
-			if (!fileyarahits[day]) {
-				fileyarahits[day] = {};
-			}
-			Object.keys(result.yararesult).forEach((key) => {
-				if (fileyarahits[day]) {
-					if (fileyarahits[day][key]) {
-						fileyarahits[day][key] += 1;
-					} else {
-						fileyarahits[day][key] = 1;
-					}
+			suspectavlinedata.push(savtotal);
+			let syaratotal = 0;
+			let suspectyarahits = yara_hit_builder(suspect_yara_hits);
+			for (let detection in suspectyarahits.dates[date]) {
+				syaratotal += suspectyarahits.dates[date][detection];
+				if (yarahits[detection]) {
+					yarahits[detection] += suspectyarahits.dates[date][detection];
 				} else {
-					fileyarahits[day] = {};
-					fileyarahits[day][key] = 1;
+					yarahits[detection] = suspectyarahits.dates[date][detection];
 				}
-			});
-		});	
+			}
+			suspectyaralinedata.push(syaratotal);
+			let favtotal = 0;
+			let fileavhits = av_hit_builder(case_av_hits);
+			for (let detection in fileavhits.dates[date]) {
+				favtotal += fileavhits.dates[date][detection];
+				if (avhits[detection]) {
+					avhits[detection] += fileavhits.dates[date][detection];
+				} else {
+					avhits[detection] = fileavhits.dates[date][detection];
+				}
+			}
+			fileavlinedata.push(favtotal);
+			let fyaratotal = 0;
+			let fileyarahits = yara_hit_builder(case_yara_hits);
+			for (let detection in fileyarahits.dates[date]) {
+				fyaratotal += fileyarahits.dates[date][detection];
+				if (yarahits[detection]) {
+					yarahits[detection] += fileyarahits.dates[date][detection];
+				} else {
+					yarahits[detection] = fileyarahits.dates[date][detection];
+				}
+			}
+			fileyaralinedata.push(fyaratotal);
+		});
+		output.suspectavlinedata = suspectavlinedata;
+		output.suspectyaralinedata = suspectyaralinedata;
+		output.fileavlinedata = fileavlinedata;
+		output.fileyaralinedata = fileyaralinedata;
+		output.avhits = avhits;
+		output.yarahits = yarahits;
 
-		output.suspectavhits = suspectavhits;
-		output.suspectyarahits = suspectyarahits;
-		output.fileavhits = fileavhits;
-		output.fileyarahits = fileyarahits;
 		return output;
 	});
 }
 
 function get_date_list(dt) {
 	var date_list = [];
-	var theday = moment(dt);
-	var today = moment().utc().startOf('day');
+	var theday = moment(dt).utc();
+	var today = moment().utc().endOf('day');
 	while (theday.add(1, 'days') <= today) {
 		var currentday = theday.format("YYYY-MM-DD");
 		date_list.push(currentday);
 	}
 
 	return date_list;
+}
+
+function av_hit_builder(avhit_array) {
+	let hit_obj = {
+		dates: {},
+		names: {}
+	};
+	avhit_array.forEach((av_hit) => {
+		var day = moment(av_hit.time).format("YYYY-MM-DD");
+		var avresult = av_hit.avresult;
+		if (hit_obj.dates[day]) {
+			if (hit_obj.dates[day][avresult]) {
+				hit_obj.dates[day][avresult] += 1;
+			} else {
+				hit_obj.dates[day][avresult] = 1;
+			}
+		} else {
+			hit_obj.dates[day] = {};
+			hit_obj.dates[day][avresult] = 1;
+		}
+
+		if (hit_obj.names[avresult]) {
+			hit_obj.names[avresult] += 1;
+		} else {
+			hit_obj.names[avresult] = 1;
+		}
+	});
+	return hit_obj;
+}
+
+function yara_hit_builder(yarahit_array) {
+	let hit_obj = {
+		dates: {},
+		names: {}
+	};
+	yarahit_array.forEach((result) => {
+		var day = moment(result.time).format("YYYY-MM-DD");
+		Object.keys(result.yararesult).forEach((key) => {
+			if (hit_obj.dates[day]) {
+				if (hit_obj.dates[day][key]) {
+					hit_obj.dates[day][key] += 1;
+				} else {
+					hit_obj.dates[day][key] = 1;
+				}
+			} else {
+				hit_obj.dates[day] = {};
+				hit_obj.dates[day][key] = 1;
+			}
+
+			
+			if (hit_obj.names[key]) {
+				hit_obj.names[key] += 1;
+			} else {
+				hit_obj.names[key] = 1;
+			}
+		});
+	});	
+
+	return hit_obj;
 }
 
 module.exports = {

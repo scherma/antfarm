@@ -17,13 +17,13 @@ router.get('/json/stats', function(req, res, next) {
   var since = moment().utc().subtract('7', 'days');
   if (req.query.since) {
     try {
-      since = moment(req.query.since);
+      since = moment(req.query.since).startOf('day');
     } catch (err) {
       console.log(err);
     }
   }
 
-  functions.SandboxStats(since.format('YYYY-MM-DD HH:mm:ss'))
+  functions.SandboxStats(since)
   .then((stats) => {
     res.send(stats);
   });
