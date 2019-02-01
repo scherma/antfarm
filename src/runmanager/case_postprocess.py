@@ -65,7 +65,7 @@ class Postprocessor:
     
     def is_suricata_dns_artifact(self, evt):
         rmatches = [
-            r"8.8.8.8.in-addr.arpa$",
+            r"\.in-addr\.arpa$",
             r"\.msftncsi\.com$",
             r"\.windowsupdate\.com$",
             r"\.microsoft\.com$",

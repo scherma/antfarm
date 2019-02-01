@@ -1106,10 +1106,10 @@ function SandboxStats(dt) {
 			}],
 			labels: []
 		};
-		extensions.rows.forEach((dbrow) => {
-			output.extensions.labels.push(dbrow.extension[0]);
-			output.extensions.datasets[0].data.push(dbrow.count);
-		});
+		
+		let display_exts = extensions_to_display(extensions);
+		output.extensions.datasets[0].data = display_exts.counts;
+		output.extensions.labels = display_exts.labels;
 
 		let suspectavlinedata = [];
 		let suspectyaralinedata = [];
@@ -1172,6 +1172,42 @@ function SandboxStats(dt) {
 
 		return output;
 	});
+}
+
+function extensions_to_display(extensions) {
+	extensions.rows.sort(function(a,b){
+		if (parseInt(a.count) > parseInt(b.count)) {
+			return -1;
+		}
+		if (parseInt(a.count) < parseInt(b.count)) {
+			return 1;
+		}
+		
+		return 0;
+	});
+
+	if (extensions.rows.length > 12) {
+		let other = 0;
+		for (let i=0; i<3; i++) {
+			let r = extensions.rows.pop();
+			other += parseInt(r.count);
+		}
+		let ext = {
+			extension: ["other"],
+			count: other
+		}
+		extensions.rows.push(ext);
+	}
+
+	var ret = {
+		labels: [],
+		counts: []
+	}
+	extensions.rows.forEach((dbrow) => {
+		ret.labels.push(dbrow.extension[0]);
+		ret.counts.push(dbrow.count);
+	});
+	return ret;
 }
 
 function get_date_list(dt) {

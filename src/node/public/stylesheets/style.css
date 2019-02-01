@@ -333,28 +333,18 @@ html,body {
 
   .stats-container {
     height: calc(100% - 71px);
-    width: 90%;
+    max-width: 80%;
   }
 
   .statspane {
     height: calc(100% - 140px);
   }
 
-  .statsrow {
-    height: 50%;
-  }
-
   .statscol {
-    height: 100%;
+    height: 400px;
   }
-  
-  .extensions-chart {
-    max-height: 100%;
-    max-width: 100%;
-  } 
-  
+    
   .extensions-wrapper {
-    height: 100%;
     position: relative;
   }
 
@@ -363,7 +353,7 @@ html,body {
   }
 
   .stats-signatures {
-    height: calc(50%);
+    height: 50%;
   }
 
   .stats-signatures.card-header {
