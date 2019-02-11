@@ -260,13 +260,8 @@ class RunInstance():
                     
             logger.info("Wrote {} packets to file {}".format(written, self.pcap_file))
             
-            c = pcap_parser.conversations(self.pcap_file)
-            sql = """INSERT INTO pcap_summary (uuid, src_ip, src_port, dest_ip, dest_port, protocol) VALUES %s"""
-            values = []
-            for cevent in c:
-                row = (self.uuid, cevent["src"], cevent["srcport"], cevent["dst"], cevent["dstport"], cevent["protocol"])
-                values.append(row)
-            psycopg2.extras.execute_values(self.cursor, sql, values)
+            conversations = pcap_parser.conversations(self.pcap_file)
+            db_calls.insert_pcap_streams(conversations, self.uuid, self.cursor)
         
         except Exception:
             ex_type, ex, tb = sys.exc_info()
@@ -440,7 +435,15 @@ class RunInstance():
             fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
             lineno = tb.tb_lineno
             logger.error("Exception {0} {1} in {2}, line {3} while processing job, Suricata data not written".format(ex_type, ex, fname, lineno))
-            
+
+        try: 
+            self.get_pcap()
+        except Exception:
+            ex_type, ex, tb = sys.exc_info()
+            fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
+            lineno = tb.tb_lineno
+            logger.error("Exception {0} {1} in {2}, line {3} while processing job, pcap processing failed".format(ex_type, ex, fname, lineno))
+
         try:
             pp = case_postprocess.Postprocessor(self.uuid, self.cursor)
             pp.update_events()
@@ -450,7 +453,6 @@ class RunInstance():
             lineno = tb.tb_lineno
             logger.error("Exception {0} {1} in {2}, line {3} while processing job, case postprocessing failed".format(ex_type, ex, fname, lineno))
             
-        self.get_pcap()
     
     @property
     def _suricata_logfiles(self):

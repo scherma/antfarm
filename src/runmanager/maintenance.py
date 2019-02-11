@@ -3,7 +3,7 @@
 # MIT License © https://github.com/scherma
 # contact http_error_418 @ unsafehex.com
 
-import libvirt, logging, time, argparse, configparser, pyvnc, arrow, subprocess
+import libvirt, logging, time, argparse, configparser, pyvnc, arrow, subprocess, psutil
 from runinstance import get_screen_image
 
 logger = logging.getLogger("antfarm")
@@ -75,7 +75,6 @@ class Janitor:
         self._cursor.execute("""UPDATE workerstate SET id = %s WHERE uuid = %s""", (self.dom.ID(), self.dom.UUIDString()))
         self._cursor.execute("""UPDATE victims SET runcounter = 0, last_reboot = %s WHERE uuid = %s""", (restarttime, self.dom.UUIDString()))
         self._dbconn.commit()
-        subprocess.call(["sudo", "/bin/systemctl", "restart", "suricata"])
         self.login()
         time.sleep(12 * 60) # some malware looks for system uptime
         self.dom.suspend()
@@ -86,7 +85,27 @@ class Janitor:
         self.dom.snapshotCreateXML(new_snapshot_xml)
         logger.debug("Removing old snapshot")
         old_snapshot.delete()
+        logger.debug("Restarting services")
+        restart_services()
         logger.info("Maintenance complete")
+
+def restart_pcap(instancename):
+    for proc in psutil.process_iter(attrs=["name"]):
+        if proc.info["name"] == "dumpcap":
+            proc.terminate()
+            subprocess.Popen(["/bin/bash", "/usr/local/unsafehex/{}/utils/dumpcap".format(instancename)])
+            break
+
+def restart_services(instancename):
+    logger.debug("Restarting suricata...")
+    subprocess.call(["sudo", "/bin/systemctl", "restart", "suricata"])
+    logger.debug("Restarting libvirtd...")
+    subprocess.call(["sudo", "/bin/systemctl", "restart", "libvirtd"])
+    logger.debug("Restarting libvirt-guests...")
+    subprocess.call(["sudo", "/bin/systemctl", "restart", "libvirt-guests"])
+    logger.debug("Restarting dumpcap...")
+    restart_pcap(instancename)
+
         
 
 def main():

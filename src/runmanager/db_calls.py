@@ -76,6 +76,16 @@ def insert_files(filesdict, uuid, cursor):
         fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
         lineno = tb.tb_lineno
         logger.error("Exception {0} {1} in {2}, line {3} parsing filesystem data, events not written to DB".format(ex_type, ex, fname, lineno))
+
+def insert_pcap_streams(streams, uuid, cursor):
+    streams_sql = """INSERT INTO pcap_summary (uuid, timestamp, src_ip, src_port, dest_ip, dest_port, protocol) VALUES %s"""
+    values = []
+    for stream in streams:
+        ts = arrow.get(stream["timestamp"]).format("YYYY-MM-DD HH:mm:ss.SSS Z")
+        row = (uuid, ts, stream["src"], stream["srcport"], stream["dst"], stream["dstport"], stream["protocol"])
+        values.append(row)
+    psycopg2.extras.execute_values(cursor, streams_sql, values)
+    logger.debug("Inserted {} streams from pcap for case {}".format(len(values), uuid))
     
     
 def yara_detection(yara_matches, sha256, cursor):
@@ -147,6 +157,7 @@ def all_case_events(uuid, cursor):
     alertsql = """SELECT * FROM suricata_alert WHERE uuid = %s"""
     tlssql  = """SELECT * FROM suricata_tls WHERE uuid = %s"""
     filessql = """SELECT * FROM victimfiles WHERE uuid = %s"""
+    pcapsql = """SELECT * FROM pcap_summary WHERE uuid = %s"""
     
     cursor.execute(sysmonsql, (uuid,))
     sysmonrows = cursor.fetchall()
@@ -160,8 +171,10 @@ def all_case_events(uuid, cursor):
     tlsrows = cursor.fetchall()
     cursor.execute(filessql, (uuid,))
     filesrows = cursor.fetchall()
+    cursor.execute(pcapsql, (uuid,))
+    pcaprows = cursor.fetchall()
     
-    return {"sysmon": sysmonrows, "http": httprows, "dns": dnsrows, "alert": alertrows, "files": filesrows, "tls": tlsrows}
+    return {"sysmon": sysmonrows, "http": httprows, "dns": dnsrows, "alert": alertrows, "files": filesrows, "tls": tlsrows, "pcap": pcaprows}
 
 def tag_artifact(evtdata, evttype, cursor):
     if evttype == "sysmon":
@@ -182,6 +195,9 @@ def tag_artifact(evtdata, evttype, cursor):
     elif evttype == "filesystem":
         sql = """UPDATE victimfiles SET is_artifact = true WHERE uuid = %s AND file_path = %s"""
         cursor.execute(sql, (evtdata["uuid"], evtdata["file_path"]))
+    elif evttype == "pcap":
+        sql = """UPDATE pcap_summary SET is_artifact = true WHERE id = %s"""
+        cursor.execute(sql, (evtdata["id"],))
         
     
 def timestomped_files(uuid, cursor):

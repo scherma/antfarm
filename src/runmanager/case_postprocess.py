@@ -21,24 +21,29 @@ class Postprocessor:
                 r"taskhost.exe \$\(Arg0\)",
                 r'"taskhost.exe"',
                 r"taskhost.exe SYSTEM",
-                r"C:\\Windows\\System32\\wsqmcons.exe",
                 r"C:\\Windows\\splwow64.exe",
                 r"C:\\Program Files\\Internet Explorer\\iexplore.exe",
                 r"C:\\Windows\\system32\\wermgr.exe -queuereporting",
                 r"C:\\Windows\\System32\\sdclt.exe /CONFIGNOTIFICATION"
             ]
             
+            parentlines = [
+                r"C:\\Windows\\System32\\wsqmcons.exe",
+            ]
             for cmdline in cmdlines:
                 if re.search(cmdline, evt["eventdata"]["CommandLine"], re.IGNORECASE):
+                    return True
+            for parentline in parentlines:
+                if re.search(parentline, evt["eventdata"]["ParentCommandLine"], re.IGNORECASE):
                     return True
         elif evt["eventid"] == 7:
             images = {
                 "c:\\windows\\system32\\wlanapi.dll": 
-                    [r"c:\\windows\\coffeesvc.exe"],
+                    [r"c:\\windows\\coffeesvc.exe$", r"C:\\Windows\\System32\\svchost.exe$"],
                 "c:\\windows\\system32\\cryptdll.dll": 
-                    [r"c:\\windows\\system32\\svchost.exe"],
+                    [r"c:\\windows\\system32\\svchost.exe$"],
                 "c:\\windows\\system32\\samlib.dll":
-                    [r"c:\\program files\\internet explorer\\iexplore.exe"]
+                    [r"c:\\program files\\internet explorer\\iexplore.exe$"]
             }
             if evt["eventdata"]["ImageLoaded"].lower() in images:
                 for imagepattern in images[evt["eventdata"]["ImageLoaded"].lower()]:
@@ -46,8 +51,7 @@ class Postprocessor:
                         return True
         elif evt["eventid"] == 12:
             rmatches = [
-                r"\\Software\\Microsoft\\Internet Explorer\\Toolbar$",
-                r"\\Software\\Microsoft\\SystemCertificates\\Root\\Certificates$"
+                r"\\Software\\Microsoft\\Internet Explorer\\Toolbar$"
             ]
             for rmatch in rmatches:
                 if re.search(rmatch, evt["eventdata"]["TargetObject"], re.IGNORECASE):
@@ -56,7 +60,9 @@ class Postprocessor:
             rmatches = [
                 r"\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\[^\\]+\\OpenWithList\\a$",
                 r"\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings\\ProxyServer$",
-                r"\\Software\\Microsoft\\Office\\Common\\Smart Tag\\Applications\\OpusApp\\FriendlyName"
+                r"\\Software\\Microsoft\\Office\\Common\\Smart Tag\\Applications\\OpusApp\\FriendlyName",
+                r"\\System\\CurrentControlSet\\Control\\Power\\User\\PowerSchemes",
+                r"\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\WinSATRestorePower$"
             ]
             for rmatch in rmatches:
                 if re.search(rmatch, evt["eventdata"]["TargetObject"], re.IGNORECASE):
@@ -142,11 +148,15 @@ class Postprocessor:
             r"^C:\\Windows\\Temp\\.*?\.sqm$",
             r"^C:\\Windows\\System32\\config\\systemprofile\\AppData\\LocalLow\\Microsoft\\CryptnetUrlCache",
             r"^C:\\ProgramData\\Microsoft\\Windows\\WER",
+            r"^C:\\ProgramData\\Microsoft\\RAC\\Temp",
+            r"^C:\\Windows\\Performance\\WinSAT"
             r"^C:\\ProgramData\\Microsoft\\Vault",
             r"^C:\\Windows\\System32\\LogFiles",
             r"C:\\Windows\\System32\\config\\SYSTEM$",
             r"C:\\Windows\\System32\\config\\SOFTWARE$",
             r"C:\\Windows\\System32\\config\\SECURITY$",
+            r"\\AppData\\Local\\Microsoft\\Windows\\WebCache\\WebCache\w+\.tmp$",
+            r"\\Appdata\\Local\\Microsoft\\Windows\\History\\History.IE5\\MSHist\d+\\container.dat$",
             r"NTUSER.DAT$",
             r"\\~\$Normal.dotm$"
         ]
@@ -157,6 +167,25 @@ class Postprocessor:
                 return True
         return False
     
+    def is_pcap_artifact(self, evt):
+        if evt["protocol"] == "UDP":
+            dns_servers = ["208.67.220.220", "208.67.222.222", "8.8.8.8", "8.8.4.4"]
+            if evt["dest_port"] == 53 and evt["dest_ip"] in dns_servers:
+                # dns lookups are tagged by suricata
+                return True
+            elif evt["src_port"] == 53 and evt["src_ip"] in dns_servers:
+                return True
+            elif evt["dest_port"] in [5355, 123]:
+                # link local multicast name resolution
+                return True
+            elif evt["src_port"] == 137 and evt["dest_port"] == 137:
+                # netbios
+                return True
+        elif evt["protocol"] == "TCP":
+            if evt["dest_port"] in [80, 443]:
+                # http and https are tagged by suricata
+                return True
+
     def update_events(self):
         logger.info("Tagging artifacts...")
         total = 0
@@ -189,8 +218,17 @@ class Postprocessor:
             if self.is_filesystem_artifact(evt):
                 db_calls.tag_artifact(evt, "filesystem", self._dbcursor)
                 total += 1
+
+        for evt in self.events["pcap"]:
+            if self.is_pcap_artifact(evt):
+                db_calls.tag_artifact(evt, "pcap", self._dbcursor)
+                total += 1
         
         logger.debug("{} artifacts found and tagged for cases {}".format(total, self.uuid))
+
+
+
+
     
 def main():
     conf = configparser.ConfigParser()

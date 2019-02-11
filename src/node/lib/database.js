@@ -110,8 +110,7 @@ module.exports = {
 	},
 	
 	sysmon_for_case: function(req) {
-		artifacts = (req.query.artifacts == "1");
-		return pg('sysmon_evts').select(pg.raw("recordid, eventid, to_char(timestamp, 'YYYY-MM-DD HH24:MI:SS.MS') as timestamp, executionprocess, executionthread, computer, eventdata")).where({uuid: req.params.uuid, is_artifact: artifacts});
+		return pg('sysmon_evts').select(pg.raw("recordid, eventid, to_char(timestamp, 'YYYY-MM-DD HH24:MI:SS.MS') as timestamp, executionprocess, executionthread, computer, eventdata, is_artifact")).where({uuid: req.params.uuid});
 	},
 	
 	victimfiles: function(uuid) {

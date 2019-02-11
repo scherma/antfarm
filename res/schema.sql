@@ -231,11 +231,14 @@ ALTER TABLE suricata_tls OWNER TO postgres;
 CREATE TABLE pcap_summary (
 	id SERIAL PRIMARY KEY,
 	uuid varchar(50),
+	"timestamp" timestamp with time zone,
 	src_ip inet,
 	src_port int,
 	dest_ip inet,
 	dest_port int,
-	protocol text
+	protocol text,
+	size int,
+	is_artifact boolean DEFAULT FALSE
 );
 
 ALTER TABLE pcap_summary OWNER TO postgres;

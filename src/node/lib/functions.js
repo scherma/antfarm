@@ -82,7 +82,7 @@ var Suspect = function(fname,
 				s.runtime = runtime;
 				s.ttl = runtime + 60; // allow 1 minute extra for victim prep
 				s.web = web;
-				s.priority = priority;
+				s.priority = parseInt(priority);
 				Hashes(finalpath).done(function(res){
 					s.hashes = res;
 					fs.stat(fpdir, function(err, stat){
@@ -95,7 +95,8 @@ var Suspect = function(fname,
 								s.reboots,
 								s.banking,
 								s.web,
-								s.runtime)
+								s.runtime,
+								s.priority)
 							.then((c) => {
 								fulfill(s);
 							});
@@ -500,7 +501,18 @@ function GetCase(req) {
 	var imagepath = path.join(rootdir, 'www', 'public', 'images', 'cases', uuidshort, req.params.uuid);
 	var imagepublicpath = path.join('/images', 'cases', uuidshort, req.params.uuid);
 	
-	var sysmonP = db.sysmon_for_case(req);
+	var sysmonP = new Promise((fulfill, reject) => {
+		db.sysmon_for_case(req).then((rows) => {
+			var ret = [];
+			rows.forEach((row) => {
+				if (row.is_artifact == 0 || parseInt(req.params.artifacts) == 1) {
+					ret.push(row);
+				}
+			});
+			
+			fulfill(ret);
+		});
+	});
 	
 	var eventsP = new Promise((fulfill, reject) => {
 		db.suricata_for_case(req.params.uuid).then((values) => {
@@ -547,7 +559,7 @@ function GetCase(req) {
 		db.pcap_summary_for_case(req.params.uuid).then((rows) => {
 			var result = [];
 			rows.forEach((row) => {
-				if (PcapSummaryOfInterest(row)) {
+				if (!row.is_artifact || req.query.artifacts == "1") {
 					result.push(row);
 				}
 			});
@@ -696,6 +708,7 @@ function GetCase(req) {
 		badges.http = events.http.length;
 		badges.tls = events.tls.length;
 		badges.files = fileslist.length;
+		badges.pcap = pcapsummary.length;
 		
 		fileslist.sort(function(a,b) {
 			if (a.ctime_sec < b.ctime_sec) {
@@ -716,7 +729,7 @@ function GetCase(req) {
 		
 		
 		var suricata_evts = RenderSuricata(events);
-		return OverviewItems(suricata_evts.alert, suricata_evts.dns, suricata_evts.http, suricata_evts.tls, sysmon, fileslist)
+		return OverviewItems(suricata_evts.alert, suricata_evts.dns, suricata_evts.http, suricata_evts.tls, sysmon, fileslist, pcapsummary)
 		.then((overview) => {
 			var caseobj = {
 				properties: properties,
@@ -742,7 +755,7 @@ function GetCase(req) {
 	});
 }
 
-function OverviewItems(ids, dns, http, tls, sysmon, files) {
+function OverviewItems(ids, dns, http, tls, sysmon, files, pcap) {
 	return new Promise((fulfill, reject) => {
 		var items = [];
 		var tsfmt = 'YYYY-MM-DD HH:mm:ss.SSS';
@@ -815,6 +828,15 @@ function OverviewItems(ids, dns, http, tls, sysmon, files) {
 			item.title = 'Last modified';
 			item.info = f.basename;
 			item.source = 'Filesystem';
+			items.push(item);
+		});
+		pcap.forEach((p) => {
+			var item = {};
+			item.timestampraw = moment(p.timestamp, 'YYYY-MM-DD hh:mm:ss.SSS');
+			item.timestamp = item.timestampraw.format(tsfmt);
+			item.title = "Traffic flow";
+			item.info = format("{dest_ip}:{dest_port}", {dest_ip: p.dest_ip, dest_port: p.dest_port})
+			item.source = 'pcap';
 			items.push(item);
 		});
 		
@@ -1185,19 +1207,20 @@ function extensions_to_display(extensions) {
 		
 		return 0;
 	});
-
-	if (extensions.rows.length > 12) {
-		let other = 0;
-		for (let i=0; i<3; i++) {
-			let r = extensions.rows.pop();
-			other += parseInt(r.count);
-		}
-		let ext = {
-			extension: ["other"],
-			count: other
-		}
-		extensions.rows.push(ext);
+	
+	// pallette.js breaks if asked for more than 12 colours
+	// aggregate smallest values into 'other'
+	let other = 0;
+	while (extensions.rows.length >= 12) {
+		let r = extensions.rows.pop();
+		other += parseInt(r.count);	
 	}
+
+	let ext = {
+		extension: ["other"],
+		count: other
+	}
+	extensions.rows.push(ext);
 
 	var ret = {
 		labels: [],

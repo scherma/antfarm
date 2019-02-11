@@ -324,6 +324,7 @@ class Worker():
             except:
                 pass
             self.logger.removeHandler(suspect.runlog)
+            self.logger.removeHandler(self.logfilehandler)
             del(suspect)
             # ensure vm suspended
             self._lv_conn.lookupByUUIDString(self._vm_uuid).suspend()

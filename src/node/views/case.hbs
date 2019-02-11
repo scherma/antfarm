@@ -114,6 +114,11 @@ $(document).ready(function() {
 										TLS <span class="badge">{{badges.tls}}</span>
 									</a>
 								</li>
+								<li class="nav-item">
+									<a class="nav-link" id="pcap-summary-tab" href="#pcap-summary" data-toggle="tab" role="tab">
+										Unusual flows <span class="badge">{{badges.pcap}}</span>
+									</a>
+								</li>
 							</ul>
 							<div class="card">
 								<div class="card-body">
@@ -231,7 +236,27 @@ $(document).ready(function() {
 											</div>
 											{{/suricata.tls}}
 										</div>
-										
+										<div class="tab-pane fade" id="pcap-summary" role="tabpanel" aria-labelledby="pcap-summary-tab">
+											{{#pcapsummary}}
+											<div class="list-group-item">
+												<div data-toggle="collapse" href="#pcap-summary-{{this.id}}"
+												    role="button" aria-expanded="false" aria-controls="pcap-summary-{{this.id}}">
+													<div class="row metapane-txt">
+														<div class="col-sm-4">
+															<p class="list-group-item-text"><strong>{{this.dest_ip}}:{{this.dest_port}}</strong></p>
+															<p class="list-group-item-text">{{this.timestamp}}</p>
+														</div>
+														<div class="col-sm-8 text-break">
+														</div>
+													</div>
+												</div>
+												<div class="collapse multi-collapse" id="pcap-summary-{{this.id}}">
+													<div class="metapane-listitem-inner">
+													</div>
+												</div>
+											</div>
+											{{/pcapsummary}}
+										</div>
 									</div>
 								</div>
 							</div>

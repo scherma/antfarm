@@ -3,7 +3,7 @@
 # MIT License © https://github.com/scherma
 # contact http_error_418 @ unsafehex.com
 
-import pyshark, json, sys
+import pyshark, json, sys, arrow
 
 def conversation_starter(pkt):
 	try:
@@ -21,20 +21,22 @@ def conversation_starter(pkt):
 			# if not, the bitwise operation triggers a TypeError
 
 			if int_flags == 2: # syn flag set, ack not set
+				d["timestamp"] = pkt.sniff_timestamp
 				d["protocol"] = protocol
 				d["src"] = src_addr
 				d["dst"] = dst_addr
 				d["srcport"] = src_port
 				d["dstport"] = dst_port
-				return d
 			
 		else:
+			d["timestamp"] = pkt.sniff_timestamp
 			d["protocol"] = protocol
 			d["src"] = src_addr
 			d["dst"] = dst_addr
 			d["srcport"] = src_port
 			d["dstport"] = dst_port
-			return d
+
+		return d
 	except AttributeError as e:
 		pass
 
@@ -51,8 +53,7 @@ def conversations(pcapfile):
 
 def main():
 	pcapfile = sys.argv[1]
-	with open('pcap_summary.json', 'w') as f:
-		f.write(json.dumps(conversations(pcapfile)))
+	print(json.dumps(conversations(pcapfile), indent=2, separators=(",", ": ")))
 	
 if __name__ == '__main__':
 	main()

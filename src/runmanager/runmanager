@@ -4,7 +4,7 @@
 # contact http_error_418 @ unsafehex.com
 
 import libvirt, psycopg2, psycopg2.extras, configparser, logging, os
-import sys, vmworker, threading, argparse, json, time, subprocess
+import sys, vmworker, threading, argparse, json, time, subprocess, maintenance
 
 logger = logging.getLogger("antfarm")
 
@@ -101,7 +101,7 @@ class Broker():
                     for case in cases:
                         if available:                            
                             case["hashes"] = {"sha256": case["sha256"], "sha1": case["sha1"], "md5": case["md5"]}
-                            case["reboots"] = int(case["reboots"]);
+                            case["reboots"] = int(case["reboots"])
                             victim = available.pop()
                             logger.info("Allocated case {0} to victim uuid {1}".format(case["uuid"], victim["uuid"]))
                             w = vmworker.Worker(self.conf, victim, NUM_LEVEL, RUN_NUM_LEVEL)
@@ -180,7 +180,7 @@ def main():
     except KeyError:
         logger.error("Invalid configuration supplied!")
         exit(1)
-    
+
     logger.info("Broker starting...")
     
     b.manage()
