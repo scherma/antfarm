@@ -1004,21 +1004,55 @@ function SearchRawTerm(searchterm) {
 					"sysmon": sysmon_evt, 
 					"filesystem": victimfiles
 				};
+
 				Object.keys(values).forEach((key) => {
 					values[key].rows.forEach((row) => {
 						row.source = key;
-						if (row.uuid in hits.cases) {
-							hits.cases[row.uuid].count += 1;
-							if (hits.cases[row.uuid].sml < row.sml) {
-								hits.cases[row.uuid].sml = row.sml;
+						let uuid = row.uuid;
+						if (uuid in hits.cases) {
+							hits.cases[uuid].count += 1;
+							if (hits.cases[uuid].sml < row.sml) {
+								hits.cases[uuid].sml = row.sml;
 							}
 						} else {
-							hits.cases[row.uuid] = row;
-							hits.cases[row.uuid].count = 1;
+							hits.cases[uuid] = {};
+							hits.cases[uuid].count = 1;
+							hits.cases[uuid].fname = row.fname;
+							hits.cases[uuid].casetime = row.casetime;
+							hits.cases[uuid].uuid = uuid;
+							hits.cases[uuid].sml = row.sml;
+							hits.cases[uuid].sha256 = row.sha256;
+							hits.cases[uuid].rawobject = {
+								uuid: uuid,
+								sha256: row.sha256,
+								satatus: row.status,
+								endtime: row.endtime,
+								casetime: row.casetime,
+								fname: row.fname,
+								events: []
+							};
 						}
-						row.object = JSON.stringify(row, null, 2);
+
+						delete row.alltext;
+						delete row.is_artifact;
+						delete row.count;
+
+						let event = row;
+						delete event.sha256;
+						delete event.status;
+						delete event.casetime;
+						delete event.endtime;
+						delete event.fname;
+						delete event.sml;
+
+						hits.cases[uuid].rawobject.events.push(event);
 					});
 				});
+
+				Object.keys(hits.cases).forEach((uuid) => {
+					hits.cases[uuid].object = JSON.stringify(hits.cases[uuid].rawobject, null, 2);
+				});
+
 				suspects.rows.forEach((suspect) => {
 					if (suspect.sha256 in hits.suspects) {
 						hits.suspects[suspect.sha256].runcount += 1;
@@ -1060,6 +1094,7 @@ function ConstructHits(values) {
 			hits.cases[uuid].fname = sysmon.fname;
 			hits.cases[uuid].casetime = sysmon.casetime;
 			hits.cases[uuid].uuid = uuid;
+			hits.cases[uuid].sha256 = sysmon.sha256;
 			hits.cases[uuid].rawobject = {
 				uuid: uuid,
 				sha256: sysmon.sha256,
