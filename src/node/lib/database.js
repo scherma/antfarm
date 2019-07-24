@@ -71,7 +71,14 @@ module.exports = {
 		if (page > 0) {
 			offset = (limit - 1) * page;
 		}
-		var pgr = "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS submittime, cases.sha256, cases.fname, cases.uuid AS uuid, cases.status, workerstate.position, alerts.c AS alert_count, dns.c AS dns_count, http.c AS http_count, files.c as files_count FROM cases LEFT JOIN workerstate ON cases.uuid = workerstate.job_uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_alert WHERE is_artifact=false GROUP BY uuid) AS alerts ON cases.uuid = alerts.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_dns WHERE is_artifact=false GROUP BY uuid) AS dns ON cases.uuid = dns.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_http WHERE is_artifact=false GROUP BY uuid) AS http ON cases.uuid = http.uuid LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM victimfiles WHERE is_artifact=false GROUP BY uuid) AS files ON cases.uuid = files.uuid";
+		var pgr = "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS submittime, cases.sha256, cases.fname, cases.uuid AS uuid, cases.status AS status, " +
+			"workerstate.position, alerts.c AS alert_count, dns.c AS dns_count, http.c AS http_count, files.c as files_count, sysmon.c AS sysmon_count " +
+			"FROM cases LEFT JOIN workerstate ON cases.uuid = workerstate.job_uuid " + 
+			"LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_alert WHERE is_artifact=false GROUP BY uuid) AS alerts ON cases.uuid = alerts.uuid " + 
+			"LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_dns WHERE is_artifact=false GROUP BY uuid) AS dns ON cases.uuid = dns.uuid " +
+			"LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_http WHERE is_artifact=false GROUP BY uuid) AS http ON cases.uuid = http.uuid " + 
+			"LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM victimfiles WHERE is_artifact=false GROUP BY uuid) AS files ON cases.uuid = files.uuid " +
+			"LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM sysmon_evts WHERE is_artifact=false GROUP BY uuid) AS sysmon ON cases.uuid = sysmon.uuid";
 		
 		if (where) {
 			return pg.select(pg.raw(pgr))
@@ -177,40 +184,48 @@ module.exports = {
 	},
 	
 	search_on_term: function (searchterm, limit=100) {
-		var suri_http = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, suricata_http.alltext) AS sml FROM cases LEFT JOIN suricata_http ON cases.uuid = suricata_http.uuid WHERE ? <% suricata_http.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
-		var suri_dns = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, suricata_dns.alltext) AS sml FROM cases LEFT JOIN suricata_dns ON cases.uuid = suricata_dns.uuid WHERE ? <% suricata_dns.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
-		var suri_tls = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, suricata_tls.alltext) AS sml FROM cases LEFT JOIN suricata_tls ON cases.uuid = suricata_tls.uuid WHERE ? <% suricata_tls.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
-		var suri_alert = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, suricata_alert.alltext) AS sml FROM cases LEFT JOIN suricata_alert ON cases.uuid = suricata_alert.uuid WHERE ? <% suricata_alert.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
-		var sysmon_evt = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, sysmon_evts.alltext) AS sml FROM cases LEFT JOIN sysmon_evts ON cases.uuid = sysmon_evts.uuid WHERE ? <% sysmon_evts.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
-		var victimfiles = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, victimfiles.alltext) AS sml FROM cases LEFT JOIN victimfiles ON cases.uuid = victimfiles.uuid WHERE ? <% victimfiles.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
+		var suri_http = pg.raw("SELECT cases.uuid, cases.sha256, cases.fname, cases.status, cases.endtime, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, suricata_http.alltext) AS sml, suricata_http.* FROM cases LEFT JOIN suricata_http ON cases.uuid = suricata_http.uuid WHERE ? <% suricata_http.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
+		var suri_dns = pg.raw("SELECT cases.uuid, cases.sha256, cases.fname, cases.status, cases.endtime, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, suricata_dns.alltext) AS sml, suricata_dns.* FROM cases LEFT JOIN suricata_dns ON cases.uuid = suricata_dns.uuid WHERE ? <% suricata_dns.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
+		var suri_tls = pg.raw("SELECT cases.uuid, cases.sha256, cases.fname, cases.status, cases.endtime, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, suricata_tls.alltext) AS sml, suricata_tls.* FROM cases LEFT JOIN suricata_tls ON cases.uuid = suricata_tls.uuid WHERE ? <% suricata_tls.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
+		var suri_alert = pg.raw("SELECT cases.uuid, cases.sha256, cases.fname, cases.status, cases.endtime, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, suricata_alert.alltext) AS sml, suricata_alert.* FROM cases LEFT JOIN suricata_alert ON cases.uuid = suricata_alert.uuid WHERE ? <% suricata_alert.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
+		var sysmon_evt = pg.raw("SELECT cases.uuid, cases.sha256, cases.fname, cases.status, cases.endtime, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, sysmon_evts.alltext) AS sml, " +
+			"sysmon_evts.recordid, sysmon_evts.eventid, sysmon_evts.timestamp, sysmon_evts.computer, sysmon_evts.eventdata FROM cases " +
+			"LEFT JOIN sysmon_evts ON cases.uuid = sysmon_evts.uuid WHERE ? <% sysmon_evts.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
+		var victimfiles = pg.raw("SELECT cases.uuid, cases.sha256, cases.fname, cases.status, cases.endtime, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, word_similarity(?, victimfiles.alltext) AS sml, victimfiles.* FROM cases LEFT JOIN victimfiles ON cases.uuid = victimfiles.uuid WHERE ? <% victimfiles.alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
 		var suspects = pg.raw("SELECT *, to_char(uploadtime, 'YYYY-MM-DD HH24:MI:SS') AS uploadtime, word_similarity(?, suspects.alltext) AS sml FROM suspects WHERE ? <% alltext ORDER BY sml LIMIT ?", [searchterm, searchterm, limit]);
 		return Promise.all([suri_http, suri_dns, suri_tls, suri_alert, sysmon_evt, victimfiles, suspects]);
 	},
 	
 	search_on_ip: function(ipaddr) {
-		var dns_ip = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN suricata_dns ON cases.uuid = suricata_dns.uuid WHERE suricata_dns.dnsdata#>>'{rdata}' = ? ", [ipaddr]);
-		var http_ip = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN suricata_http ON cases.uuid = suricata_http.uuid WHERE suricata_http.dest_ip = ? OR suricata_http.httpdata#>>'{hostname}' = ? ", [ipaddr, ipaddr]);
-		var tls_ip = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN suricata_tls ON cases.uuid = suricata_tls.uuid WHERE suricata_tls.dest_ip = ? ", [ipaddr]);
-		var alert_ip = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN suricata_alert ON cases.uuid = suricata_alert.uuid WHERE suricata_alert.dest_ip = ? OR suricata_alert.src_ip = ? ", [ipaddr, ipaddr]);
+		var dns_ip = pg.raw("SELECT cases.uuid, cases.sha256, cases.fname, cases.status, cases.endtime, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN suricata_dns ON cases.uuid = suricata_dns.uuid WHERE suricata_dns.dnsdata#>>'{rdata}' = ? ", [ipaddr]);
+		var http_ip = pg.raw("SELECT cases.uuid, cases.sha256, cases.fname, cases.status, cases.endtime, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN suricata_http ON cases.uuid = suricata_http.uuid WHERE suricata_http.dest_ip = ? OR suricata_http.httpdata#>>'{hostname}' = ? ", [ipaddr, ipaddr]);
+		var tls_ip = pg.raw("SELECT cases.uuid, cases.sha256, cases.fname, cases.status, cases.endtime, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN suricata_tls ON cases.uuid = suricata_tls.uuid WHERE suricata_tls.dest_ip = ? ", [ipaddr]);
+		var alert_ip = pg.raw("SELECT cases.uuid, cases.sha256, cases.fname, cases.status, cases.endtime, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN suricata_alert ON cases.uuid = suricata_alert.uuid WHERE suricata_alert.dest_ip = ? OR suricata_alert.src_ip = ? ", [ipaddr, ipaddr]);
 			
 		return Promise.all([dns_ip, http_ip, tls_ip, alert_ip]);
 	},
 	
-	search_on_md5: function(hash32) {
+	search_on_hash32: function(hash32) {
 		var suspects = pg("suspects").select("*").where({md5: hash32});
-		var sysmon = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN sysmon_evts ON cases.uuid = sysmon_evts.uuid WHERE sysmon_evts.eventdata#>>'{Hashes,MD5}' = ? OR sysmon_evts.eventdata#>>'{Hashes,IMPHASH}' = ? GROUP BY cases.uuid", [hash32, hash32]);
+		var sysmon = pg.raw("SELECT cases.uuid, cases.sha256, cases.fname, cases.status, cases.endtime, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, " +
+			"sysmon_evts.recordid, sysmon_evts.eventid, sysmon_evts.timestamp, sysmon_evts.computer, sysmon_evts.eventdata FROM cases " +
+			"LEFT JOIN sysmon_evts ON cases.uuid = sysmon_evts.uuid WHERE sysmon_evts.eventdata#>>'{Hashes,MD5}' = ? OR sysmon_evts.eventdata#>>'{Hashes,IMPHASH}' = ?", [hash32, hash32]);
 		return Promise.all([suspects, sysmon]);
 	},
 	
 	search_on_sha1: function(sha1hash) {
 		var suspects = pg("suspects").select("*").where({sha1: sha1hash});
-		var sysmon = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN sysmon_evts ON cases.uuid = sysmon_evts.uuid WHERE sysmon_evts.eventdata#>>'{Hashes,SHA1}' = ? GROUP BY cases.uuid", [sha1hash]);
+		var sysmon = pg.raw("SELECT cases.uuid, cases.sha256, cases.fname, cases.status, cases.endtime, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, " +
+			"sysmon_evts.recordid, sysmon_evts.eventid, sysmon_evts.timestamp, sysmon_evts.computer, sysmon_evts.eventdata FROM cases " +
+			"LEFT JOIN sysmon_evts ON cases.uuid = sysmon_evts.uuid WHERE sysmon_evts.eventdata#>>'{Hashes,SHA1}' = ?", [sha1hash]);
 		return Promise.all([suspects, sysmon]);
 	},
 	
 	search_on_sha256: function(sha256hash) {
 		var suspects = pg("suspects").select("*").where({sha256: sha256hash});
-		var sysmon = pg.raw("SELECT cases.*, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime FROM cases LEFT JOIN sysmon_evts ON cases.uuid = sysmon_evts.uuid LEFT JOIN victimfiles ON cases.uuid = victimfiles.uuid WHERE sysmon_evts.eventdata#>>'{Hashes,SHA256}' = ? OR victimfiles.sha256 = ? GROUP BY cases.uuid", [sha256hash, sha256hash]);
+		var sysmon = pg.raw("SELECT cases.uuid, cases.sha256, cases.fname, cases.status, cases.endtime, to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS casetime, " +
+			"sysmon_evts.recordid, sysmon_evts.eventid, sysmon_evts.timestamp, sysmon_evts.computer, sysmon_evts.eventdata FROM cases " +
+			"LEFT JOIN sysmon_evts ON cases.uuid = sysmon_evts.uuid LEFT JOIN victimfiles ON cases.uuid = victimfiles.uuid WHERE sysmon_evts.eventdata#>>'{Hashes,SHA256}' = ? OR victimfiles.sha256 = ?", [sha256hash, sha256hash]);
 		return Promise.all([suspects, sysmon]);
 	},
 
@@ -246,5 +261,13 @@ module.exports = {
 
 	extensions_since_datetime: function(dt) {
 		return pg.raw("SELECT regexp_matches(lower(fname), '\\.(\\w+)$') AS extension, count(*) FROM cases WHERE cases.endtime > ? GROUP BY extension", [dt]);
+	},
+
+	filter_rules: function() {
+		return pg("filter_config").select("filter_config.*", "filter_evttypes.*").leftJoin("filter_evttypes", "filter_config.evttype", "filter_evttypes.evttype").orderBy("filter_config.id");
+	},
+	
+	filter_evttypes: function() {
+		return pg("filter_evttypes").select("*");
 	}
 };

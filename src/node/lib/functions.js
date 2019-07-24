@@ -126,8 +126,8 @@ var GetCases = function(req) {
 		var extra = l + 1;
 		
 		db.list_cases(page=p, desc=d, where=w, limit=extra).then(function(dbres) {
-			var buildQuery = function(w, p, l, d) {
-				var params = Array();
+			let buildQuery = function(w, p, l, d) {
+				let params = Array();
 				if (w.sha256) {	params.push("sha256=" + w.sha256); }
 				if (w.fname) { params.push("fname=" + w.fname); }
 				if (p) { params.push("page=" + p); }
@@ -137,8 +137,8 @@ var GetCases = function(req) {
 				return params.join("&");
 			};
 			
-			var nxt = '';
-			var prv = '';
+			let nxt = '';
+			let prv = '';
 			if (dbres.length > l) {
 				nxt = '/cases' + req.path + '?' + buildQuery(w, p + 1, l, d);
 				dbres.pop();
@@ -150,28 +150,35 @@ var GetCases = function(req) {
 			dbres.forEach((row) => {
 				row.labels = [];
 				if (row.alert_count > 0) {
-					var alertlabel = {};
+					let alertlabel = {};
 					alertlabel.labelstyle = "label-danger";
 					alertlabel.labeltext = "alerts";
 					alertlabel.labelcount = row.alert_count;
 					row.labels.push(alertlabel);
 				}
 				if (row.dns_count > 0) {
-					var dnslabel = {};
+					let dnslabel = {};
 					dnslabel.labelstyle = "label-info";
 					dnslabel.labeltext = "dns";
 					dnslabel.labelcount = row.dns_count;
 					row.labels.push(dnslabel);
 				}
 				if (row.http_count > 0) {
-					var httplabel = {};
+					let httplabel = {};
 					httplabel.labelstyle = "label-warning";
 					httplabel.labeltext = "http";
 					httplabel.labelcount = row.http_count;
 					row.labels.push(httplabel);
 				}
+				if (row.sysmon_count > 0) {
+					let sysmonlabel = {};
+					sysmonlabel.labelstyle = "label-primary";
+					sysmonlabel.labeltext = "sysmon";
+					sysmonlabel.labelcount = row.sysmon_count;
+					row.labels.push(sysmonlabel);
+				}
 				if (row.files_count > 0) {
-					var fileslabel = {};
+					let fileslabel = {};
 					fileslabel.labelstyle = "label-default";
 					fileslabel.labeltext = "files";
 					fileslabel.labelcount = row.files_count;
@@ -974,63 +981,32 @@ function SearchRawTerm(searchterm) {
 			break;
 		case "sha256":
 			return db.search_on_sha256(searchterm).then((values) => {
-				values[0].forEach((suspect) => {
-					hits.suspects[suspect.sha256] = suspect;
-					hits.suspects[suspect.sha256].sml = 1;
-				});
-				values[1].rows.forEach((sysmon) => {
-					if (sysmon.uuid in hits.cases) {
-						hits.cases[sysmon.uuid].count += 1;
-					} else {
-						hits.cases[sysmon.uuid] = sysmon;
-						hits.cases[sysmon.uuid].count = 1;
-					}
-					hits.cases[sysmon.uuid].sml = 1;
-				});
-				return hits;
+				return ConstructHits(values);
 			});
 			break;
 		case "sha1":
 			return db.search_on_sha1(searchterm).then((values) => {
-				values[0].forEach((suspect) => {
-					hits.suspects[suspect.sha256] = suspect;
-					hits.suspects[suspect.sha256].sml = 1;
-				});
-				values[1].rows.forEach((sysmon) => {
-					if (sysmon.uuid in hits.cases) {
-						hits.cases[sysmon.uuid].count += 1;
-					} else {
-						hits.cases[sysmon.uuid] = sysmon;
-						hits.cases[sysmon.uuid].count = 1;
-					}
-					hits.cases[sysmon.uuid].sml = 1;
-				});
-				return hits;
+				return ConstructHits(values);
 			});
 			break;
 		case "hash32":
-			return db.search_on_sha1(searchterm).then((values) => {
-				values[0].forEach((suspect) => {
-					hits.suspects[suspect.sha256] = suspect;
-					hits.suspects[suspect.sha256].sml = 1;
-				});
-				values[1].rows.forEach((sysmon) => {
-					if (sysmon.uuid in hits.cases) {
-						hits.cases[sysmon.uuid].count += 1;
-					} else {
-						hits.cases[sysmon.uuid] = sysmon;
-						hits.cases[sysmon.uuid].count = 1;
-					}
-					hits.cases[sysmon.uuid].sml = 1;
-				});
-				return hits;
+			return db.search_on_hash32(searchterm).then((values) => {
+				return ConstructHits(values);
 			});
 			break;
 		default:
 			return db.search_on_term(searchterm).then(([suri_http, suri_dns, suri_tls, suri_alert, sysmon_evt, victimfiles, suspects]) => {
-				let values = [suri_http, suri_dns, suri_tls, suri_alert, sysmon_evt, victimfiles];
-				values.forEach((val) => {
-					val.rows.forEach((row) => {
+				let values = {
+					"suricata http": suri_http, 
+					"suricata dns": suri_dns, 
+					"suricata tls": suri_tls, 
+					"suricata alert": suri_alert, 
+					"sysmon": sysmon_evt, 
+					"filesystem": victimfiles
+				};
+				Object.keys(values).forEach((key) => {
+					values[key].rows.forEach((row) => {
+						row.source = key;
 						if (row.uuid in hits.cases) {
 							hits.cases[row.uuid].count += 1;
 							if (hits.cases[row.uuid].sml < row.sml) {
@@ -1040,20 +1016,77 @@ function SearchRawTerm(searchterm) {
 							hits.cases[row.uuid] = row;
 							hits.cases[row.uuid].count = 1;
 						}
+						row.object = JSON.stringify(row, null, 2);
 					});
 				});
 				suspects.rows.forEach((suspect) => {
 					if (suspect.sha256 in hits.suspects) {
-						hits.suspects[suspect.sha256].count += 1;
+						hits.suspects[suspect.sha256].runcount += 1;
 					} else {
 						hits.suspects[suspect.sha256] = suspect;
-						hits.suspects[suspect.sha256].count = 1;
+						hits.suspects[suspect.sha256].runcount = 1;
 					}
 				});
 				
 				return hits;
 			});
 	}
+}
+
+function ConstructHits(values) {
+	let hits = {
+		cases: {},
+		suspects: {}
+	};
+	values[0].forEach((suspect) => {
+		hits.suspects[suspect.sha256] = suspect;
+		hits.suspects[suspect.sha256].sml = 1;
+		hits.suspects[suspect.sha256].runcount = 1;
+		if (suspect.avresult != "OK") {
+			hits.suspects[suspect.sha256].avbadge = suspect.avresult;
+		}
+		hits.suspects[suspect.sha256].yarabadges = [];
+		if (suspect.yararesult) {
+			hits.suspects[suspect.sha256].yarabadges = Object.keys(suspect.yararesult);
+		}
+	});
+	values[1].rows.forEach((sysmon) => {
+		let uuid = sysmon.uuid;
+		if (uuid in hits.cases) {
+			hits.cases[uuid].count += 1;
+		} else {
+			hits.cases[uuid] = {};
+			hits.cases[uuid].count = 1;
+			hits.cases[uuid].fname = sysmon.fname;
+			hits.cases[uuid].casetime = sysmon.casetime;
+			hits.cases[uuid].uuid = uuid;
+			hits.cases[uuid].rawobject = {
+				uuid: uuid,
+				sha256: sysmon.sha256,
+				satatus: sysmon.status,
+				endtime: sysmon.endtime,
+				casetime: sysmon.casetime,
+				fname: sysmon.fname,
+				events: []
+			};
+		}
+		hits.cases[uuid].sml = 1;
+
+		delete sysmon.uuid;
+		delete sysmon.sh256;
+		delete sysmon.status;
+		delete sysmon.endtime;
+		delete sysmon.status;
+		delete sysmon.fname;
+
+		hits.cases[uuid].rawobject.events.push(sysmon);
+	});
+
+	Object.keys(hits.cases).forEach((uuid) => {
+		hits.cases[uuid].object = JSON.stringify(hits.cases[uuid].rawobject, null, 2);
+	});
+
+	return hits;
 }
 
 function FindStringType(thestring) {
@@ -1304,6 +1337,35 @@ function yara_hit_builder(yarahit_array) {
 	return hit_obj;
 }
 
+function FilterConfig() {
+	let config = {};
+	return Promise.all([db.filter_rules(), db.filter_evttypes()])
+	.then(([rules, evttypes]) => {
+		rules.forEach((rule) => {
+			let evttypelist = [];
+			evttypes.forEach((evttype) => {
+				let evttypecopy = Object.assign({}, evttype);
+				evttypecopy.selected = false;
+				if (rule.evttype == evttypecopy.evttype) {
+					evttypecopy.selected = true;
+				}
+				evttypelist.push(evttypecopy);
+			});
+			rule.evttypelist = evttypelist;
+			rule.conditions.forEach((condition) => {
+				condition.methodlist = [{name: "rex", selected: false, label: "regex"}, {name: "eq", selected: false, label: "equal to"}];
+				if (condition.method == "regex") {
+					condition.methodlist[0].selected = true;
+				} else if (condition.method == "eq") {
+					condition.methodlist[1].selected = true;
+				}
+			});
+		});
+		config.rules = rules;
+		return config;
+	});
+}
+
 module.exports = {
 	Hashes: Hashes,
 	Suspect: Suspect,
@@ -1324,5 +1386,6 @@ module.exports = {
 	SuspectProperties: SuspectProperties,
 	SearchRawTerm: SearchRawTerm,
 	SortHits: SortHits,
-	SandboxStats: SandboxStats
+	SandboxStats: SandboxStats,
+	FilterConfig: FilterConfig
 };

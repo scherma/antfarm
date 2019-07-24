@@ -97,15 +97,7 @@ class RunInstance():
     @interactive.setter
     def interactive(self, value):
         self._interactive = bool(value)
-        
-#    @property
-#    def stop_capture(self):
-#        return bool(self._stop_capture)
-
-#    @stop_capture.setter
-#    def stop_capture(self, value):
-#        self._stop_capture = bool(value)
-        
+                
     def _dump_dict(self):
         tformat = 'YYYY-MM-DD HH:mm:ss.SSSZ'
         selfdict =  {
@@ -201,23 +193,6 @@ class RunInstance():
     def case_update(self, status):
         self.cursor.execute("""UPDATE "cases" SET status = %s WHERE uuid=%s""", (status, self.uuid))
         self.dbconn.commit()
-    
-#    def write_capture(self, pkt):
-#        scapy.wrpcap(self.pcap_file, pkt, append=True)
-#        if self.stop_capture:
-#            logger.info("Wrote pcap to file {0}".format(self.pcap_file))
-#            summary_file = os.path.join(self.rundir, 'pcap_summary.json')
-#            c = pcap_parser.conversations(self.pcap_file)
-#            sql = """INSERT INTO pcap_summary (uuid, src_ip, src_port, dest_ip, dest_port, protocol) VALUES %s"""
-#            values = []
-#            for cevent in c:
-#                row = (self.uuid, cevent["src"], cevent["srcport"], cevent["dst"], cevent["dstport"], cevent["protocol"])
-#                values.append(row)
-#            psycopg2.extras.execute_values(self.cursor, sql, values)
-#            with open(summary_file, 'w') as f:
-#                f.write(json.dumps(c))
-#            logger.debug("Stop capture issued, raising exception to terminate thread")
-#            raise StopCaptureException("Stop Capture flag set")
         
     def get_pcap(self):
         try:
@@ -269,11 +244,6 @@ class RunInstance():
             lineno = tb.tb_lineno
             logger.error("Exception {0} {1} in {2}, line {3} while processing pcap".format(ex_type, ex, fname, lineno))
         
-#    def capture(self):
-#        fl = "host {0} and not (host {1} and port 28080)".format(self.victim_params["ip"], self.conf.get("General", "gateway_ip"))
-#        logger.debug("Packet capture starting with filter '{0}'".format(fl))
-#        scapy.sniff(iface="vnet0", filter=fl, prn=self.write_capture)
-            
     def events_to_store(self, searchfiles, startdate, enddate):
         events = {}
         logger.debug("Searching suricata log files: {}".format(searchfiles))
@@ -307,21 +277,16 @@ class RunInstance():
             cstr = "{0}::{1}".format(self.victim_params["vnc"]["address"], self.victim_params["vnc"]["port"])
             vncconn = pyvnc.Connector(cstr, self.victim_params["password"], (self.victim_params["display_x"], self.victim_params["display_y"]))
             logger.debug("Initialised VNC connection")
-            
-            vncconn.run_sample(self.victim_params["malware_pos_x"], self.victim_params["malware_pos_y"])
-            
-            ext = self.fname.split(".")[-1]
-            
-            macrotypes = ["doc", "xls", "ppt", "dot", "xlm", "docm", "dotm", "docb", "xlsm", "xltm", "pptm", "rtf"]
-            
-            self.screenshot(dom, lv_conn)
-            if ext in macrotypes:
-                #vncconn.enable_macros(self.victim_params["ms_office_type"])
-                #vncconn.enable_dde()
-                vncconn.client.pause(10)
-                self.screenshot(dom, lv_conn)
-                #vncconn.close_window()
-            
+
+            click_after = arrow.now().format("YYYY-MM-DD HH:mm:ss")
+            for i in range(0,5):
+                vncconn.run_sample(self.victim_params["malware_pos_x"], self.victim_params["malware_pos_y"])
+                time.sleep(6)
+                if self.sample_has_run(click_after):
+                    self.screenshot(dom, lv_conn)
+                    break
+                logger.error("Didn't see a process creation. That's odd...")
+                        
             #logger.info("VM prepped for suspect execution, starting behaviour sequence")
             if self.interactive:
                 logger.info("Passing control to user")
@@ -352,6 +317,16 @@ class RunInstance():
             fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
             lineno = tb.tb_lineno
             raise RuntimeError("Exception {0} {1} in {2}, line {3} while processing job, run not completed. Aborting.".format(ex_type, ex, fname, lineno))
+
+    def sample_has_run(self, click_after):
+        self.cursor.execute("""SELECT * FROM sysmon_evts WHERE uuid=%s AND eventid=1 AND timestamp > %s""", (self.uuid, click_after))
+        rows = self.cursor.fetchall()
+        # check if any processes have been started from Explorer
+        for row in rows:
+            if row["eventid"] == 1:
+                if row["eventdata"]["ParentImage"] == "C:\\Windows\\explorer.exe":
+                    return True
+        return False
         
     def do_run(self, dom, lv_conn):
         logger.info("Started run sequence")

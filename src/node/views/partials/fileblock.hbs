@@ -1,0 +1,87 @@
+<div class="card">
+    <div class="card-header" id="heading-{{this.sha256}}">
+        <div class="row">
+            <div class="col-md-4">
+                <table class="table filestable">
+                    <tbody>
+                        <tr>
+                            <td class="casecount">
+                                <a href="/cases?sha256={{this.sha256}}"><label class="btn btn-default btn-xs">{{this.runcount}}</label></a>
+                            </td>
+                            <td>
+                                <button class="btn btn-link btn-md collapsed text-truncate" type="button" data-toggle="collapse"
+                                    data-target="#collapse-{{this.sha256}}" aria-expanded="false" aria-controls="collapse-{{this.sha256}}">
+                                    {{this.originalname}} 
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="col-md-4">
+                <p class="table-align">
+                    <span class="label label-default">{{this.avbadge}}</span>
+                </p>
+            </div>
+            <div class="col-md-4">
+                <p class="table-align">
+                    {{#each this.yarabadges}}
+                    <span class="label label-warning">{{this}}</span>
+                    {{/each}}
+                </p>
+            </div>
+        </div>
+    </div>
+    <div id="collapse-{{this.sha256}}" class="collapse" aria-labelledBy="heading-{{this.sha256}}" data-parent="#accordion">
+        <div class="card-body pl-8">
+            <div class="row">
+                <div class="col-md-2"><p><b>SHA256</b></p></div>
+                <div class="col-md-6"><p class="monosapce text-break"><small>{{this.sha256}}</small></p></div>
+            </div>
+            <div class="row">
+                <div class="col-md-2"><p><b>Magic</b></p></div>
+                <div class="col-md-6"><p>{{this.magicShort}}</p></div>
+            </div>
+            <div class="row">
+                <form action="/cases/start" method="post" enctype="application/json">
+                    <div class="col-md-4">
+                        <table class="table filestable">
+                            <tbody>
+                                <tr>
+                                    <th>File name</th><td><input type="text" name="filename" placeholder="filename" value="{{this.originalname}}"></td>
+                                </tr>
+                                <tr>
+                                    <th>Run time (secs)</th><td><input type="number" max="600" min="120" name="runtime" placeholder="Runtime (secs)" value="180"></td>
+                                </tr>
+                                <tr></tr>
+                                    <th>Reboots</th><td><input type="number" max="2" min="0" name="reboots" placeholder="Reboots" value="0"></td>
+                                </tr>
+                            </tbody>	
+                        </table>
+                    </div>
+                    <div class="col-md-4">
+                        <table class="table filestable">
+                            <tbody>
+                                <tr>
+                                    <th>Banking interaction</th><td><input type="checkbox" name="banking" class="chk"></td>
+                                </tr>
+                                <tr>
+                                    <th>Web interaction</th><td><input type="checkbox" name="web" class="chk"></td>
+                                </tr>
+                                <tr></tr>
+                                    <th>User driven</th><td><input type="checkbox" name="interactive" class="chk"></td>
+                                </tr>
+                            </tbody>	
+                        </table>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{this.sha256}}-submit" class="btn btn-sm btn-primary">Start case</label>
+                    </div>
+                    <input type="hidden" name="sha256" value="{{this.sha256}}">
+                    <input type="hidden" name="priority" value="10">
+                    <input type="submit" id="{{this.sha256}}-submit" value="Start case" class="hidden">
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

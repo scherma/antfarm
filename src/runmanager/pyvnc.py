@@ -13,6 +13,7 @@ class Connector:
     def __init__(self, address, password, resolution):
         self.address = address
         self.client = api.connect(address)
+        self.client.timeout = 10
         self.x = resolution[0]
         self.y = resolution[1]
         self.pointer = (0,0)
@@ -117,7 +118,7 @@ class Connector:
         logger.debug("Executing sample from location {},{} on desktop".format(x,y))
         self.mouseMove(x, y)
         self.client.pause(2)
-        self.client.mousePress(1)
+        self.mouseMove(x, y)
         self.client.pause(2)
         self.client.mousePress(1)
         self.client.pause(2)

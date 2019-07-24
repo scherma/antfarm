@@ -1,27 +1,30 @@
 <div class="container theme-showcase" role="main">
-	<p><strong>Suspects ({{results.suspects.length}})</strong></p>
-	{{#results.suspects}}
-		<div class="card">
-			<div class="card-header" id="heading-{{this.sha256}}">
-				<div class="row">
-					<div class="col-sm-6"><p class="inrow"><small>{{this.originalname}}</small></p></div>
-					<div class="col-sm-1"><p class="inrow"><a href="/cases?sha256={{this.sha256}}"><button class="btn btn-default btn-xs">cases</button></a></div>
-				</div>
-			</div>
-		</div>
-	{{/results.suspects}}
+	<p><strong>Suspects ({{results.suspects.length}})</strong></p>	
+	<div class="accordion alternate" id="accordion">
+		{{#results.suspects}}
+			{{> fileblock}}
+		{{/results.suspects}}
+	</div>
 	<p><strong>Cases ({{results.cases.length}})</strong></p>
-	{{#results.cases}}
-		<div class="card">
-			<div class="card-header" id="heading-{{this.uuid}}">
-				<div class="row">
-					<div class="col-sm-2"><p class="inrow monospace"><small>{{casetime}}</small></p></div>
-					<div class="col-sm-5"><p class="inrow monospace"><small>{{this.fname}}</small></p></div>
-					<div class="col-sm-2"><p class="inrow monospace"><small>Similarity: {{this.sml}}</small></p></div>
-					<div class="col-sm-2"><p class="inrow monospace"><small>Hits: {{this.count}}</small></p></div>
-					<div class="col-sm-1"><p class="inrow"><a href="/cases/view/{{this.sha256}}/{{this.uuid}}"><button class="btn btn-default btn-xs">view</button></a></p></div>
+	
+	<div class="accordion alternate" id="accordion">
+		{{#results.cases}}
+			<div class="card">
+				<div class="card-header" id="heading-{{this.uuid}}">
+					<div class="row expand-ctrl" type="button" data-toggle="collapse" data-target="#collapse-{{this.uuid}}">
+						<div class="col-sm-2"><p class="inrow monospace"><small>{{casetime}}</small></p></div>
+						<div class="col-sm-5"><p class="inrow monospace"><small>{{this.fname}}</small></p></div>
+						<div class="col-sm-2"><p class="inrow monospace"><small>Similarity: {{this.sml}}</small></p></div>
+						<div class="col-sm-2"><p class="inrow monospace"><small>Hits: {{this.count}}</small></p></div>
+						<div class="col-sm-1"><p class="inrow"><a href="/cases/view/{{this.sha256}}/{{this.uuid}}"><button class="btn btn-default btn-xs">view</button></a></p></div>
+					</div>
+				</div>
+				<div id="collapse-{{this.uuid}}" class="collapse" aria-labelledBy="heading-{{this.uuid}}" data-parent="accordion">
+					<div class="card-body">
+						<pre>{{this.object}}</pre>
+					</div>
 				</div>
 			</div>
-		</div>
-	{{/results.cases}}
+		{{/results.cases}}
+	</div>
 </div>

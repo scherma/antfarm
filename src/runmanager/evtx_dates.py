@@ -18,9 +18,6 @@ def get_child(node, tag, ns="{http://schemas.microsoft.com/win/2004/08/events/ev
     return node.find("{0}{1}".format(ns, tag))
 
 def to_lxml(record_xml):
-    #if sys.version_info[0] == 2 and sys.version_info[1] == 7:
-    #    return etree.fromstring("<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\" ?>%s" % record_xml.encode('utf-8'))
-    #elif sys.version_info[0] == 3 and sys.version_info[1] >= 5:
     try:
         logger.debug("Creating etree from record XML text")
         return etree.fromstring(record_xml.encode("utf-8"))
@@ -33,7 +30,6 @@ def to_lxml(record_xml):
     
 def xml_records(filename):
     with Evtx(filename) as evtx:
-#        try:
         for xml, record in evtx_file_xml_view(evtx.get_file_header()):
             try:
                 logger.debug("Yielding XML")

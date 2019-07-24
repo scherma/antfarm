@@ -226,6 +226,11 @@ html,body {
   font-size: 1em;
 }
 
+.config {
+  overflow-y: scroll;
+  height: calc(100% - 71px);
+}
+
 .overview-alert {
   background-color: #ff8c8c;
 }
@@ -248,6 +253,17 @@ html,body {
 .stats-signatures-body ul {
   list-style-type: none;
 }
+
+.expand-ctrl span {
+  float: left;
+  transition: all 0.5s;
+}
+
+.expand-ctrl.rotated {
+	-webkit-transform: rotate(90deg);
+	-moz-transform: rotate(90deg);
+	transform: rotate(90deg);
+} 
 
 @media (min-width: 1024px) {
   .case-container {

@@ -14,6 +14,7 @@ var cases = require('./routes/cases');
 var files = require('./routes/files');
 var victims = require('./routes/victims');
 var searchpage = require('./routes/search');
+var cf = require('./routes/config');
 
 var app = express();
 
@@ -41,6 +42,7 @@ app.use('/cases', cases);
 app.use('/files', files);
 app.use('/victims', victims);
 app.use('/search', searchpage);
+app.use('/config', cf)
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

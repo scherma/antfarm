@@ -102,7 +102,8 @@ CREATE TABLE victims (
 	ms_office_type integer,
 	ms_office_string text,
 	malware_pos_x integer,
-	malware_pos_y integer
+	malware_pos_y integer,
+	snapshot text
 );
 
 
@@ -243,6 +244,23 @@ CREATE TABLE pcap_summary (
 
 ALTER TABLE pcap_summary OWNER TO postgres;
 
+CREATE TABLE filter_config (
+	id SERIAL PRIMARY KEY,
+	"enabled" boolean DEFAULT TRUE,
+	evttype int,
+	conditions jsonb
+);
+
+ALTER TABLE filter_config OWNER TO postgres;
+
+CREATE TABLE filter_evttypes (
+	evttype int PRIMARY KEY,
+	evtname text,
+	datasource text
+);
+
+ALTER TABLE filter_evttypes OWNER TO postgres;
+
 --
 -- Name: sysmon_evts_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
@@ -312,7 +330,6 @@ ALTER TABLE ONLY sysmon_evts
 ALTER TABLE ONLY workerstate
     ADD CONSTRAINT workerstate_uuid_fkey FOREIGN KEY (uuid) REFERENCES victims(uuid);
 
-
 ALTER TABLE ONLY suricata_dns
 	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
 	
@@ -327,6 +344,9 @@ ALTER TABLE ONLY suricata_tls
 
 ALTER TABLE ONLY pcap_summary
 	ADD CONSTRAINT uuid FOREIGN KEY (uuid) REFERENCES cases(uuid);
+
+ALTER TABLE ONLY filter_config
+	ADD CONSTRAINT evttype FOREIGN KEY (evttype) REFERENCES filter_evttypes(evttype);
 
 CREATE FUNCTION suspect_text() RETURNS trigger as $suspect_text$
 	BEGIN
@@ -538,6 +558,14 @@ GRANT ALL ON TABLE suricata_tls TO postgres;
 REVOKE ALL ON TABLE pcap_summary FROM PUBLIC;
 REVOKE ALL ON TABLE pcap_summary FROM postgres;
 GRANT ALL ON TABLE pcap_summary TO postgres;
+
+REVOKE ALL ON TABLE filter_config FROM PUBLIC;
+REVOKE ALL ON TABLE filter_config FROM postgres;
+GRANT ALL ON TABLE filter_config TO postgres;
+
+REVOKE ALL ON TABLE filter_evttypes FROM PUBLIC;
+REVOKE ALL ON TABLE filter_evttypes FROM postgres;
+GRANT ALL ON TABLE filter_evttypes TO postgres;
 
 --
 -- PostgreSQL database dump complete

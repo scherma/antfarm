@@ -219,3 +219,11 @@ def timestomped_files(uuid, cursor):
             
     return timestomped
         
+def artifact_rules(cursor, enabled=True):
+    sql = ""
+    if enabled:
+        sql = """SELECT filter_config.*,filter_evttypes.* FROM filter_config FULL JOIN filter_evttypes ON filter_config.evttype = filter_evttypes.evttype WHERE filter_config.enabled = true"""
+    else:
+        sql = """SELECT filter_config.*,filter_evttypes.* FROM filter_config FULL JOIN filter_evttypes ON filter_config.evttype = filter_evttypes.evttype"""
+    cursor.execute(sql)
+    return cursor.fetchall()

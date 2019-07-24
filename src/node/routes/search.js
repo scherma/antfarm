@@ -10,7 +10,8 @@ var mainmenu = require('../lib/mainmenu');
 
 router.get('/', function(req, res, next) {
 	res.render('search', {
-		mainmenu: mainmenu
+		mainmenu: mainmenu,
+		title: options.conf.site.displayName
 	});
 });
 
@@ -21,7 +22,8 @@ router.post('/', function(req, res, next) {
 			hits = functions.SortHits(hits);
 			res.render('searchresults', {
 				mainmenu: mainmenu,
-				results: hits
+				results: hits,
+				title: options.conf.site.displayName
 			});
 		});
 	}

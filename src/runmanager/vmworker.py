@@ -35,17 +35,32 @@ class Worker():
         fh.setFormatter(formatter)
         self.logger.addHandler(fh)
         self.logfilehandler = fh
-        
-        #self._vm_id = vmdata["id"]
+
+        self._cursor, self._dbconn = self._db_conn(self._conf.get('General', 'dbname'), self._conf.get('General', 'dbuser'), self._conf.get('General' ,'dbpass'))
+        self._lv_conn = libvirt.open("qemu:///system")
+        self._victim_params = self._get_victim_params()
+    
+    def _get_victim_params(self):
+        self._cursor.execute('SELECT * FROM victims WHERE uuid=%s LIMIT 1', (self._vm_uuid,))
+        data = self._cursor.fetchall()
+        params = data[0]
+        params["last_reboot"] = arrow.get(params["last_reboot"]).format('YYYY-MM-DD HH:mm:ss.SSSZ')
+        params["vnc"] = self._get_vnc()
+        logger.debug("Got details for VM UUID {0}, IP is {1}, username is '{2}'".format(self._vm_uuid, params["ip"], params["username"]))
+        return params
+
+    def _get_vnc(self):
+        dom = self._lv_conn.lookupByUUIDString(self._vm_uuid)
+        domstruct = etree.fromstring(dom.XMLDesc())
+        vncport = etree.XPath("/domain/devices/graphics")(domstruct)[0].get("port")
+        vncconnect = {"address": "127.0.0.1", "port": vncport}
+        return vncconnect
+    
+    def prep_for_run(self):
         self._mntdir = self._check_mntdir()
         self._dldir = self._check_dldir()
-        self._lv_conn = libvirt.open("qemu:///system")
-        self._cursor, self._dbconn = self._db_conn(self._conf.get('General', 'dbname'), self._conf.get('General', 'dbuser'), self._conf.get('General' ,'dbpass'))
-        self._victim_params = self._get_victim_params()
         self.outputdata = {}
-        
-        self._cursor.execute("""INSERT INTO "workerstate" (uuid, pid, position, params) VALUES (%s, %s, %s, '{}')""", (self._vm_uuid, os.getpid(), 'idle'))
-        
+        self._cursor.execute("""INSERT INTO "workerstate" (uuid, pid, position, params) VALUES (%s, %s, %s, '{}')""", (self._vm_uuid, os.getpid(), 'instantiated'))
         self.logger.info("Instantiated worker object")
         
         
@@ -143,24 +158,12 @@ class Worker():
         self._cursor.execute("""UPDATE "cases" SET status = %s WHERE uuid=%s""", (status, case_uuid))
         self._dbconn.commit()
         self.logger.debug("Case status for case UUID {0} changed to '{1}'".format(case_uuid, status))
-    
-    def _get_victim_params(self):
-        self._cursor.execute('SELECT * FROM victims WHERE uuid=%s LIMIT 1', (self._vm_uuid,))
-        data = self._cursor.fetchall()
-        params = data[0]
-        params["last_reboot"] = arrow.get(params["last_reboot"]).format('YYYY-MM-DD HH:mm:ss.SSSZ')
-        self.logger.debug("Got details for VM UUID {0}, IP is {1}, username is '{2}'".format(self._vm_uuid, params["ip"], params["username"]))
-        return params
 
     # core sequence of actions to take for a received job
     def process(self, params):
         self.logger.debug("Message received: {0}".format(params))
         try:
-            dom = self._lv_conn.lookupByUUIDString(self._vm_uuid)
-            domstruct = etree.fromstring(dom.XMLDesc())
-            vncport = etree.XPath("/domain/devices/graphics")(domstruct)[0].get("port")
-            vncconnect = {"address": "127.0.0.1", "port": vncport}
-            
+            dom = self._lv_conn.lookupByUUIDString(self._vm_uuid)            
             state = "available"
             tryctr = 0
             
@@ -168,7 +171,7 @@ class Worker():
                 available = True
                 pid = None
                 for c in psutil.net_connections():
-                    if c.laddr.port == int(vncport) and c.status == 'ESTABLISHED':
+                    if c.laddr.port == int(self._victim_params["vnc"]["port"]) and c.status == 'ESTABLISHED':
                         available = False
                         pid = c.pid
                 if available:
@@ -187,8 +190,6 @@ class Worker():
             
             self.outputdata["received job"] = params
                 
-            self._victim_params["vnc"] = vncconnect
-            
             cfg = self._conf
             suspect = runinstance.RunInstance(
                 self._cursor,
@@ -207,102 +208,113 @@ class Worker():
                 web=params["web"]
                 )
             
-            self._case_update('received', suspect.uuid)
-            tformat = 'YYYY-MM-DD HH:mm:ss.SSSZ'
+            finished = False
+            while not finished:
+                try:
+                    self._case_update('received', suspect.uuid)
+                    tformat = 'YYYY-MM-DD HH:mm:ss.SSSZ'
+                                
+                    updateparams = (self._vm_uuid,
+                                    suspect.victim_params["os"],
+                                    arrow.get(suspect.submittime).format(tformat),
+                                    arrow.get(suspect.starttime).format(tformat),
+                                    suspect.reboots,
+                                    bool(suspect.interactive),
+                                    bool(suspect.banking),
+                                    bool(suspect.web),
+                                    suspect.ttl,
+                                    json.dumps(self._victim_params),
+                                    suspect.uuid)
+                    
+                    self._cursor.execute("""UPDATE cases SET (vm_uuid, vm_os, submittime, starttime, reboots, interactive, banking, web, runtime, victim_params)=""" +
+                                        """(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) WHERE uuid=%s""", updateparams)
+                    self._dbconn.commit()
+                    
+                    self._state_update('initialising', (True, suspect._dump_dict()))
+                    self._case_update('initialising', suspect.uuid)
+                    
+                    imgshort = os.path.join(suspect.rootdir, 'www', 'public', 'images', 'cases', suspect.uuid[0:2])
+                    if not os.path.exists(imgshort):
+                        os.mkdir(imgshort)
+                    imgdir = os.path.join(imgshort, suspect.uuid)
+                    if not os.path.exists(imgdir):
+                        os.mkdir(imgdir)
+                    
+                    state, reason = dom.state()
+                    if state in [libvirt.VIR_DOMAIN_SHUTOFF, libvirt.VIR_DOMAIN_SHUTDOWN]:
+                        # need domain to be running first
+                        self.logger.info("Victim is offline. Starting first...")
+                        dom.create()
+                        time.sleep(5)
+
+                        # vnc port only valid after domain is started
+                        self._victim_params["vnc"] = self._get_vnc()
+                    
+                    # revert to most recent snapshot
+                    self.logger.info("Restoring snapshot {}".format(self._victim_params["snapshot"]))
+                    snapshot = dom.snapshotLookupByName(self._victim_params["snapshot"])
+                    dom.revertToSnapshot(snapshot)
+                    
+                    self._state_update('restored', (False,None))
+                    self._case_update('restored', suspect.uuid)
+                                
+                    # adjust run time to allow for all activity
+                    # 1 minute for setup, 1 minute run time minimum
+                    mintime = 120
+                    if suspect.banking:
+                        mintime += 45
+                    if suspect.web:
+                        mintime += 30
+                    mintime += (suspect.reboots * 35)
+                    
+                    if mintime > suspect.ttl:
+                        suspect.ttl = mintime
                         
-            updateparams = (self._vm_uuid,
-                            suspect.victim_params["os"],
-                            arrow.get(suspect.submittime).format(tformat),
-                            arrow.get(suspect.starttime).format(tformat),
-                            suspect.reboots,
-                            bool(suspect.interactive),
-                            bool(suspect.banking),
-                            bool(suspect.web),
-                            suspect.ttl,
-                            json.dumps(self._victim_params),
-                            suspect.uuid)
-            
-            self._cursor.execute("""UPDATE cases SET (vm_uuid, vm_os, submittime, starttime, reboots, interactive, banking, web, runtime, victim_params)=""" +
-                                """(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) WHERE uuid=%s""", updateparams)
-            self._dbconn.commit()
-            
-            self._state_update('initialising', (True, suspect._dump_dict()))
-            self._case_update('initialising', suspect.uuid)
-            
-            imgshort = os.path.join(suspect.rootdir, 'www', 'public', 'images', 'cases', suspect.uuid[0:2])
-            if not os.path.exists(imgshort):
-                os.mkdir(imgshort)
-            imgdir = os.path.join(imgshort, suspect.uuid)
-            if not os.path.exists(imgdir):
-                os.mkdir(imgdir)
-            
-            state, reason = dom.state()
-            if state in [libvirt.VIR_DOMAIN_SHUTOFF, libvirt.VIR_DOMAIN_SHUTDOWN]:
-                # need domain to be running first
-                self.logger.info("Victim is offline. Starting first...")
-                dom.create()
-                time.sleep(5)
-            
-            # revert to most recent snapshot
-            self.logger.info("Restoring snapshot")
-            snapshot = dom.snapshotCurrent()
-            dom.revertToSnapshot(snapshot)
-            
-            self._state_update('restored', (False,None))
-            self._case_update('restored', suspect.uuid)
-            
-            # start capture
-            #t = threading.Thread(name="pcap", target=suspect.capture)
-            #t.start()
-            
-            # adjust run time to allow for all activity
-            # 1 minute for setup, 1 minute run time minimum
-            mintime = 120
-            if suspect.banking:
-                mintime += 45
-            if suspect.web:
-                mintime += 30
-            mintime += (suspect.reboots * 35)
-            
-            if mintime > suspect.ttl:
-                suspect.ttl = mintime
-                
-            # run process as per params given
-            self.logger.debug("Issuing command set to victim, worker allowing {0} seconds runtime".format(suspect.ttl))
-            self._state_update('running', (False,None))
-            self._case_update('running', suspect.uuid)
-            
-            begin = arrow.utcnow()
-            end = begin.shift(seconds=+suspect.ttl)
-            suspect.do_run(dom, self._lv_conn)
-            suspect.present_vnc()
-            
-            # if minimum runtime not yet elapsed, let malware run until it has
-            while arrow.utcnow() < end:
-                time.sleep(5)
-            
-            self.logger.info("Runtime limit reached, holding for agent confirmation...")
-            
-            checks = 6
-            while db_calls.get_case_status(suspect.uuid, self._cursor) != "agent done":
-                if checks > 0:
-                    time.sleep(5)
-                    checks -= 1
-                else:
-                    logger.warning("Agent failed to post commpletion in within time limit")
-                    break
-                            
-            # make a screenshot
-            suspect.screenshot(dom, self._lv_conn)
-            
-            # pause the vm before mounting filesystem
-            dom.suspend()
-            self.logger.info("Victim suspended, starting data collection")
-            self._state_update('collecting', (False,None))
-            self._case_update('collecting', suspect.uuid)
-            suspect.endtime = arrow.utcnow().format(tformat)
-            self._cursor.execute("""UPDATE cases SET endtime=%s WHERE uuid=%s""", (suspect.endtime, suspect.uuid))
-            self._state_update('collecting', (False, None))
+                    # run process as per params given
+                    self.logger.debug("Issuing command set to victim, worker allowing {0} seconds runtime".format(suspect.ttl))
+                    self._state_update('running', (False,None))
+                    self._case_update('running', suspect.uuid)
+                    
+                    begin = arrow.utcnow()
+                    end = begin.shift(seconds=+suspect.ttl)
+                    suspect.do_run(dom, self._lv_conn)
+                    suspect.present_vnc()
+                    
+                    # if minimum runtime not yet elapsed, let malware run until it has
+                    while arrow.utcnow() < end:
+                        time.sleep(5)
+                    
+                    self.logger.info("Runtime limit reached, holding for agent confirmation...")
+                    
+                    checks = 6
+                    while db_calls.get_case_status(suspect.uuid, self._cursor) != "agent done":
+                        if checks > 0:
+                            time.sleep(5)
+                            checks -= 1
+                        else:
+                            logger.warning("Agent failed to post commpletion in within time limit")
+                            break
+                                    
+                    # make a screenshot
+                    suspect.screenshot(dom, self._lv_conn)
+                    
+                    # pause the vm before mounting filesystem
+                    dom.suspend()
+                    self.logger.info("Victim suspended, starting data collection")
+                    self._state_update('collecting', (False,None))
+                    self._case_update('collecting', suspect.uuid)
+                    suspect.endtime = arrow.utcnow().format(tformat)
+                    self._cursor.execute("""UPDATE cases SET endtime=%s WHERE uuid=%s""", (suspect.endtime, suspect.uuid))
+                    self._state_update('collecting', (False, None))
+                    finished = True
+                except Exception:
+                    ex_type, ex, tb = sys.exc_info()
+                    fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
+                    lineno = tb.tb_lineno
+                    self.logger.error("Exception {0} {1} in {2}, line {3} while processing job, retrying run".format(ex_type, ex, fname, lineno))
+                    self._case_update('retrying', suspect.uuid)
+                    # reset start time so data from previous attempt is not included
+                    suspect.starttime = arrow.utcnow().timestamp
             # gather data
             suspect.construct_record(self._victim_params)
             self.logger.debug("Output written")
@@ -317,12 +329,6 @@ class Worker():
         finally:
             suspect.remove_vnc()
             self._state_update('cleanup', (False,None))
-            # ensure capture thread exits
-            #suspect.stop_capture = True
-            try:
-                socket.create_connection((suspect.victim_params["ip"], 389), timeout=1)
-            except:
-                pass
             self.logger.removeHandler(suspect.runlog)
             self.logger.removeHandler(self.logfilehandler)
             del(suspect)
@@ -331,13 +337,9 @@ class Worker():
             self._cursor.execute("""UPDATE victims SET (runcounter)=(runcounter + 1) WHERE uuid=%s""", (self._victim_params["uuid"],))
             self._cursor.execute("""DELETE FROM workerstate WHERE uuid = %s""", (self._victim_params["uuid"],))
             self._dbconn.commit()
-            self._cursor.execute("""SELECT runcounter FROM victims WHERE uuid=%s""", (self._victim_params["uuid"],))
-            rows = self._cursor.fetchall()
-            if rows[0]["runcounter"] >= 100:
-                self.do_maintenance()
-            self._state_update('idle', params=(False, dict()))
-            
+        
     def do_maintenance(self):
-        self.logger.info("Entering maintenance cycle...")
+        logger.info("Entering maintenance cycle...")
         janitor = maintenance.Janitor(self._conf, self._victim_params, self._cursor, self._dbconn)
         janitor.standard_maintenance()
+        self._state_update('idle')

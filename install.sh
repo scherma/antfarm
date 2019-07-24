@@ -42,7 +42,6 @@ read -p "Please enter the IP of the primary interface (sandbox UI will be presen
 echo ""
 echo "You have specified the following settings:"
 echo "Sandbox user: 			$LABUSER"
-echo "Sandbox name: 			$SBXNAME"
 echo "SSL Country Code: 		$CCODE"
 echo "VM network gateway IP:		$GATEWAY_IP"
 echo "VM network netmask: 		$NETMASK"
@@ -118,45 +117,45 @@ function install_antfarm_dependencies() {
 function configure_antfarm_db() {
 	#test postgres install here
 	echo -e "${GREEN}Configuring database...${NC}"
-	su -c "psql -c \"CREATE USER $SBXNAME WITH PASSWORD '$DBPASS';\"" postgres
-	su -c "psql -c \"CREATE DATABASE $SBXNAME;\"" postgres
-	su -c "psql -q $SBXNAME < $SCRIPTDIR/res/schema.sql" postgres
-	su -c "psql -q $SBXNAME -c \"GRANT ALL PRIVILEGES ON DATABASE $SBXNAME TO $SBXNAME;\"" postgres
-	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE workerstate TO $SBXNAME;\"" postgres
-	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE victims TO $SBXNAME;\"" postgres
-	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE suspects TO $SBXNAME;\"" postgres
-	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE cases TO $SBXNAME;\"" postgres
-	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE victimfiles TO $SBXNAME;\"" postgres
-	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE sysmon_evts TO $SBXNAME;\"" postgres
-	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE suricata_dns TO $SBXNAME;\"" postgres
-	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE suricata_http TO $SBXNAME;\"" postgres
-	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE suricata_alert TO $SBXNAME;\"" postgres
-	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE suricata_tls TO $SBXNAME;\"" postgres
-	su -c "psql -q $SBXNAME -c \"GRANT ALL ON TABLE pcap_summary TO $SBXNAME;\"" postgres
-	su -c "psql -q $SBXNAME -c \"GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO $SBXNAME;\"" postgres
+	su -c "psql -c \"CREATE USER antfarm WITH PASSWORD '$DBPASS';\"" postgres
+	su -c "psql -c \"CREATE DATABASE antfarm;\"" postgres
+	su -c "psql -q antfarm < $SCRIPTDIR/res/schema.sql" postgres
+	su -c "psql -q antfarm -c \"GRANT ALL PRIVILEGES ON DATABASE antfarm TO antfarm;\"" postgres
+	su -c "psql -q antfarm -c \"GRANT ALL ON TABLE workerstate TO antfarm;\"" postgres
+	su -c "psql -q antfarm -c \"GRANT ALL ON TABLE victims TO antfarm;\"" postgres
+	su -c "psql -q antfarm -c \"GRANT ALL ON TABLE suspects TO antfarm;\"" postgres
+	su -c "psql -q antfarm -c \"GRANT ALL ON TABLE cases TO antfarm;\"" postgres
+	su -c "psql -q antfarm -c \"GRANT ALL ON TABLE victimfiles TO antfarm;\"" postgres
+	su -c "psql -q antfarm -c \"GRANT ALL ON TABLE sysmon_evts TO antfarm;\"" postgres
+	su -c "psql -q antfarm -c \"GRANT ALL ON TABLE suricata_dns TO antfarm;\"" postgres
+	su -c "psql -q antfarm -c \"GRANT ALL ON TABLE suricata_http TO antfarm;\"" postgres
+	su -c "psql -q antfarm -c \"GRANT ALL ON TABLE suricata_alert TO antfarm;\"" postgres
+	su -c "psql -q antfarm -c \"GRANT ALL ON TABLE suricata_tls TO antfarm;\"" postgres
+	su -c "psql -q antfarm -c \"GRANT ALL ON TABLE pcap_summary TO antfarm;\"" postgres
+	su -c "psql -q antfarm -c \"GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO antfarm;\"" postgres
 }
 
 function make_antfarm_dirs() {
 	echo -e "${GREEN}Directory structure creation...${NC}"
 	addgroup libvirt-qemu
-	addgroup "$SBXNAME"
+	addgroup "antfarm"
 	mkdir /usr/local/unsafehex/
-	mkdir "/usr/local/unsafehex/$SBXNAME"
-	mkdir "/usr/local/unsafehex/$SBXNAME/suspects"
-	mkdir "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
-	mkdir "/usr/local/unsafehex/$SBXNAME/output"
-	mkdir "/usr/local/unsafehex/$SBXNAME/runmanager"
-	mkdir "/usr/local/unsafehex/$SBXNAME/runmanager/logs"
-	mkdir "/usr/local/unsafehex/$SBXNAME/utils"
-	mkdir "/usr/local/unsafehex/$SBXNAME/yara"
-	mkdir "/usr/local/unsafehex/$SBXNAME/www"
-	mkdir "/usr/local/unsafehex/$SBXNAME/api"
-	mkdir "/usr/local/unsafehex/$SBXNAME/pcaps"
-	mkdir "/usr/local/unsafehex/$SBXNAME/novnc"
+	mkdir "/usr/local/unsafehex/antfarm"
+	mkdir "/usr/local/unsafehex/antfarm/suspects"
+	mkdir "/usr/local/unsafehex/antfarm/suspects/downloads"
+	mkdir "/usr/local/unsafehex/antfarm/output"
+	mkdir "/usr/local/unsafehex/antfarm/runmanager"
+	mkdir "/usr/local/unsafehex/antfarm/runmanager/logs"
+	mkdir "/usr/local/unsafehex/antfarm/utils"
+	mkdir "/usr/local/unsafehex/antfarm/yara"
+	mkdir "/usr/local/unsafehex/antfarm/www"
+	mkdir "/usr/local/unsafehex/antfarm/api"
+	mkdir "/usr/local/unsafehex/antfarm/pcaps"
+	mkdir "/usr/local/unsafehex/antfarm/novnc"
 	mkdir /mnt/images
-	mkdir "/mnt/$SBXNAME"
-	chgrp "$SBXNAME" "/mnt/$SBXNAME"
-	chmod g+rw /mnt/"$SBXNAME"
+	mkdir "/mnt/antfarm"
+	chgrp "antfarm" "/mnt/antfarm"
+	chmod g+rw /mnt/antfarm
 	chgrp libvirt-qemu /mnt/images
 	chmod g+rw /mnt/images	
 }
@@ -165,33 +164,33 @@ function install_antfarm_core() {
 	echo -e "${GREEN}Unwrapping sandbox manager files and utilities...${NC}"
 	python3 "$SCRIPTDIR/scripts/write_tor_iptables.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTDIR/src/runmanager/"
 	python3 "$SCRIPTDIR/scripts/write_network.py" "$GATEWAY_IP" "$NETMASK" "$SCRIPTDIR/res/vnet.xml"
-	cp -r "$SCRIPTDIR/src/runmanager/"* "/usr/local/unsafehex/$SBXNAME/runmanager/"
-	chmod +x "/usr/local/unsafehex/$SBXNAME/runmanager/runmanager"
-	wget https://live.sysinternals.com/Sysmon64.exe -O "/usr/local/unsafehex/$SBXNAME/suspects/downloads/Sysmon64.exe"
-	cp "$SCRIPTDIR/res/sysmon-8-cfg.xml" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
-	wget -q https://github.com/scherma/teaservice/releases/download/v0.2/TeaService.Setup.msi -O "/usr/local/unsafehex/$SBXNAME/suspects/downloads/TeaService Setup.msi"
-	cp "$SCRIPTDIR/res/MousePos.exe" "/usr/local/unsafehex/$SBXNAME/suspects/downloads"
-	cp "$SCRIPTDIR/res/bios.bin" "/usr/local/unsafehex/$SBXNAME/"
-	cp -r "$SCRIPTDIR/src/node/"* "/usr/local/unsafehex/$SBXNAME/www/"
-	mkdir "/usr/local/unsafehex/$SBXNAME/www/public/images"
-	mkdir "/usr/local/unsafehex/$SBXNAME/www/public/images/cases"
-	cp -r "$SCRIPTDIR/src/api/"* "/usr/local/unsafehex/$SBXNAME/api/"
-	cp -r "$SCRIPTDIR/src/utils/"* "/usr/local/unsafehex/$SBXNAME/utils/"
-	cp -r "$SCRIPTDIR/src/novnc/"* "/usr/local/unsafehex/$SBXNAME/novnc/"
-	chmod +x "/usr/local/unsafehex/$SBXNAME/utils/suricata-clean.sh"
-	chmod +x "/usr/local/unsafehex/$SBXNAME/utils/yara-update.sh"
+	rsync -r --info=progress2 "$SCRIPTDIR/src/runmanager/"* "/usr/local/unsafehex/antfarm/runmanager/"
+	chmod +x "/usr/local/unsafehex/antfarm/runmanager/runmanager"
+	wget https://live.sysinternals.com/Sysmon64.exe -O "/usr/local/unsafehex/antfarm/suspects/downloads/Sysmon64.exe"
+	cp "$SCRIPTDIR/res/sysmon-8-cfg.xml" "/usr/local/unsafehex/antfarm/suspects/downloads"
+	wget -q https://github.com/scherma/teaservice/releases/download/v0.2/TeaService.Setup.msi -O "/usr/local/unsafehex/antfarm/suspects/downloads/TeaService Setup.msi"
+	cp "$SCRIPTDIR/res/MousePos.exe" "/usr/local/unsafehex/antfarm/suspects/downloads"
+	cp "$SCRIPTDIR/res/bios.bin" "/usr/local/unsafehex/antfarm/"
+	rsync -r --info=progress2 "$SCRIPTDIR/src/node/"* "/usr/local/unsafehex/antfarm/www/"
+	mkdir "/usr/local/unsafehex/antfarm/www/public/images"
+	mkdir "/usr/local/unsafehex/antfarm/www/public/images/cases"
+	rsync -r --info=progress2 "$SCRIPTDIR/src/api/"* "/usr/local/unsafehex/antfarm/api/"
+	rsync -r --info=progress2 "$SCRIPTDIR/src/utils/"* "/usr/local/unsafehex/antfarm/utils/"
+	rsync -r --info=progress2 "$SCRIPTDIR/src/novnc/"* "/usr/local/unsafehex/antfarm/novnc/"
+	chmod +x "/usr/local/unsafehex/antfarm/utils/suricata-clean.sh"
+	chmod +x "/usr/local/unsafehex/antfarm/utils/yara-update.sh"
 	chmod 775 -R /usr/local/unsafehex
-	usermod -a -G "$SBXNAME" "$LABUSER"
-	python3 "$SCRIPTDIR/scripts/writerunconf.py" "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
-	python3 "$SCRIPTDIR/scripts/writewwwconf.py" "$SBXNAME" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
-	python3 "$SCRIPTDIR/scripts/write_unit_file.py" "$SBXNAME" "$LABUSER"
-	python3 "$SCRIPTDIR/scripts/write_pcap.py" "$SBXNAME"
+	usermod -a -G "antfarm" "$LABUSER"
+	python3 "$SCRIPTDIR/scripts/writerunconf.py" "antfarm" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
+	python3 "$SCRIPTDIR/scripts/writewwwconf.py" "antfarm" "$DBPASS" "$GATEWAY_IP" "$NETMASK"
+	python3 "$SCRIPTDIR/scripts/write_unit_file.py" "antfarm" "$LABUSER"
+	python3 "$SCRIPTDIR/scripts/write_pcap.py" "antfarm"
 }
 
 function build_libvirt() {
-	mkdir "/tmp/$SBXNAME"
-	mkdir "/tmp/$SBXNAME/libvirt"
-	cd "/tmp/$SBXNAME/libvirt"
+	mkdir "/tmp/antfarm"
+	mkdir "/tmp/antfarm/libvirt"
+	cd "/tmp/antfarm/libvirt"
 	if wget https://libvirt.org/sources/libvirt-4.0.0.tar.xz; then
 		echo -e "${GREEN}Building required version of libvirt...${NC}"
 		tar xvfJ libvirt-4.0.0.tar.xz
@@ -225,8 +224,8 @@ function build_libvirt() {
 
 function build_suricata() {
 	echo -e "${GREEN}Building required version of Suricata...${NC}"
-	mkdir -v "/tmp/$SBXNAME/suricata"
-	cd "/tmp/$SBXNAME/suricata"
+	mkdir -v "/tmp/antfarm/suricata"
+	cd "/tmp/antfarm/suricata"
 	if wget https://www.openinfosecfoundation.org/download/suricata-4.0.0.tar.gz; then
 		tar zxvf suricata-4.0.0.tar.gz
 		cd suricata-4.0.0
@@ -239,16 +238,16 @@ function build_suricata() {
 
 function make_cron() {
 	echo -e "${GREEN}Setting up Emerging Threats download...${NC}"
-	cd "/tmp/$SBXNAME/"
+	cd "/tmp/antfarm/"
 	git clone https://github.com/seanthegeek/etupdate.git
 	cp etupdate/etupdate /usr/sbin
 	/usr/sbin/etupdate -V
 	crontab -l > tmpcron
 	MINUTE=$(shuf -i 0-59 -n 1)
 	echo "${MINUTE} * * * * /usr/sbin/etupdate" >> tmpcron
-	echo "1 0 * * * /usr/local/unsafehex/$SBXNAME/utils/suricata-clean.sh" >> tmpcron
-	echo "1 0 * * MON /usr/local/unsafehex/$SBXNAME/utils/yara-update.sh" >> tmpcron
-	echo "0 * * * * su $SBXUSER -c '/usr/local/unsafehex/$SBXNAME/utils/dumpcap.sh >> /dev/null 2>&1'" >> tmpcron
+	echo "1 0 * * * /usr/local/unsafehex/antfarm/utils/suricata-clean.sh" >> tmpcron
+	echo "1 0 * * MON /usr/local/unsafehex/antfarm/utils/yara-update.sh" >> tmpcron
+	echo "0 * * * * su $SBXUSER -c '/usr/local/unsafehex/antfarm/utils/dumpcap.sh >> /dev/null 2>&1'" >> tmpcron
     echo "2 0 * * * /usr/bin/find /usr/local/unsafehex/antfarm/pcaps/ -mtime +2 -exec rm {} \;" >> tmpcron
 	crontab tmpcron
 	rm tmpcron
@@ -264,32 +263,36 @@ function clam_setup() {
 function nginx_setup() {
 	# needs work to automate setup of nginx
 	echo -e "${GREEN}Setting up nginx...${NC}"
-	cd "/tmp/$SBXNAME/"
+	cd "/tmp/antfarm/"
 	mkdir ssl
-	cd "/tmp/$SBXNAME/ssl"
-	openssl req -x509 -nodes -days 365 -newkey rsa:4096 -subj "/CN=$SBXNAME/O=$SBXNAME/C=$CCODE" -keyout "$SBXNAME".key -out "$SBXNAME".crt
+	cd "/tmp/antfarm/ssl"
+	openssl req -x509 -nodes -days 365 -newkey rsa:4096 -subj "/CN=antfarm/O=antfarm/C=$CCODE" -keyout "antfarm".key -out "antfarm".crt
 	openssl dhparam -dsaparam -out dhparam.pem 4096
 	mkdir /etc/nginx/ssl
 	chmod 700 /etc/nginx/ssl
-	cp "$SBXNAME".key "$SBXNAME".crt dhparam.pem /etc/nginx/ssl
+	cp "antfarm".key "antfarm".crt dhparam.pem /etc/nginx/ssl
 	rm /etc/nginx/sites-enabled/default
-	cp "$SCRIPTDIR/res/nginx" "/etc/nginx/sites-enabled/$SBXNAME"
-    sed -i "s/REPLACE_ME_LISTEN_MAIN/$PRIMARY_IP/g" "/etc/nginx/sites-enabled/$SBXNAME"
-    sed -i "s/REPLACE_ME_CERT/$SBXNAME.crt/g" "/etc/nginx/sites-enabled/$SBXNAME"
-    sed -i "s/REPLACE_ME_PKEY/$SBXNAME.key/g" "/etc/nginx/sites-enabled/$SBXNAME"
-    sed -i "s/REPLACE_ME_SERVER_NAME/$/g" "/etc/nginx/sites-enabled/$SBXNAME"
-    sed -i "s/REPLACE_ME_LISTEN_API/$GATEWAY_IP/g" "/etc/nginx/sites-enabled/$SBXNAME"
-    sed -i "s/REPLACE_ME_SBXNAME/$SBXNAME/g" "/etc/nginx/sites-enabled/$SBXNAME"
+	cp "$SCRIPTDIR/res/nginx" "/etc/nginx/sites-enabled/antfarm"
+    sed -i "s/REPLACE_ME_LISTEN_MAIN/$PRIMARY_IP/g" "/etc/nginx/sites-enabled/antfarm"
+    sed -i "s/REPLACE_ME_CERT/antfarm.crt/g" "/etc/nginx/sites-enabled/antfarm"
+    sed -i "s/REPLACE_ME_PKEY/antfarm.key/g" "/etc/nginx/sites-enabled/antfarm"
+    sed -i "s/REPLACE_ME_SERVER_NAME/$/g" "/etc/nginx/sites-enabled/antfarm"
+    sed -i "s/REPLACE_ME_LISTEN_API/$GATEWAY_IP/g" "/etc/nginx/sites-enabled/antfarm"
+    sed -i "s/REPLACE_ME_SBXNAME/antfarm/g" "/etc/nginx/sites-enabled/antfarm"
 }
 
 function finishing_touches() {
 	echo -e "${GREEN}Setting permissions on sandbox file structure...${NC}"
-	chown root:"$SBXNAME" -R /usr/local/unsafehex
+	chown root:"antfarm" -R /usr/local/unsafehex
 	
 	echo -e "${GREEN}Setting permissions for control of services...${NC}"
-	echo "Cmnd_Alias ANTFARM_CMNDS = /bin/systemctl start $SBXNAME, /bin/systemctl stop $SBXNAME, /bin/systemctl restart $SBXNAME" >> /etc/sudoers.d/antfarm
-	echo "Cmnd_Alias SURICATA_CMNDS = /bin/systemctl restart suricata" >> /etc/sudoers.d/antfarm
-	echo "%$SBXNAME ALL=(ALL) NOPASSWD: ANTFARM_CMNDS,SURICATA_CMNDS" >> /etc/sudoers.d/antfarm
+	echo "Cmnd_Alias ANTFARM_CMNDS = /bin/systemctl start antfarm, /bin/systemctl stop antfarm, /bin/systemctl restart antfarm" >> /etc/sudoers.d/antfarm
+    echo "Cmnd_Alias ANTFARM_UI_CMNDS = /bin/systemctl start antfarm-ui, /bin/systemctl stop antfarm-ui, /bin/systemctl restart antfarm-ui" >> /etc/sudoers.d/antfarm
+    echo "Cmnd_Alias ANTFARM_API_CMNDS = /bin/systemctl start antfarm-api, /bin/systemctl stop antfarm-api, /bin/systemctl restart antfarm-api" >> /etc/sudoers.d/antfarm
+	echo "Cmnd_Alias SURICATA_CMNDS = /bin/systemctl restart suricata, /bin/systemctl start suricata, /bin/systemctl stop suricata" >> /etc/sudoers.d/antfarm
+    echo "Cmnd_Alias TOR_CMNDS = /bin/systemctl start tor, /bin/systemctl stop tor, /bin/systemctl restart tor" >> /etc/sudoers.d/antfarm
+    echo "Cmnd_Alias LIBVIRT_CMNDS = /bin/systemctl restart libvirtd, /bin/systemctl restart libvirt-guests" >> /etc/sudoers.d/antfarm
+	echo "%antfarm ALL=(ALL) NOPASSWD: ANTFARM_CMNDS,ANTFARM_API_CMNDS,ANTFARM_UI_CMNDS,SURICATA_CMNDS,LIBVIRT_CMNDS,TOR_CMNDS" >> /etc/sudoers.d/antfarm
 	
 	cd "$SCRIPTDIR"
 	
@@ -331,7 +334,7 @@ function finishing_touches() {
     service tor start
 	
 	echo -e "${GREEN}Cleaning up temporary files...${NC}"
-	rm -rf "/tmp/$SBXNAME"
+	rm -rf "/tmp/antfarm"
 }
 
 function replace_qemu_clues_public() {

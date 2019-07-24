@@ -12,179 +12,141 @@ class Postprocessor:
         self.uuid = uuid
         self._dbcursor = dbcursor
         self.events = db_calls.all_case_events(uuid, self._dbcursor)
+        self.artifact_rules = self.prep_rules()
+
+    def prep_rules(self):
+        rulestruct = {}
+        rules = db_calls.artifact_rules(self._dbcursor)
+        for rule in rules:
+            key = str(rule["evttype"])
+            if key not in rulestruct:
+                rulestruct[key] = []
+            rulestruct[key].append(rule)
+        return rulestruct
+
+    def get_element(self, d, path_arr):
+        el = path_arr.pop(0)
+        if len(path_arr) == 0:
+            return d[el]
+        else:
+            return self.get_element(d[el], path_arr)
+
+
+    def test_item(self, item, rule):
+        maybe = True
+        for condition in rule["conditions"]:
+            if condition["field"] in item:
+                # first get the target field to run comparisons on
+                el = item[condition["field"]]
+                if "object_path" in condition:
+                    # if the field is jsonb, locate the desired element of the json object
+                    try:
+                        el = self.get_element(el, list.copy(condition["object_path"]))
+                    except KeyError:
+                        # if the element is not present in json object, rule does not match
+                        maybe = False
+                        break
+                # if any of the patterns match, condition is matched
+                pmatch = False
+                if condition["method"] == "rex":
+                    for pattern in condition["pattern"]:
+                        if re.search(pattern, el, re.IGNORECASE):
+                            pmatch = True
+                elif condition["method"] == "eq":
+                    for pattern in condition["pattern"]:
+                        if type(el) == str:
+                            if pattern.lower() == el.lower():
+                                pmatch = True
+                        elif type(el) == int:
+                            if pattern == el:
+                                pmatch = True
+                # if any condition is NOT matched, rule is not a match
+                if not pmatch:
+                    maybe = False
+                    break
+                else:
+                    pass
+            else:
+                logger.debug("Cannot test rule ID {} against item: field {} not present in item".format(rule["id"], condition["field"]))
+                maybe = False
+        return maybe
+        
         
     def is_sysmon_artifact(self, evt):
+        maybe = False
         if evt["eventid"] == 1:
-            cmdlines = [
-                r"C:\\Windows\\system32\\schtasks.exe /delete /f /TN \"Microsoft\\Windows\\Customer Experience Improvement Program\\Uploader\"",
-                r"C:\\Windows\\system32\\sc.exe start w32time task_started",
-                r"taskhost.exe \$\(Arg0\)",
-                r'"taskhost.exe"',
-                r"taskhost.exe SYSTEM",
-                r"C:\\Windows\\splwow64.exe",
-                r"C:\\Program Files\\Internet Explorer\\iexplore.exe",
-                r"C:\\Windows\\system32\\wermgr.exe -queuereporting",
-                r"C:\\Windows\\System32\\sdclt.exe /CONFIGNOTIFICATION"
-            ]
-            
-            parentlines = [
-                r"C:\\Windows\\System32\\wsqmcons.exe",
-            ]
-            for cmdline in cmdlines:
-                if re.search(cmdline, evt["eventdata"]["CommandLine"], re.IGNORECASE):
-                    return True
-            for parentline in parentlines:
-                if re.search(parentline, evt["eventdata"]["ParentCommandLine"], re.IGNORECASE):
-                    return True
+            if "1" in self.artifact_rules:
+                for rule in self.artifact_rules["1"]:
+                    if self.test_item(evt, rule):
+                        maybe = True
+
         elif evt["eventid"] == 7:
-            images = {
-                "c:\\windows\\system32\\wlanapi.dll": 
-                    [r"c:\\windows\\coffeesvc.exe$", r"C:\\Windows\\System32\\svchost.exe$"],
-                "c:\\windows\\system32\\cryptdll.dll": 
-                    [r"c:\\windows\\system32\\svchost.exe$"],
-                "c:\\windows\\system32\\samlib.dll":
-                    [r"c:\\program files\\internet explorer\\iexplore.exe$"]
-            }
-            if evt["eventdata"]["ImageLoaded"].lower() in images:
-                for imagepattern in images[evt["eventdata"]["ImageLoaded"].lower()]:
-                    if re.search(imagepattern, evt["eventdata"]["Image"], re.IGNORECASE):
-                        return True
+            if "6" in self.artifact_rules:
+                for rule in self.artifact_rules["6"]:
+                    if self.test_item(evt, rule):
+                        maybe = True
+
         elif evt["eventid"] == 12:
-            rmatches = [
-                r"\\Software\\Microsoft\\Internet Explorer\\Toolbar$"
-            ]
-            for rmatch in rmatches:
-                if re.search(rmatch, evt["eventdata"]["TargetObject"], re.IGNORECASE):
-                    return True
+            if "11" in self.artifact_rules:
+                for rule in self.artifact_rules["11"]:
+                    if self.test_item(evt, rule):
+                        maybe = True
+
         elif evt["eventid"] == 13:
-            rmatches = [
-                r"\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\[^\\]+\\OpenWithList\\a$",
-                r"\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings\\ProxyServer$",
-                r"\\Software\\Microsoft\\Office\\Common\\Smart Tag\\Applications\\OpusApp\\FriendlyName",
-                r"\\System\\CurrentControlSet\\Control\\Power\\User\\PowerSchemes",
-                r"\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\WinSATRestorePower$"
-            ]
-            for rmatch in rmatches:
-                if re.search(rmatch, evt["eventdata"]["TargetObject"], re.IGNORECASE):
-                    return True
-        return False
+            if "12" in self.artifact_rules:
+                for rule in self.artifact_rules["12"]:
+                    if self.test_item(evt, rule):
+                        maybe = True
+
+        return maybe
     
     def is_suricata_dns_artifact(self, evt):
-        rmatches = [
-            r"\.in-addr\.arpa$",
-            r"\.msftncsi\.com$",
-            r"\.windowsupdate\.com$",
-            r"\.microsoft\.com$",
-            r"\.symcd\.com$",
-            r"\.symcb\.com$",
-            r"\.verisign\.com$",
-            r"\.symantec\.com$",
-            r"\.bing\.com$",
-            r"\.identrust\.com$",
-            r"\.google\.com$",
-            r"\.amazontrust\.com$",
-            r"\.comodoca\.com$",
-            r"\.trustwave\.com$",
-            r"\.usertrust\.com$",
-            r"\.digicert\.com$",
-            r"\.godaddy\.com$",
-            r"\.geotrust\.com$",
-            r"\.globalsign\.com$",
-            r"\.rapidssl\.com$",
-            r"\.msftncsi\.com$",
-            r"\.windows\.com$",
-            r"\.verisign\.com$",
-            r"\.bing\.com$",
-            r"\.windows\.com$"
-        ]
-        rdmatches = [
-            r"\.akamaitechnologies\.com$",
-            r"\.a-msedge\.net$"
-        ]
-
-        for rdmatch in rdmatches:
-            if "rdata" in evt["dnsdata"] and re.search(rdmatch, evt["dnsdata"]["rdata"], re.IGNORECASE):
-                return True
-
-        for rmatch in rmatches:
-            if re.search(rmatch, evt["dnsdata"]["rrname"], re.IGNORECASE):
-                return True
-        return False
+        maybe = False
+        if "20" in self.artifact_rules:
+            for rule in self.artifact_rules["20"]:
+                if self.test_item(evt, rule):
+                    maybe = True
+        return maybe
     
     def is_suricata_http_artifact(self, evt):
-        rmatches = [
-            r"\.windowsupdate\.com$",
-            r"\.microsoft\.com$",
-            r"\.symcd\.com$",
-            r"\.windows\.com$",
-            r"\.verisign\.com$",
-            r"\.bing\.com$",
-            r"\.windows\.com$"
-        ]
-        for rmatch in rmatches:
-            if "hostname" in evt["httpdata"] and re.search(rmatch, evt["httpdata"]["hostname"]):
-                return True
-        return False
+        maybe = False
+        if "21" in self.artifact_rules:
+            for rule in self.artifact_rules["21"]:
+                if self.test_item(evt, rule):
+                    maybe = True
+        return maybe
     
     def is_suricata_tls_artifact(self, evt):
-        rmatches = [
-            r"\.windowsupdate\.com$",
-            r"\.microsoft\.com$",
-            r"\.symcd\.com$",
-            r"\.windows\.com$",
-            r"\.verisign\.com$",
-            r"\.bing\.com$"
-        ]
-        for rmatch in rmatches:
-            if "sni" in evt["tlsdata"] and re.search(rmatch, evt["tlsdata"]["sni"]):
-                return True
-        return False
+        maybe = False
+        if "22" in self.artifact_rules:
+            for rule in self.artifact_rules["22"]:
+                if self.test_item(evt, rule):
+                    maybe = True
+        return maybe
     
     def is_suricata_alert_artifact(self, evt):
-        return False
+        maybe = False
+        if "23" in self.artifact_rules:
+            for rule in self.artifact_rules["23"]:
+                if self.test_item(evt, rule):
+                    maybe = True
+        return maybe
     
     def is_filesystem_artifact(self, evt):
-        rmatches = [
-            r"^C:\\Windows\\Temp\\.*?\.sqm$",
-            r"^C:\\Windows\\System32\\config\\systemprofile\\AppData\\LocalLow\\Microsoft\\CryptnetUrlCache",
-            r"^C:\\ProgramData\\Microsoft\\Windows\\WER",
-            r"^C:\\ProgramData\\Microsoft\\RAC\\Temp",
-            r"^C:\\Windows\\Performance\\WinSAT"
-            r"^C:\\ProgramData\\Microsoft\\Vault",
-            r"^C:\\Windows\\System32\\LogFiles",
-            r"C:\\Windows\\System32\\config\\SYSTEM$",
-            r"C:\\Windows\\System32\\config\\SOFTWARE$",
-            r"C:\\Windows\\System32\\config\\SECURITY$",
-            r"\\AppData\\Local\\Microsoft\\Windows\\WebCache\\WebCache\w+\.tmp$",
-            r"\\Appdata\\Local\\Microsoft\\Windows\\History\\History.IE5\\MSHist\d+\\container.dat$",
-            r"NTUSER.DAT$",
-            r"\\~\$Normal.dotm$"
-        ]
-        for rmatch in rmatches:
-            if re.search(rmatch, evt["os_path"], re.IGNORECASE):
-                return True
-            elif evt["file_stat"] == {}:
-                return True
-        return False
+        maybe = False
+        if "30" in self.artifact_rules:
+            for rule in self.artifact_rules["30"]:
+                if self.test_item(evt, rule):
+                    maybe = True
+        return maybe
     
     def is_pcap_artifact(self, evt):
-        if evt["protocol"] == "UDP":
-            dns_servers = ["208.67.220.220", "208.67.222.222", "8.8.8.8", "8.8.4.4"]
-            if evt["dest_port"] == 53 and evt["dest_ip"] in dns_servers:
-                # dns lookups are tagged by suricata
-                return True
-            elif evt["src_port"] == 53 and evt["src_ip"] in dns_servers:
-                return True
-            elif evt["dest_port"] in [5355, 123]:
-                # link local multicast name resolution
-                return True
-            elif evt["src_port"] == 137 and evt["dest_port"] == 137:
-                # netbios
-                return True
-        elif evt["protocol"] == "TCP":
-            if evt["dest_port"] in [80, 443]:
-                # http and https are tagged by suricata
-                return True
+        maybe = False
+        if "31" in self.artifact_rules:
+            for rule in self.artifact_rules["31"]:
+                if self.test_item(evt, rule):
+                    maybe = True
+        return maybe
 
     def update_events(self):
         logger.info("Tagging artifacts...")

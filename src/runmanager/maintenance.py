@@ -28,21 +28,22 @@ class Janitor:
         time.sleep(5)
         self.dom.shutdown()
         
-        #cstr = "{0}::{1}".format(self.vmdata["vnc"]["address"], self.vmdata["vnc"]["port"])
-        #connector = pyvnc.Connector(cstr, self.vmdata["password"], self.vmdata["resolution"])
-        #connector.client.timeout = 10
-        #connector.restart()
-        
         while True:
             state, reason = self.dom.state()
             if state == libvirt.VIR_DOMAIN_SHUTOFF:
-                logger.debug("Domain went to bed")
-                break
+                logger.debug("Victim is asleep")
+                self.dom.create()
+                time.sleep(5)
+                state, reason = self.dom.state()
+                if state == libvirt.VIR_DOMAIN_RUNNING:
+                    logger.info("Victim woke up")
+                    break
+                else:
+                    logger.error("Victim didn't wake... nudging again")
             else:
                 self.dom.shutdown()
                 time.sleep(2)
-        self.dom.create()
-        logger.info("Restart complete")
+        
 
     def screenshot(self, path):
         i = get_screen_image(self.dom, self._lv_conn)
@@ -71,10 +72,7 @@ class Janitor:
         tformat = 'YYYY-MM-DD HH:mm:ss'
         restarttime = arrow.utcnow().format(tformat)
         time.sleep(90) # awaiting a screen is unreliable as hell. This SHOULD work instead...
-        # make sure pcapring is turned back on
         self._cursor.execute("""UPDATE workerstate SET id = %s WHERE uuid = %s""", (self.dom.ID(), self.dom.UUIDString()))
-        self._cursor.execute("""UPDATE victims SET runcounter = 0, last_reboot = %s WHERE uuid = %s""", (restarttime, self.dom.UUIDString()))
-        self._dbconn.commit()
         self.login()
         time.sleep(12 * 60) # some malware looks for system uptime
         self.dom.suspend()
@@ -85,26 +83,47 @@ class Janitor:
         self.dom.snapshotCreateXML(new_snapshot_xml)
         logger.debug("Removing old snapshot")
         old_snapshot.delete()
+        logger.debug("Resetting run counter")
+        self._cursor.execute(
+            """UPDATE victims SET runcounter = 0, last_reboot = %s, snapshot = %s WHERE uuid = %s""", 
+            (restarttime, new_snapshot_name, self.dom.UUIDString()))
+        self._dbconn.commit()
         logger.debug("Restarting services")
-        restart_services()
+        restart_services(self._conf.get("General","instancename"))
         logger.info("Maintenance complete")
 
 def restart_pcap(instancename):
     for proc in psutil.process_iter(attrs=["name"]):
         if proc.info["name"] == "dumpcap":
             proc.terminate()
-            subprocess.Popen(["/bin/bash", "/usr/local/unsafehex/{}/utils/dumpcap".format(instancename)])
+            subprocess.Popen(["/bin/bash", "/usr/local/unsafehex/{}/utils/dumpcap.sh".format(instancename)])
             break
 
 def restart_services(instancename):
-    logger.debug("Restarting suricata...")
-    subprocess.call(["sudo", "/bin/systemctl", "restart", "suricata"])
     logger.debug("Restarting libvirtd...")
     subprocess.call(["sudo", "/bin/systemctl", "restart", "libvirtd"])
     logger.debug("Restarting libvirt-guests...")
     subprocess.call(["sudo", "/bin/systemctl", "restart", "libvirt-guests"])
+    logger.debug("Restarting tor...")
+    subprocess.call(["sudo", "/bin/systemctl", "restart", "tor"])
+    logger.debug("Restarting suricata...")
+    subprocess.call(["sudo", "/bin/systemctl", "restart", "suricata"])
     logger.debug("Restarting dumpcap...")
     restart_pcap(instancename)
+
+def start_all_services(instancename):
+    logger.debug("Starting suricata...")
+    subprocess.call(["sudo", "/bin/systemctl", "start", "suricata"])
+    logger.debug("Starting libvirtd...")
+    subprocess.call(["sudo", "/bin/systemctl", "start", "libvirtd"])
+    logger.debug("Starting libvirt-guests...")
+    subprocess.call(["sudo", "/bin/systemctl", "start", "libvirt-guests"])
+    logger.debug("Starting tor...")
+    subprocess.call(["sudo", "/bin/systemctl", "start", "tor"])
+    logger.debug("Starting UI...")
+    subprocess.call(["sudo", "/bin/systemctl", "start", "antfarm-ui"])
+    logger.debug("Starting API...")
+    subprocess.call(["sudo", "/bin/systemctl", "start", "antfarm-api"])
 
         
 

@@ -2,5 +2,6 @@
 	{"type": "link", "link": "/", "text":"Home"},
 	{"type": "link", "link": "/files", "text": "Suspects"},
 	{"type": "link", "link": "/cases", "text": "Cases"},
-	{"type": "link", "link": "/victims", "text": "Victims"}
+	{"type": "link", "link": "/victims", "text": "Victims"},
+	{"type": "link", "link": "/config", "text": "Configuration"}
 ]

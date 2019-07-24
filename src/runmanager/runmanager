@@ -33,17 +33,23 @@ class Broker():
         logger.debug('DB connection started on {0} to db "{1}" with user "{2}"'.format(host, db, user))
         return cursor, conn
         
-    def _register_workers(self):
-        for uuid, vm in self._list_available_vms().items():
-            self.cursor.execute("""INSERT INTO "workerstate" (uuid, id, pid, position, params) VALUES (%s, %s, %s, %s, '{}')""", (uuid, vm["id"], os.getpid(), 'idle'))
-            self.dbconn.commit()
-            vm["state"] = "idle"
-            logger.info("Selected VM UUID {0} and registered worker in DB".format(uuid))
+    #def _register_workers(self):
+    #    for uuid, vm in self._list_available_vms().items():
+    #        self.cursor.execute("""INSERT INTO "workerstate" (uuid, id, pid, position, params) VALUES (%s, %s, %s, %s, '{}')""", (uuid, vm["id"], os.getpid(), 'idle'))
+    #        self.dbconn.commit()
+    #        vm["state"] = "idle"
+    #        logger.info("Selected VM UUID {0} and registered worker in DB".format(uuid))
             
     def _list_available_victims(self):
-        self.cursor.execute("""SELECT uuid FROM victims WHERE status = 'production' AND uuid NOT IN (SELECT uuid FROM workerstate WHERE position != 'idle' AND position IS NOT NULL) ORDER BY runcounter""")
+        self.cursor.execute("""SELECT uuid,runcounter FROM victims WHERE status = 'production' AND uuid NOT IN (SELECT uuid FROM workerstate WHERE position != 'idle' AND position IS NOT NULL) ORDER BY runcounter DESC""")
         victims = self.cursor.fetchall()
-        return victims
+        available = []
+        for idx, victim in enumerate(victims):
+            if victim["runcounter"] > int(self.conf.get("General", "maintenance_after")):
+                self.maintenance(victim)
+            else:
+                available.append(victim)
+        return available
                         
     def _exit(self, value=0):
         self.dbconn.close()
@@ -55,28 +61,6 @@ class Broker():
         self.cursor.execute("""DELETE FROM "workerstate" WHERE 1=1""")
         self.dbconn.commit()
         logger.info("Emptied workerstate table")
-        
-    def _list_available_vms(self):
-        # get all started/suspended domains
-        domains = self.lv_conn.listAllDomains()
-        self.cursor.execute("""SELECT * FROM victims WHERE status = 'production'""")
-        rows = self.cursor.fetchall()
-        production_uuids = []
-        for row in rows:
-            production_uuids.append(row["uuid"])
-        logger.debug("Production VM UUIDs: {0}".format(json.dumps(production_uuids)))
-        available = {}
-        # check which ones match the victims table
-        if domains:
-            for dom in domains:
-                #uuid = self.lv_conn.lookupByID(dom).UUIDString()
-                if dom.UUIDString() in production_uuids:
-                    available[dom.UUIDString()] = {"id": dom.ID(), "uuid": dom.UUIDString()}
-        else:
-            errmsg = "No victims online"
-            logger.error(errmsg)
-            raise ResourceUnavailable(errmsg)
-        return available
     
     def _cleanup(self):
         lv_conn = libvirt.open("qemu:///system")
@@ -94,9 +78,9 @@ class Broker():
     def manage(self, host="localhost"):
         try:
             while True:
+                available = self._list_available_victims()
                 cases = self._check_cases()
                 if cases:
-                    available = self._list_available_victims()
                     logger.info("Found {0} available victims".format(len(available)))
                     for case in cases:
                         if available:                            
@@ -105,6 +89,7 @@ class Broker():
                             victim = available.pop()
                             logger.info("Allocated case {0} to victim uuid {1}".format(case["uuid"], victim["uuid"]))
                             w = vmworker.Worker(self.conf, victim, NUM_LEVEL, RUN_NUM_LEVEL)
+                            w.prep_for_run()
                             w._state_update("assigned", (True, case))
                             t = threading.Thread(target=w.process, args=(case,))
                             t.start()
@@ -127,15 +112,35 @@ class Broker():
             self.dbconn.commit()
             logger.info("Suspending all VMs")
             for row in rows:
-                self.lv_conn.lookupByID(row["uuid"]).suspend()
+                self.lv_conn.lookupByUUIDString(row["uuid"]).suspend()
             
             logger.info("Cleanup complete, exiting manager")
+
+    def maintenance(self, victim):
+        w = vmworker.Worker(self.conf, victim, NUM_LEVEL, RUN_NUM_LEVEL)
+        w._state_update('maintenance')
+        w.do_maintenance()
         
             
             
 class ResourceUnavailable(IndexError):
     def __init__(self, message):
         super(IndexError, self).__init__(message)
+
+def set_defaults(conf):
+    conf["General"] = {
+        "loglevel": "DEBUG",
+        "logdir": "/usr/local/unsafehex/antfarm/runmanager/logs",
+        "basedir": "/usr/local/unsafehex",
+        "runloglevel": "INFO",
+        "instancename": "antfarm",
+        "mountdir": "/mnt/vpart",
+        "dbname": "antfarm",
+        "dbuser": "antfarm",
+        "suricata_log": "/var/log/suricata/eve.json",
+        "maintenance_after": "50"
+    }
+    return conf
 
 
 
@@ -150,6 +155,8 @@ def main():
     args = parser.parse_args()
     
     conf = configparser.ConfigParser()
+
+    conf = set_defaults(conf)
     
     conf.readfp(args.config)
     if args.loglevel:
@@ -174,8 +181,10 @@ def main():
     logging.basicConfig(level=logging.CRITICAL, format=fmt, datefmt=dfmt)
             
     logger.setLevel(NUM_LEVEL)
+
+    maintenance.start_all_services(conf.get("General", "instancename"))
             
-    try:        
+    try:
         b = Broker(conf)
     except KeyError:
         logger.error("Invalid configuration supplied!")
