@@ -72,20 +72,13 @@ module.exports = {
 			offset = (limit - 1) * page;
 		}
 		var pgr = "to_char(cases.submittime, 'YYYY-MM-DD HH24:MI:SS') AS submittime, cases.sha256, cases.fname, cases.uuid AS uuid, cases.status AS status, " +
-			"workerstate.position, alerts.c AS alert_count, dns.c AS dns_count, http.c AS http_count, files.c as files_count, sysmon.c AS sysmon_count " +
-			"FROM cases LEFT JOIN workerstate ON cases.uuid = workerstate.job_uuid " + 
-			"LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_alert WHERE is_artifact=false GROUP BY uuid) AS alerts ON cases.uuid = alerts.uuid " + 
-			"LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_dns WHERE is_artifact=false GROUP BY uuid) AS dns ON cases.uuid = dns.uuid " +
-			"LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM suricata_http WHERE is_artifact=false GROUP BY uuid) AS http ON cases.uuid = http.uuid " + 
-			"LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM victimfiles WHERE is_artifact=false GROUP BY uuid) AS files ON cases.uuid = files.uuid " +
-			"LEFT JOIN (SELECT uuid, COUNT(*) AS c FROM sysmon_evts WHERE is_artifact=false GROUP BY uuid) AS sysmon ON cases.uuid = sysmon.uuid";
-		
+			"cases.summary AS summary, workerstate.position FROM cases LEFT JOIN workerstate ON cases.uuid = workerstate.job_uuid ";
 		if (where) {
 			return pg.select(pg.raw(pgr))
-			.where(where).orderBy('submittime', order).limit(limit).offset(offset);
+			.where(where).orderBy('cases.submittime', order).limit(limit).offset(offset);
 		} else {
 			return pg.select(pg.raw(pgr))
-			.orderBy('submittime', order).limit(limit).offset(offset);
+			.orderBy('cases.submittime', order).limit(limit).offset(offset);
 		}
 	},
 	

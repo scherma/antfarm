@@ -149,39 +149,39 @@ var GetCases = function(req) {
 			
 			dbres.forEach((row) => {
 				row.labels = [];
-				if (row.alert_count > 0) {
+				if (row.summary.alert > 0) {
 					let alertlabel = {};
 					alertlabel.labelstyle = "label-danger";
 					alertlabel.labeltext = "alerts";
-					alertlabel.labelcount = row.alert_count;
+					alertlabel.labelcount = row.summary.alert;
 					row.labels.push(alertlabel);
 				}
-				if (row.dns_count > 0) {
+				if (row.summary.dns > 0) {
 					let dnslabel = {};
 					dnslabel.labelstyle = "label-info";
 					dnslabel.labeltext = "dns";
-					dnslabel.labelcount = row.dns_count;
+					dnslabel.labelcount = row.summary.dns;
 					row.labels.push(dnslabel);
 				}
-				if (row.http_count > 0) {
+				if (row.summary.http > 0) {
 					let httplabel = {};
 					httplabel.labelstyle = "label-warning";
 					httplabel.labeltext = "http";
-					httplabel.labelcount = row.http_count;
+					httplabel.labelcount = row.summary.http;
 					row.labels.push(httplabel);
 				}
-				if (row.sysmon_count > 0) {
+				if (row.summary.sysmon > 0) {
 					let sysmonlabel = {};
 					sysmonlabel.labelstyle = "label-primary";
 					sysmonlabel.labeltext = "sysmon";
-					sysmonlabel.labelcount = row.sysmon_count;
+					sysmonlabel.labelcount = row.summary.sysmon;
 					row.labels.push(sysmonlabel);
 				}
-				if (row.files_count > 0) {
+				if (row.summary.files > 0) {
 					let fileslabel = {};
 					fileslabel.labelstyle = "label-default";
 					fileslabel.labeltext = "files";
-					fileslabel.labelcount = row.files_count;
+					fileslabel.labelcount = row.summary.files;
 					row.labels.push(fileslabel);
 				}
 			});

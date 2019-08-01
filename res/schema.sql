@@ -54,7 +54,8 @@ CREATE TABLE cases (
     runtime integer DEFAULT 180,
 	runstyle integer,
 	priority integer DEFAULT 0,
-	victim_params jsonb
+	victim_params jsonb,
+	summary jsonb
 );
 
 
@@ -477,6 +478,13 @@ CREATE INDEX alert_trgm ON suricata_alert USING GIN(alltext gin_trgm_ops);
 CREATE INDEX sysmon_trgm ON sysmon_evts USING GIN(alltext gin_trgm_ops);
 CREATE INDEX files_trgm ON victimfiles USING GIN(alltext gin_trgm_ops);
 CREATE INDEX suspect_trgm ON suspects USING GIN(alltext gin_trgm_ops);
+
+CREATE INDEX ON suricata_http uuid;
+CREATE INDEX ON suricata_tls uuid;
+CREATE INDEX ON suricata_dns uuid;
+CREATE INDEX ON suricata_alert uuid;
+CREATE INDEX ON sysmon_evts uuid;
+CREATE INDEX ON victimfiles uuid;
 	
 --
 -- Name: public; Type: ACL; Schema: -; Owner: postgres

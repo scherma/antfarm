@@ -150,41 +150,68 @@ class Postprocessor:
 
     def update_events(self):
         logger.info("Tagging artifacts...")
+        summary = {
+            "dns": 0,
+            "http": 0,
+            "tls": 0,
+            "alert": 0,
+            "sysmon": 0,
+            "files": 0,
+            "pcap": 0
+        }
+
         total = 0
         for evt in self.events["dns"]:
             if self.is_suricata_dns_artifact(evt):
                 db_calls.tag_artifact(evt, "dns", self._dbcursor)
                 total += 1
+            else:
+                summary["dns"] += 1
+        
         
         for evt in self.events["http"]:
             if self.is_suricata_http_artifact(evt):
                 db_calls.tag_artifact(evt, "http", self._dbcursor)
                 total += 1
+            else:
+                summary["http"] += 1
 
         for evt in self.events["tls"]:
             if self.is_suricata_tls_artifact(evt):
                 db_calls.tag_artifact(evt, "tls", self._dbcursor)
                 total += 1
+            else:
+                summary["tls"] += 1
                         
         for evt in self.events["alert"]:
             if self.is_suricata_alert_artifact(evt):
                 db_calls.tag_artifact(evt, "alert", self._dbcursor)
                 total += 1
+            else:
+                summary["alert"] += 1
                 
         for evt in self.events["sysmon"]:
             if self.is_sysmon_artifact(evt):
                 db_calls.tag_artifact(evt, "sysmon", self._dbcursor)
                 total += 1
+            else:
+                summary["sysmon"] += 1
         
         for evt in self.events["files"]:
             if self.is_filesystem_artifact(evt):
                 db_calls.tag_artifact(evt, "filesystem", self._dbcursor)
                 total += 1
+            else:
+                summary["files"] += 1
 
         for evt in self.events["pcap"]:
             if self.is_pcap_artifact(evt):
                 db_calls.tag_artifact(evt, "pcap", self._dbcursor)
                 total += 1
+            else:
+                summary["pcap"] += 1
+
+        db_calls.append_summary(self.uuid, summary, self._dbcursor)
         
         logger.debug("{} artifacts found and tagged for cases {}".format(total, self.uuid))
 

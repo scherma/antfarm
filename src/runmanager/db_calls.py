@@ -198,7 +198,11 @@ def tag_artifact(evtdata, evttype, cursor):
     elif evttype == "pcap":
         sql = """UPDATE pcap_summary SET is_artifact = true WHERE id = %s"""
         cursor.execute(sql, (evtdata["id"],))
-        
+
+def append_summary(uuid, summary, cursor):
+    sql = """UPDATE cases SET summary = %s WHERE uuid = %s"""
+    cursor.execute(sql, (json.dumps(summary), uuid))
+    return cursor.rowcount
     
 def timestomped_files(uuid, cursor):
     sql = """SELECT * FROM sysmon_evts WHERE uuid = %s AND eventid = 2"""

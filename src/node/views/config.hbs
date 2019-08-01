@@ -1,0 +1,60 @@
+<div class="container theme-showcase config" role="main">
+	<div class="accordion alternate" id="accordion">
+    {{#each config.rules}}
+        <div class="card">
+            <form action="/config" method="post">
+                <div class="card-header" id="heading-{{this.id}}">
+                    <div class="row">
+                        <div class="inrow">
+                            <div class="col-md-12">
+                                <div class="collapsed" aria-expanded="false" aria-controls="collapse-{{this.id}}">
+                                    <div class="row">
+                                        <div class="form-inline">
+                                            <div class="col-md-1 form-group expand-ctrl" type="button" role="button" data-toggle="collapse" data-target="#collapse-{{this.id}}">
+                                                <span class="glyphicon glyphicon-menu-right"></span>
+                                            </div>
+                                            <div class="col-md-1 form-group">
+                                                <span class="text-break">{{this.id}}</span>
+                                            </div>
+                                            <div class="col-md-4 form-group"><p><b>Type:</b> 
+                                                <select name="evttype" class="form-control">
+                                                {{#each this.evttypelist}}
+                                                    <option value="{{this.evttype}}" {{#if this.selected}}selected="selected"{{/if}}>{{this.evtname}}</option>
+                                                {{/each}}
+                                                </select></p></div>
+                                            <div class="col-md-4 form-group"><p><b>Enabled:</b> <input type="checkbox" class="checkbox" name="enabled" {{#if this.enabled}}checked{{/if}}></p></div>
+                                            <div class="col-md-2"><button type="submit" class="btn btn-xs btn-default">Update</button></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="collapse-{{this.id}}" class="collapse" aria-labelledBy="heading-{{this.id}}" data-parent="#accordion">
+                    <div class="card-body pl-8">
+                        {{#each this.conditions}}
+                            <div class="row">
+                                <div class="col-md-3"><p><small><b>Field:</b> <input type="text" class="form-control" name="field" value="{{this.field}}"></small></p></div>
+                                <div class="col-md-3"><p><small><b>Method:</b> 
+                                    <select name="method" class="form-control">
+                                        {{#each this.methodlist}}
+                                        <option value="{{this.name}}" {{#if this.selected}}selected="selected"{{/if}}>{{this.label}}</option>
+                                        {{/each}}
+                                    </select>
+                                    </small></p></div>
+                                <div class="col-md-6"><p><small><b>JSON path:</b> <input type="text" class="form-control" name="jsonpath" value="{{this.object_path}}"></input></small></p></div>
+                            </div>
+                            {{#each this.pattern}}
+                                <div class="row">
+                                    <div class="col-md-12"><p class="monosapce text-break"><input type="text" class="form-control" name="pattern-{{@index}}" value="{{this}}"></p></div>
+                                </div>
+                            {{/each}}
+                        {{/each}}
+                    </div>
+                </div>
+            </form>
+        </div>
+    {{/each}}
+    </div>
+</div>

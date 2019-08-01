@@ -78,10 +78,10 @@
 					let search_form = document.createElement("form");
 					let search_input = document.createElement("input");
 					let tn = document.createTextNode(avsig);
-					search_form.method = "post";
+					search_form.method = "get";
 					search_form.action = "/search";
 					search_input.type = "hidden";
-					search_input.name = "searchterm";
+					search_input.name = "term";
 					search_input.value = avsig;
 					hr.onclick = function () { this.parentElement.submit(); };
 					hr.href = "#";
@@ -97,10 +97,10 @@
 					let search_form = document.createElement("form");
 					let search_input = document.createElement("input");
 					let tn = document.createTextNode(yarasig);
-					search_form.method = "post";
+					search_form.method = "get";
 					search_form.action = "/search";
 					search_input.type = "hidden";
-					search_input.name = "searchterm";
+					search_input.name = "term";
 					search_input.value = yarasig;
 					hr.onclick = function () { this.parentElement.submit(); };
 					hr.href = "#";
