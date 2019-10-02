@@ -30,6 +30,7 @@ router.post('/start', function(req, res, next) {
 		req.body.interactive,
 		req.body.banking,
 		req.body.web,
+		req.body.registries,
 		parseInt(req.body.reboots),
 		parseInt(req.body.runtime),
 		parseInt(req.body.priority))

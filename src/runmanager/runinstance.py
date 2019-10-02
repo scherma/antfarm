@@ -29,6 +29,7 @@ class RunInstance():
                     reboots=0,
                     web=True,
                     banking=False,
+                    collect_registries=False,
                     filespath = "suspects",
                     outdir = "output"
                     ):
@@ -44,6 +45,7 @@ class RunInstance():
         self.interactive = interactive
         self.reboots = reboots
         self.banking = banking
+        self.collect_registries = collect_registries
         self.web = web
         self.filespath = os.path.join(self.rootdir, filespath)
         self.fname = self._suspect_exists(fname)
@@ -370,7 +372,7 @@ class RunInstance():
             logger.info("Obtaining new files from guest filesystem")
             self.vf = victimfiles.VictimFiles(self.conf, self.victim_params["diskfile"], '/dev/sda2')
             filesdict = self.vf.download_new_files(dtstart, self.rundir)
-            registriesdict = self.vf.download_modified_registries(dtstart, self.rundir, self.victim_params["username"])
+            registriesdict = self.vf.download_modified_registries(dtstart, self.rundir, self.victim_params["username"], self.collect_registries)
             targetedfilesdict = self.vf.download_specific_files(self.targeted_files_list(), self.rundir)
             compileddict = {**filesdict, **registriesdict, **targetedfilesdict}
             db_calls.insert_files(compileddict, self.uuid, self.cursor)

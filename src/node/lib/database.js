@@ -24,7 +24,7 @@ module.exports = {
 		);
 	},
 	
-	new_case: function(uuid, unixtime, sha256, fname, reboots, banking, web, runtime, priority) {
+	new_case: function(uuid, unixtime, sha256, fname, reboots, banking, web, registries, runtime, priority) {
 		var formatted = moment.unix(unixtime).format('YYYY-MM-DD HH:mm:ss');
 		
 		var components = fname.split(".");
@@ -56,6 +56,7 @@ module.exports = {
 			reboots: reboots,
 			banking: banking,
 			web: web,
+			registries: registries,
 			runtime: runtime,
 			priority: priority})
 		.into('cases');

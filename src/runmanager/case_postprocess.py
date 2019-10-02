@@ -8,7 +8,7 @@ import arrow, db_calls, psycopg2, psycopg2.extras, sys, logging, configparser, r
 logger = logging.getLogger("antfarm.worker")
 
 class Postprocessor:
-    def __init__(self, uuid, dbcursor):
+    def __init__(self, uuid, dbcursor, reset=False):
         self.uuid = uuid
         self._dbcursor = dbcursor
         self.events = db_calls.all_case_events(uuid, self._dbcursor)
@@ -22,6 +22,7 @@ class Postprocessor:
             if key not in rulestruct:
                 rulestruct[key] = []
             rulestruct[key].append(rule)
+        logger.debug("Rules retrieved and prepped")
         return rulestruct
 
     def get_element(self, d, path_arr):
@@ -33,45 +34,81 @@ class Postprocessor:
 
 
     def test_item(self, item, rule):
-        maybe = True
-        for condition in rule["conditions"]:
-            if condition["field"] in item:
-                # first get the target field to run comparisons on
-                el = item[condition["field"]]
-                if "object_path" in condition:
-                    # if the field is jsonb, locate the desired element of the json object
-                    try:
-                        el = self.get_element(el, list.copy(condition["object_path"]))
-                    except KeyError:
-                        # if the element is not present in json object, rule does not match
-                        maybe = False
-                        break
-                # if any of the patterns match, condition is matched
-                pmatch = False
-                if condition["method"] == "rex":
-                    for pattern in condition["pattern"]:
-                        if re.search(pattern, el, re.IGNORECASE):
-                            pmatch = True
-                elif condition["method"] == "eq":
-                    for pattern in condition["pattern"]:
-                        if type(el) == str:
-                            if pattern.lower() == el.lower():
-                                pmatch = True
-                        elif type(el) == int:
-                            if pattern == el:
-                                pmatch = True
-                # if any condition is NOT matched, rule is not a match
-                if not pmatch:
-                    maybe = False
-                    break
-                else:
-                    pass
-            else:
-                logger.debug("Cannot test rule ID {} against item: field {} not present in item".format(rule["id"], condition["field"]))
-                maybe = False
-        return maybe
+        return self.all_conditions_match(item, rule["conditions"])
+
+        #maybe = False
+        #for condition in rule["conditions"]:
+        #    if condition["field"] in item:
+        #        # first get the target field to run comparisons on
+        #        el = item[condition["field"]]
+        #        if "object_path" in condition:
+        #            # if the field is jsonb, locate the desired element of the json object
+        #            try:
+        #                el = self.get_element(el, list.copy(condition["object_path"]))
+        #            except KeyError:
+        #                # if the element is not present in json object, rule does not match
+        #                break
+        #        # if any of the patterns match, condition is matched
+        #        pmatch = False
+        #        if condition["method"] == "rex":
+        #            for pattern in condition["pattern"]:
+        #                if re.search(pattern, el, re.IGNORECASE):
+        #                    pmatch = True
+
+        #        elif condition["method"] == "eq":
+        #            for pattern in condition["pattern"]:
+        #                if type(el) == str:
+        #                    if pattern.lower() == el.lower():
+        #                        pmatch = True
+        #                elif type(el) == int:
+        #                    if pattern == el:
+        #                        pmatch = True
+        #        # if any condition is NOT matched, rule is not a match
+        #        if pmatch:
+        #            #logger.debug("One of the patterns matched; tagging item as artifact")
+        #            maybe = True
+        #            break
+        #    else:
+        #        logger.debug("Cannot test rule ID {} against item: field {} not present in item".format(rule["id"], condition["field"]))
+        #        maybe = False
+        #return maybe
+
+    def condition_is_true(self, item, condition):
+        if condition["field"] in item:
+            element = item[condition["field"]]
+            if "object_path" in condition:
+                try:
+                    element = self.get_element(element, list.copy(condition["object_path"]))
+                except KeyError:
+                    logger.debug("Couldn't get path {} from source item".format(condition["object_path"]))
+                    return False
+                    
+            # if any of the patterns match, condition is a match
+            if condition["method"] == "rex":
+                for pattern in condition["pattern"]:
+                    if re.search(pattern, element, re.IGNORECASE):
+                        return True
+            elif condition["method"] == "eq":
+                for pattern in condition["pattern"]:
+                    if type(element) == str:
+                        if pattern.lower() == element.lower():
+                            return True
+                    elif type(element) == int:
+                        if pattern == element:
+                            return True
         
+        # if nothing has matched to this point, item is not a match
+        return False
+
+    def all_conditions_match(self, item, conditions):
+        for condition in conditions:
+            if not self.condition_is_true(item, condition):
+                return False
         
+        # if none of the conditions have returned false, all are true and rule has matched
+        return True
+        
+
     def is_sysmon_artifact(self, evt):
         maybe = False
         if evt["eventid"] == 1:
@@ -161,6 +198,7 @@ class Postprocessor:
         }
 
         total = 0
+        logger.debug("Scanning {} DNS events...".format(len(self.events["dns"])))
         for evt in self.events["dns"]:
             if self.is_suricata_dns_artifact(evt):
                 db_calls.tag_artifact(evt, "dns", self._dbcursor)
@@ -169,6 +207,7 @@ class Postprocessor:
                 summary["dns"] += 1
         
         
+        logger.debug("Scanning {} HTTP events...".format(len(self.events["http"])))
         for evt in self.events["http"]:
             if self.is_suricata_http_artifact(evt):
                 db_calls.tag_artifact(evt, "http", self._dbcursor)
@@ -176,6 +215,7 @@ class Postprocessor:
             else:
                 summary["http"] += 1
 
+        logger.debug("Scanning {} TLS events...".format(len(self.events["tls"])))
         for evt in self.events["tls"]:
             if self.is_suricata_tls_artifact(evt):
                 db_calls.tag_artifact(evt, "tls", self._dbcursor)
@@ -183,6 +223,7 @@ class Postprocessor:
             else:
                 summary["tls"] += 1
                         
+        logger.debug("Scanning {} Suricata alerts...".format(len(self.events["alert"])))
         for evt in self.events["alert"]:
             if self.is_suricata_alert_artifact(evt):
                 db_calls.tag_artifact(evt, "alert", self._dbcursor)
@@ -190,6 +231,7 @@ class Postprocessor:
             else:
                 summary["alert"] += 1
                 
+        logger.debug("Scanning {} Sysmon events...".format(len(self.events["sysmon"])))
         for evt in self.events["sysmon"]:
             if self.is_sysmon_artifact(evt):
                 db_calls.tag_artifact(evt, "sysmon", self._dbcursor)
@@ -197,6 +239,7 @@ class Postprocessor:
             else:
                 summary["sysmon"] += 1
         
+        logger.debug("Scanning {} filesystem events...".format(len(self.events["files"])))
         for evt in self.events["files"]:
             if self.is_filesystem_artifact(evt):
                 db_calls.tag_artifact(evt, "filesystem", self._dbcursor)
@@ -204,6 +247,7 @@ class Postprocessor:
             else:
                 summary["files"] += 1
 
+        logger.debug("Scanning {} PCAP flows...".format(len(self.events["pcap"])))
         for evt in self.events["pcap"]:
             if self.is_pcap_artifact(evt):
                 db_calls.tag_artifact(evt, "pcap", self._dbcursor)
@@ -214,6 +258,7 @@ class Postprocessor:
         db_calls.append_summary(self.uuid, summary, self._dbcursor)
         
         logger.debug("{} artifacts found and tagged for cases {}".format(total, self.uuid))
+        logger.debug("Summary of items not tagged as artifacts: {}".format(summary))
 
 
 

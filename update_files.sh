@@ -6,9 +6,13 @@ SCRIPTDIR=$(dirname "$(realpath "$0")")
 
 rsync -r --update --info=progress2 "$SCRIPTDIR/src/runmanager/"* "/usr/local/unsafehex/antfarm/runmanager/"
 chmod +x "/usr/local/unsafehex/antfarm/runmanager/runmanager"
-rsync -r --update --info=progress2 "$SCRIPTDIR/src/node/"* "/usr/local/unsafehex/antfarm/www/"
-rsync -r --update --info=progress2 "$SCRIPTDIR/src/api/"* "/usr/local/unsafehex/antfarm/api/"
+rsync -r --update --info=progress2 --exclude "node_modules" "$SCRIPTDIR/src/node/"* "/usr/local/unsafehex/antfarm/www/"
+rsync -r --update --info=progress2 --exclude "node_modules" "$SCRIPTDIR/src/api/"* "/usr/local/unsafehex/antfarm/api/"
 rsync -r --update --info=progress2 "$SCRIPTDIR/src/utils/"* "/usr/local/unsafehex/antfarm/utils/"
 rsync -r --update --info=progress2 "$SCRIPTDIR/src/novnc/"* "/usr/local/unsafehex/antfarm/novnc/"
+cd "/usr/local/unsafehex/antfarm/www"
+npm install
+cd "/usr/local/unsafehex/antfarm/api"
+npm install
 chmod +x "/usr/local/unsafehex/antfarm/utils/suricata-clean.sh"
 chmod +x "/usr/local/unsafehex/antfarm/utils/yara-update.sh"

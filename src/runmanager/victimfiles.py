@@ -108,6 +108,7 @@ class VictimFiles:
                                 if os_path == f["path"]:
                                     from_suspect = True
                             filesdict[file_in_guestfs]["from_suspect"] = from_suspect
+                            logger.debug("Stored {}".format(file_in_guestfs))
                         else:
                             logger.debug("Excluded because: {}".format(reason))
             except Exception:
@@ -146,7 +147,7 @@ class VictimFiles:
         else:
             return ""
         
-    def download_modified_registries(self, starttime, dest_root, systemuser):
+    def download_modified_registries(self, starttime, dest_root, systemuser, collect_registries):
         zf = zipfile.ZipFile(os.path.join(dest_root, "filesystem.zip"), "a", zipfile.ZIP_DEFLATED)
         registries = [
             "/Windows/System32/config/SECURITY",
@@ -157,36 +158,38 @@ class VictimFiles:
             ]
         
         registriesdict = {}
-        
-        for registry in registries:
-            try:
-                statns = self.g.statns(registry)
-                os_path = "C:" + str(pathlib.PureWindowsPath(registry))
-                if arrow.get(statns["st_mtime_sec"]) > starttime:
-                    registriesdict[registry] = {
-                        "statns": statns,
-                        "os_path": os_path,
-                        "saved": False,
-                        "avresult": "",
-                        "mimetype": "",
-                        "sha256": ""
-                    }
-                                        
-                    destfile = os.path.join("/tmp", os.path.basename(registry))
-                    self.g.download(registry, destfile)
-                    registriesdict[registry]["sha256"] = self.getsha256(destfile).hexdigest()
-                    zf.write(destfile, arcname=registry)
-                    os.remove(destfile)
+        if collect_registries:
+            for registry in registries:
+                try:
+                    statns = self.g.statns(registry)
+                    os_path = "C:" + str(pathlib.PureWindowsPath(registry))
+                    if arrow.get(statns["st_mtime_sec"]) > starttime:
+                        logger.debug("Registry hive {} was modified".format(registry))
+                        registriesdict[registry] = {
+                            "statns": statns,
+                            "os_path": os_path,
+                            "saved": False,
+                            "avresult": "",
+                            "mimetype": "",
+                            "sha256": ""
+                        }
+                                            
+                        destfile = os.path.join("/tmp", os.path.basename(registry))
+                        self.g.download(registry, destfile)
+                        registriesdict[registry]["sha256"] = self.getsha256(destfile).hexdigest()
+                        zf.write(destfile, arcname=registry)
+                        os.remove(destfile)
+                        
+                        # if we've made it here without an exception, file has downloaded. Mark as ssuch in dict
+                        registriesdict[registry]["saved"] = True
+                        logger.debug("Stored registry hive {}".format(registry))
+                except Exception:
+                    ex_type, ex, tb = sys.exc_info()
+                    fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
+                    lineno = tb.tb_lineno
+                    logger.error("Exception {0} {1} in {2}, line {3} while processing filesystem output for registry {4}".format(ex_type, ex, fname, lineno, registry))
                     
-                    # if we've made it here without an exception, file has downloaded. Mark as ssuch in dict
-                    registriesdict[registry]["saved"] = True
-            except Exception:
-                ex_type, ex, tb = sys.exc_info()
-                fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
-                lineno = tb.tb_lineno
-                logger.error("Exception {0} {1} in {2}, line {3} while processing filesystem output for registry {4}".format(ex_type, ex, fname, lineno, registry))
-                
-        zf.close()
+            zf.close()
                 
         return registriesdict
     

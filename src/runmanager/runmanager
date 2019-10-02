@@ -3,8 +3,8 @@
 # MIT License © https://github.com/scherma
 # contact http_error_418 @ unsafehex.com
 
-import libvirt, psycopg2, psycopg2.extras, configparser, logging, os
-import sys, vmworker, threading, argparse, json, time, subprocess, maintenance
+import libvirt, psycopg2, psycopg2.extras, configparser, logging, os, multiprocessing
+import sys, vmworker, threading, argparse, json, time, subprocess, maintenance, arrow
 
 logger = logging.getLogger("antfarm")
 
@@ -22,7 +22,10 @@ class Broker():
         self.lv_conn = libvirt.open("qemu:///system")
         self.cursor, self.dbconn = self._db_conn(self.conf.get("General", "dbname"), self.conf.get("General", "dbuser"), self.conf.get("General" ,"dbpass"))
         self._wipe_workerstate()
-        #self._register_workers()
+        self.next_maintenance = self._give_next_maintenance()
+
+    def _give_next_maintenance(self):
+        return arrow.utcnow().floor("day").shift(days=1, hours=1)
         
     def _db_conn(self, db, user, password):
         host = "localhost"
@@ -32,13 +35,6 @@ class Broker():
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         logger.debug('DB connection started on {0} to db "{1}" with user "{2}"'.format(host, db, user))
         return cursor, conn
-        
-    #def _register_workers(self):
-    #    for uuid, vm in self._list_available_vms().items():
-    #        self.cursor.execute("""INSERT INTO "workerstate" (uuid, id, pid, position, params) VALUES (%s, %s, %s, %s, '{}')""", (uuid, vm["id"], os.getpid(), 'idle'))
-    #        self.dbconn.commit()
-    #        vm["state"] = "idle"
-    #        logger.info("Selected VM UUID {0} and registered worker in DB".format(uuid))
             
     def _list_available_victims(self):
         self.cursor.execute("""SELECT uuid,runcounter FROM victims WHERE status = 'production' AND uuid NOT IN (SELECT uuid FROM workerstate WHERE position != 'idle' AND position IS NOT NULL) ORDER BY runcounter DESC""")
@@ -50,6 +46,10 @@ class Broker():
             else:
                 available.append(victim)
         return available
+
+    def _list_running_victims(self):
+        self.cursor.execute("""SELECT * FROM workerstate LEFT JOIN victims ON workerstate.uuid=victims.uuid WHERE workerstate.position != 'idle'""")
+        return self.cursor.fetchall()
                         
     def _exit(self, value=0):
         self.dbconn.close()
@@ -70,7 +70,8 @@ class Broker():
         self._wipe_workerstate()
         
     def _check_cases(self):
-        self.cursor.execute("""SELECT cases.*, suspects.sha256, suspects.sha1, suspects.md5 FROM cases LEFT JOIN suspects ON cases.sha256=suspects.sha256 WHERE status='submitted' ORDER BY cases.priority DESC, cases.submittime ASC""")
+        self.cursor.execute("""SELECT cases.*, suspects.sha256, suspects.sha1, suspects.md5 FROM cases """ +
+            """LEFT JOIN suspects ON cases.sha256=suspects.sha256 WHERE status='submitted' ORDER BY cases.priority DESC, cases.submittime ASC""")
         rows = self.cursor.fetchall()
         return rows
         
@@ -78,24 +79,41 @@ class Broker():
     def manage(self, host="localhost"):
         try:
             while True:
-                available = self._list_available_victims()
-                cases = self._check_cases()
-                if cases:
-                    logger.info("Found {0} available victims".format(len(available)))
-                    for case in cases:
-                        if available:                            
-                            case["hashes"] = {"sha256": case["sha256"], "sha1": case["sha1"], "md5": case["md5"]}
-                            case["reboots"] = int(case["reboots"])
-                            victim = available.pop()
-                            logger.info("Allocated case {0} to victim uuid {1}".format(case["uuid"], victim["uuid"]))
-                            w = vmworker.Worker(self.conf, victim, NUM_LEVEL, RUN_NUM_LEVEL)
-                            w.prep_for_run()
-                            w._state_update("assigned", (True, case))
-                            t = threading.Thread(target=w.process, args=(case,))
-                            t.start()
-                        else:
-                            logger.info("Found {0} case(s) ready to assign but no workers were available".format(len(cases)))
-                            break
+                if arrow.utcnow() < self.next_maintenance:
+                    available = self._list_available_victims()
+                    cases = self._check_cases()
+                    if cases:
+                        logger.info("Found {0} available victims".format(len(available)))
+                        for case in cases:
+                            if available:                            
+                                case["hashes"] = {"sha256": case["sha256"], "sha1": case["sha1"], "md5": case["md5"]}
+                                case["reboots"] = int(case["reboots"])
+                                victim = available.pop()
+                                logger.info("Allocated case {0} to victim uuid {1}".format(case["uuid"], victim["uuid"]))
+                                w = vmworker.Worker(self.conf, victim, NUM_LEVEL, RUN_NUM_LEVEL)
+                                w.prep_for_run()
+                                w._state_update("assigned", (True, case))
+                                m = multiprocessing.Process(target=w.process, args=(case,))
+                                m.start()
+                            else:
+                                logger.info("Found {0} case(s) ready to assign but no workers were available".format(len(cases)))
+                                break
+                else:
+                    self.cursor.execute("""SELECT * FROM victims""")
+                    rows = self.cursor.fetchall()
+                    self.cursor.execute("""UPDATE victims SET status='maintenance' WHERE 1=1""")
+                    # wait until all running cases have completed
+                    while len(self._list_running_victims()) > 0:
+                        time.sleep(30)
+                    maintenance.restart_services()
+                    # restore previous status
+                    for row in rows:
+                        self.cursor.execute("""UPDATE victims SET status=%s WHERE uuid=%s""", (row["status"], row["uuid"]))
+                    
+                    # set the next maintenance window time
+                    self.next_maintenance = self._give_next_maintenance()
+                    
+                    
                     
                 time.sleep(10)
         
@@ -119,7 +137,8 @@ class Broker():
     def maintenance(self, victim):
         w = vmworker.Worker(self.conf, victim, NUM_LEVEL, RUN_NUM_LEVEL)
         w._state_update('maintenance')
-        w.do_maintenance()
+        m = multiprocessing.Process(target=w.do_maintenance)
+        m.start()
         
             
             
@@ -182,7 +201,7 @@ def main():
             
     logger.setLevel(NUM_LEVEL)
 
-    maintenance.start_all_services(conf.get("General", "instancename"))
+    maintenance.start_all_services()
             
     try:
         b = Broker(conf)

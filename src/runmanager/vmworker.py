@@ -205,7 +205,8 @@ class Worker():
                 interactive=params["interactive"],
                 reboots=params["reboots"],
                 banking=params["banking"],
-                web=params["web"]
+                web=params["web"],
+                collect_registries=params["registries"]
                 )
             
             finished = False

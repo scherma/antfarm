@@ -46,10 +46,16 @@
                                 <div class="col-md-6"><p><small><b>JSON path:</b> <input type="text" class="form-control" name="jsonpath" value="{{this.object_path}}"></input></small></p></div>
                             </div>
                             {{#each this.pattern}}
-                                <div class="row">
-                                    <div class="col-md-12"><p class="monosapce text-break"><input type="text" class="form-control" name="pattern-{{@index}}" value="{{this}}"></p></div>
-                                </div>
+                            <div class="row" id="pattern-{{../../id}}-{{@../index}}-{{@index}}">
+                                <div class="col-md-11"><p><input type="text" class="form-control text-break" name="pattern-{{@index}}" value="{{this}}"></p></div>
+                                <div class="col-md-1"><p><button class="btn btn-xs btn-default"><span class="glyphicon glyphicon-remove"></span></button></p></div>
+                            </div>
                             {{/each}}
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <button class="btn btn-xs btn-default">+</button>
+                                </div>
+                            </div>
                         {{/each}}
                     </div>
                 </div>

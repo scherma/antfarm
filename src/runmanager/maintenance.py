@@ -88,18 +88,16 @@ class Janitor:
             """UPDATE victims SET runcounter = 0, last_reboot = %s, snapshot = %s WHERE uuid = %s""", 
             (restarttime, new_snapshot_name, self.dom.UUIDString()))
         self._dbconn.commit()
-        logger.debug("Restarting services")
-        restart_services(self._conf.get("General","instancename"))
         logger.info("Maintenance complete")
 
-def restart_pcap(instancename):
+def restart_pcap():
     for proc in psutil.process_iter(attrs=["name"]):
         if proc.info["name"] == "dumpcap":
             proc.terminate()
-            subprocess.Popen(["/bin/bash", "/usr/local/unsafehex/{}/utils/dumpcap.sh".format(instancename)])
+            subprocess.Popen(["/bin/bash", "/usr/local/unsafehex/antfarm/utils/dumpcap.sh"])
             break
 
-def restart_services(instancename):
+def restart_services():
     logger.debug("Restarting libvirtd...")
     subprocess.call(["sudo", "/bin/systemctl", "restart", "libvirtd"])
     logger.debug("Restarting libvirt-guests...")
@@ -109,9 +107,9 @@ def restart_services(instancename):
     logger.debug("Restarting suricata...")
     subprocess.call(["sudo", "/bin/systemctl", "restart", "suricata"])
     logger.debug("Restarting dumpcap...")
-    restart_pcap(instancename)
+    restart_pcap()
 
-def start_all_services(instancename):
+def start_all_services():
     logger.debug("Starting suricata...")
     subprocess.call(["sudo", "/bin/systemctl", "start", "suricata"])
     logger.debug("Starting libvirtd...")

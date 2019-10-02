@@ -52,6 +52,7 @@ var Suspect = function(fname,
 					   interactive=false,
 					   banking=false,
 					   web=false,
+					   registries=false,
 					   reboots=0,
 					   runtime=120,
 					   priority=0
@@ -66,6 +67,7 @@ var Suspect = function(fname,
 		interactive = !!interactive;
 		banking = !!banking;
 		web = !!web;
+		registries = !! registries;
 		
 		var hd = sha256.substring(0,2);
 		var fpdir = path.join(fdir, hd);
@@ -82,6 +84,7 @@ var Suspect = function(fname,
 				s.runtime = runtime;
 				s.ttl = runtime + 60; // allow 1 minute extra for victim prep
 				s.web = web;
+				s.registries = registries;
 				s.priority = parseInt(priority);
 				Hashes(finalpath).done(function(res){
 					s.hashes = res;
@@ -95,6 +98,7 @@ var Suspect = function(fname,
 								s.reboots,
 								s.banking,
 								s.web,
+								s.registries,
 								s.runtime,
 								s.priority)
 							.then((c) => {
@@ -149,40 +153,42 @@ var GetCases = function(req) {
 			
 			dbres.forEach((row) => {
 				row.labels = [];
-				if (row.summary.alert > 0) {
-					let alertlabel = {};
-					alertlabel.labelstyle = "label-danger";
-					alertlabel.labeltext = "alerts";
-					alertlabel.labelcount = row.summary.alert;
-					row.labels.push(alertlabel);
-				}
-				if (row.summary.dns > 0) {
-					let dnslabel = {};
-					dnslabel.labelstyle = "label-info";
-					dnslabel.labeltext = "dns";
-					dnslabel.labelcount = row.summary.dns;
-					row.labels.push(dnslabel);
-				}
-				if (row.summary.http > 0) {
-					let httplabel = {};
-					httplabel.labelstyle = "label-warning";
-					httplabel.labeltext = "http";
-					httplabel.labelcount = row.summary.http;
-					row.labels.push(httplabel);
-				}
-				if (row.summary.sysmon > 0) {
-					let sysmonlabel = {};
-					sysmonlabel.labelstyle = "label-primary";
-					sysmonlabel.labeltext = "sysmon";
-					sysmonlabel.labelcount = row.summary.sysmon;
-					row.labels.push(sysmonlabel);
-				}
-				if (row.summary.files > 0) {
-					let fileslabel = {};
-					fileslabel.labelstyle = "label-default";
-					fileslabel.labeltext = "files";
-					fileslabel.labelcount = row.summary.files;
-					row.labels.push(fileslabel);
+				if (row.summary) {
+					if (row.summary.alert > 0) {
+						let alertlabel = {};
+						alertlabel.labelstyle = "label-danger";
+						alertlabel.labeltext = "alerts";
+						alertlabel.labelcount = row.summary.alert;
+						row.labels.push(alertlabel);
+					}
+					if (row.summary.dns > 0) {
+						let dnslabel = {};
+						dnslabel.labelstyle = "label-info";
+						dnslabel.labeltext = "dns";
+						dnslabel.labelcount = row.summary.dns;
+						row.labels.push(dnslabel);
+					}
+					if (row.summary.http > 0) {
+						let httplabel = {};
+						httplabel.labelstyle = "label-warning";
+						httplabel.labeltext = "http";
+						httplabel.labelcount = row.summary.http;
+						row.labels.push(httplabel);
+					}
+					if (row.summary.sysmon > 0) {
+						let sysmonlabel = {};
+						sysmonlabel.labelstyle = "label-primary";
+						sysmonlabel.labeltext = "sysmon";
+						sysmonlabel.labelcount = row.summary.sysmon;
+						row.labels.push(sysmonlabel);
+					}
+					if (row.summary.files > 0) {
+						let fileslabel = {};
+						fileslabel.labelstyle = "label-default";
+						fileslabel.labeltext = "files";
+						fileslabel.labelcount = row.summary.files;
+						row.labels.push(fileslabel);
+					}
 				}
 			});
 			

@@ -76,7 +76,7 @@ function install_antfarm_dependencies() {
 	libnl-3-dev libnl-route-3-dev libxml2-dev libdevmapper-dev libyajl2 libyajl-dev pkg-config libyaml-dev build-essential libpq-dev python3-libvirt \
 	libnet1-dev zlib1g zlib1g-dev libcap-ng-dev libcap-ng0 libnss3-dev libgeoip-dev liblua5.1-dev libhiredis-dev libevent-dev libgeoip-dev python3-dev \
 	clamav clamav-daemon clamav-freshclam python3-guestfs xsltproc pm-utils yara libyara-dev libpciaccess-dev liblzo2-dev libsnappy-dev libbz2-dev \
-	libgtk-3-dev libvte-dev librdmacm-dev libgoogle-perftools-dev
+	libgtk-3-dev libvte-dev librdmacm-dev libgoogle-perftools-dev rustc cargo
 	if [ $? -eq 1 ]; then
 		fail=1
 	fi
@@ -226,7 +226,7 @@ function build_suricata() {
 	echo -e "${GREEN}Building required version of Suricata...${NC}"
 	mkdir -v "/tmp/antfarm/suricata"
 	cd "/tmp/antfarm/suricata"
-	if wget https://www.openinfosecfoundation.org/download/suricata-4.0.0.tar.gz; then
+	if wget https://www.openinfosecfoundation.org/download/suricata-4.1.5.tar.gz; then
 		tar zxvf suricata-4.0.0.tar.gz
 		cd suricata-4.0.0
 		./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-geoip

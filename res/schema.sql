@@ -50,6 +50,7 @@ CREATE TABLE cases (
     reboots integer,
     banking boolean,
     web boolean,
+	registries boolean,
     vm_os text,
     runtime integer DEFAULT 180,
 	runstyle integer,
