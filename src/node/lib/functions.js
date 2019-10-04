@@ -502,7 +502,7 @@ function RenderSuricata(events) {
 				events.alert[key].asciitable = asciitable;
 			}
 		});
-	}
+	} 
 	
 	return events;
 }
@@ -561,6 +561,9 @@ function GetCase(req) {
 				tls_row.timestamp = moment(tls_row.timestamp).toISOString();
 				//tls_row.interesting = SuricataEventsOfInterest(tls_row);
 				if (!tls_row.is_artifact || req.query.artifacts == "1") {
+					if (tls_row.tlsdata && tls_row.tlsdata.ja3) {
+						tls_row.tlsdata.ja3 = JSON.stringify(tls_row.tlsdata.ja3);
+					}
 					d.tls.push(tls_row);
 				}
 			});

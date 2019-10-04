@@ -3,7 +3,7 @@
 # MIT License © https://github.com/scherma
 # contact http_error_418 @ unsafehex.com
 
-import arrow, db_calls, psycopg2, psycopg2.extras, sys, logging, configparser, re, argparse, requests, json
+import arrow, db_calls, psycopg2, psycopg2.extras, sys, logging, configparser, re, argparse, requests, json, arrow
 
 logger = logging.getLogger("antfarm.worker")
 
@@ -270,6 +270,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-u", dest="case_uuid")
     parser.add_argument("-c", dest="config")
+    parser.add_argument("-s", dest="start", default="1970-01-01")
     args = parser.parse_args()
 
     if args.config:
@@ -292,21 +293,23 @@ def main():
         
         pp.update_events()
     else:
-        for case in get_cases_to_process():
+        for case in get_cases_to_process(arrow.get(args.start)):
             pp = Postprocessor(case["uuid"], cursor)
             pp.update_events()
 
-def get_cases_to_process():
-    cases = get_case_listing()
+def get_cases_to_process(start=arrow.get("1970-01-01")):
+    cases = get_case_listing(start=start)
     return cases
 
-def get_case_listing(uri="/cases/json"):
+def get_case_listing(uri="/cases/json", start=arrow.get("1970-01-01")):
     cases = []
     while True:
         r = requests.get("http://127.0.0.1:3000" + uri, verify=False)
         if r.status_code == 200:
             obj = json.loads(r.text)
-            cases.extend(obj["cases"])
+            for case in obj["cases"]:
+                if arrow.get(case["submittime"]) > start:
+                    cases.append(case)
             if obj["next"] == "":
                 break
             else:
