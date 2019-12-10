@@ -313,7 +313,7 @@ class Worker():
                     fname = os.path.split(tb.tb_frame.f_code.co_filename)[1]
                     lineno = tb.tb_lineno
                     self.logger.error("Exception {0} {1} in {2}, line {3} while processing job, retrying run".format(ex_type, ex, fname, lineno))
-                    self._case_update('retrying', suspect.uuid)
+                    self._case_update('running', suspect.uuid)
                     # reset start time so data from previous attempt is not included
                     suspect.starttime = arrow.utcnow().timestamp
             # gather data

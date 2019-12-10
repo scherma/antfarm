@@ -24,7 +24,7 @@ class RunInstance():
                     submittime,
                     hashes,
                     victim_params,
-                    ttl=180, 
+                    ttl=240, 
                     interactive=False, 
                     reboots=0,
                     web=True,
@@ -321,6 +321,8 @@ class RunInstance():
             raise RuntimeError("Exception {0} {1} in {2}, line {3} while processing job, run not completed. Aborting.".format(ex_type, ex, fname, lineno))
 
     def sample_has_run(self, click_after):
+        # for now let's just assume it did
+        return True
         self.cursor.execute("""SELECT * FROM sysmon_evts WHERE uuid=%s AND eventid=1 AND timestamp > %s""", (self.uuid, click_after))
         rows = self.cursor.fetchall()
         # check if any processes have been started from Explorer

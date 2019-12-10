@@ -20,7 +20,7 @@ class Janitor:
         
     def restart(self):
         logger.info("Restart called")
-        snapshot = self.dom.snapshotCurrent()
+        snapshot = self.dom.snapshotLookupByName(self.vmdata["snapshot"])
         logger.debug("Got snapshot")
         self.dom.revertToSnapshot(snapshot)
         logger.debug("Revert complete")
@@ -68,6 +68,8 @@ class Janitor:
                 
     def standard_maintenance(self):
         logger.info("Entering standard maintenance cycle...")
+        self._cursor.execute("""UPDATE victims SET status = 'maintenance' WHERE uuid = %s""", (self.dom.UUIDString(),))
+        logger.debug("Set maintenance status on victim")
         self.restart()
         tformat = 'YYYY-MM-DD HH:mm:ss'
         restarttime = arrow.utcnow().format(tformat)
@@ -76,16 +78,16 @@ class Janitor:
         self.login()
         time.sleep(12 * 60) # some malware looks for system uptime
         self.dom.suspend()
+        old_snapshot = self.dom.snapshotLookupByName(self.vmdata["snapshot"])
         new_snapshot_name = "{} maintenance".format(arrow.now().format("YYYY-MM-DD HH:mm:ss"))
         new_snapshot_xml = "<domainsnapshot><name>{}</name></domainsnapshot>".format(new_snapshot_name)
-        old_snapshot = self.dom.snapshotCurrent()
         logger.debug("Creating new snapshot")
         self.dom.snapshotCreateXML(new_snapshot_xml)
         logger.debug("Removing old snapshot")
         old_snapshot.delete()
         logger.debug("Resetting run counter")
         self._cursor.execute(
-            """UPDATE victims SET runcounter = 0, last_reboot = %s, snapshot = %s WHERE uuid = %s""", 
+            """UPDATE victims SET runcounter = 0, last_reboot = %s, snapshot = %s, status = 'production' WHERE uuid = %s""", 
             (restarttime, new_snapshot_name, self.dom.UUIDString()))
         self._dbconn.commit()
         logger.info("Maintenance complete")

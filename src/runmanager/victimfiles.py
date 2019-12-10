@@ -41,7 +41,8 @@ class VictimFiles:
             r"^/Users/[^/]+/AppData/Local/Microsoft/Windows/(Temporary Internet Files|WebCache|History)/",
             r"^/Windows/Prefetch/",
             r"^/ProgramData/Microsoft/Search/",
-            r"^/Windows/inf/"
+            r"^/Windows/inf/",
+            r"^/System Volume Information/CPP/"
         ]
         for startpath in startpaths:
             if re.search(startpath, fpath):

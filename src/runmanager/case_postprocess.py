@@ -123,6 +123,12 @@ class Postprocessor:
                     if self.test_item(evt, rule):
                         maybe = True
 
+        elif evt["eventid"] == 11:
+            if "10" in self.artifact_rules:
+                for rule in self.artifact_rules["10"]:
+                    if self.test_item(evt, rule):
+                        maybe = True
+
         elif evt["eventid"] == 12:
             if "11" in self.artifact_rules:
                 for rule in self.artifact_rules["11"]:

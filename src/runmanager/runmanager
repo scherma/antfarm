@@ -37,11 +37,11 @@ class Broker():
         return cursor, conn
             
     def _list_available_victims(self):
-        self.cursor.execute("""SELECT uuid,runcounter FROM victims WHERE status = 'production' AND uuid NOT IN (SELECT uuid FROM workerstate WHERE position != 'idle' AND position IS NOT NULL) ORDER BY runcounter DESC""")
+        self.cursor.execute("""SELECT uuid,runcounter,status FROM victims WHERE status = 'production' AND uuid NOT IN (SELECT uuid FROM workerstate WHERE position != 'idle' AND position IS NOT NULL) ORDER BY runcounter DESC""")
         victims = self.cursor.fetchall()
         available = []
         for idx, victim in enumerate(victims):
-            if victim["runcounter"] > int(self.conf.get("General", "maintenance_after")):
+            if victim["runcounter"] > int(self.conf.get("General", "maintenance_after")) and victim["status"] == "production":
                 self.maintenance(victim)
             else:
                 available.append(victim)
