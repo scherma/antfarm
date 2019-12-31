@@ -26,11 +26,14 @@ class Janitor:
         logger.debug("Revert complete")
         self.dom.resume()
         time.sleep(5)
-        self.dom.shutdown()
-        
+       
         while True:
             state, reason = self.dom.state()
-            if state == libvirt.VIR_DOMAIN_SHUTOFF:
+            if state == libvirt.VIR_DOMAIN_RUNNING:
+                logger.debug("Victim going to sleep...")
+                self.dom.shutdown()
+                time.sleep(2)
+            elif state == libvirt.VIR_DOMAIN_SHUTOFF:
                 logger.debug("Victim is asleep")
                 self.dom.create()
                 time.sleep(5)
@@ -40,9 +43,11 @@ class Janitor:
                     break
                 else:
                     logger.error("Victim didn't wake... nudging again")
+            elif state == libvirt.VIR_DOMAIN_SHUTDOWN:
+                # domain still shutting down
+                time.sleep(5)
             else:
-                self.dom.shutdown()
-                time.sleep(2)
+                logger.debug("Domain state is {}, reason {} - no action taken".format(state, reason))
         
 
     def screenshot(self, path):
