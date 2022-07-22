@@ -14,7 +14,7 @@
     "debug": "^2.6.9",
     "express": "^4.16.3",
     "express-handlebars": "^3.0.0",
-    "file-type": "^5.2.0",
+    "file-type": "^16.5.4",
     "glob": "^7.1.2",
     "hbs": "^4.0.4",
     "knex": "^0.19.5",
